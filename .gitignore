@@ -1,0 +1,18 @@
+node_modules/
+dist/
+
+# wrangler / worker
+.wrangler/
+.dev.vars
+
+# Claude Code 로컬 설정 (개인/머신 전용)
+.claude/
+
+# 로컬 환경변수(시크릿 포함) — 절대 커밋 금지. 예시는 .dev.vars.example 참고
+.env
+*.env
+!.env.example
+!*.env.example
+
+# 기획 원본 PDF는 docs/ 에 요약만 남기고 원본은 커밋하지 않는다(개인 문서).
+*.pdf

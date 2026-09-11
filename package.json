@@ -1,0 +1,19 @@
+{
+  "name": "japis",
+  "private": true,
+  "type": "module",
+  "description": "JAPIS — Jaden's Automated Personal Intelligence Service (Cloudflare Worker 개인 포털)",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:local": "wrangler d1 execute japis-db --local --file=./schema.sql",
+    "db:remote": "wrangler d1 execute japis-db --remote --file=./schema.sql"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.1": true,
+    "workerd@1.20260911.1": true
+  }
+}

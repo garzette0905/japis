@@ -1,0 +1,13 @@
+{
+  "name": "JAPIS — Jaden's Automated Personal Intelligence Service",
+  "short_name": "JAPIS",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f6f5f4",
+  "theme_color": "#213183",
+  "lang": "ko",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

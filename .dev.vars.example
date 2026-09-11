@@ -1,0 +1,14 @@
+# 로컬 개발용 환경변수. 이 파일을 .dev.vars 로 복사해 값을 채운다.
+# .dev.vars 는 .gitignore 에 있다 — 절대 커밋하지 않는다.
+#
+# 운영(Cloudflare)에서는 대시보드 Settings → Variables and secrets 에 Encrypt 로
+# 등록하거나 `npx wrangler secret put <이름>` 으로 넣는다.
+
+# [필수] 세션 쿠키 서명용. 16자 이상의 임의 문자열이면 무엇이든 된다.
+#        없으면 로그인 자체가 거부된다(로컬에서도 마찬가지).
+#        만들기: node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+SESSION_SECRET="여기에-충분히-긴-임의의-문자열을-넣는다"
+
+# [선택] 최초 관리자 이메일. 비워두면 garzette@paran.com 으로 만들어진다.
+#        users 표가 비어 있을 때 한 번만 쓰인다.
+# ADMIN_EMAIL="garzette@paran.com"

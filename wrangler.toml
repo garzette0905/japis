@@ -1,0 +1,76 @@
+# JAPIS — Cloudflare Worker 설정
+#
+# wepic(google-photo)·가계부와 같은 얼개다: Worker 하나가 백엔드이고, 프론트엔드는
+# web/public 을 정적 자산으로 그대로 서빙한다. 빌드 단계가 없다.
+
+name = "japis"
+main = "cloudflare/index.js"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+# ⚠️ 반드시 최상위(첫 [섹션] 앞)에 두고 true로 유지한다.
+#   TOML에서 최상위 키를 [vars] 같은 섹션 뒤에 적으면 그 섹션의 키로 먹혀 무시된다.
+#   커스텀 도메인을 붙이면 Cloudflare가 workers.dev 주소를 자동으로 꺼버리므로,
+#   이 한 줄로 https://japis.<계정>.workers.dev 주소를 계속 살려둔다.
+workers_dev = true
+
+# 배포마다 생기는 미리보기 주소를 만들지 않는다. 개인 계정·권한을 다루는 포털이라
+# 검색에 걸리거나 링크가 흘러갈 수 있는 주소를 늘릴 이유가 없다.
+preview_urls = false
+
+# 프론트엔드 정적 자산은 web/public 을 그대로 서빙(복사 불필요).
+[assets]
+directory = "web/public"
+binding = "ASSETS"
+not_found_handling = "none"
+
+# ⚠️ Worker가 **먼저** 보게 한다.
+#   이게 없으면 정적 자산 처리기가 앞에서 가로채, /go/wepic 처럼 파일이 없는 주소를
+#   307로 '/'에 되돌려 버린다. Worker가 먼저 받아야 cloudflare/index.js 끝의
+#   "없는 경로는 index.html" 규칙과 /go/<key> 게이트가 제대로 걸린다.
+run_worker_first = true
+
+# 사용자·권한·접속기록 저장소 (D1/SQL). 스키마는 저장소 루트의 schema.sql 참고.
+#   생성:      npx wrangler d1 create japis-db
+#   스키마적용: npx wrangler d1 execute japis-db --remote --file=./schema.sql
+[[d1_databases]]
+binding = "DB"
+database_name = "japis-db"
+database_id = "e724f59c-1ed6-4359-bc82-6f979d54f328"
+
+# 로그인 세션·화면 잠금해제 저장용 KV.
+#   생성: npx wrangler kv namespace create japis-sessions
+# (이름을 'SESSIONS'로 만들지 않은 이유 — 같은 계정의 wepic이 이미 그 이름을 쓰고 있다)
+[[kv_namespaces]]
+binding = "SESSIONS"
+id = "5be6b1eb23184dc686709984f36e1e37"
+
+[vars]
+# 요청 주소를 그대로 믿어도 되는 도메인 목록(쉼표 구분).
+# (*.workers.dev 와 localhost 는 코드에서 항상 허용한다)
+SITE_HOSTS = ""
+
+# 화면 잠금해제(재인증)가 유지되는 시간(초). 비워두면 코드 기본값 600초(10분).
+# 관리자가 사용자·화면별로 더 짧게 줄 수 있고, 이 값은 그 상한이자 기본값이다.
+UNLOCK_TTL_SECONDS = "600"
+
+# 하루 한 번, 90일이 지난 접속 기록을 지운다(cloudflare/index.js 의 scheduled).
+[triggers]
+crons = ["17 19 * * *"]
+
+# ---------- 운영 도메인 ----------
+# 도메인을 Cloudflare에 등록(영역 추가)한 뒤 아래 주석을 풀고 배포하면
+# Cloudflare가 DNS 레코드와 SSL 인증서를 자동으로 만들어 준다.
+# [[routes]]
+# pattern = "japis.kr"
+# custom_domain = true
+
+# 시크릿은 대시보드(Settings → Variables and secrets → Encrypt) 또는 wrangler로 등록한다:
+#   SESSION_SECRET   세션 토큰 서명용 임의의 긴 문자열 (필수 — 없으면 로그인 자체가 거부된다)
+#   ADMIN_EMAIL      최초 관리자 이메일 (선택, 기본 garzette@paran.com)
+#
+# 등록:
+#   npx wrangler secret put SESSION_SECRET
+#
+# ⚠️ ADMIN_PASSWORD 는 두지 않는다. 최초 관리자는 **비밀번호 없이** 한 번 로그인하고
+#    그 자리에서 비밀번호를 정한다(cloudflare/index.js 의 ensureBootstrapAdmin 주석 참고).
