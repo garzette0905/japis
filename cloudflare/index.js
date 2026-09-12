@@ -14,6 +14,15 @@
 //   3. **가입이 없다.** 관리자가 사람을 만들고, 그 사람이 볼 화면을 골라 준다.
 
 import { GROUPS, SERVICES, serviceOf, isAlways, isReady } from './services.js';
+import {
+  PROVIDERS,
+  FEED_OF,
+  connectStart,
+  connectCallback,
+  connectionStatus,
+  disconnect,
+  feedFor,
+} from './connect.js';
 
 const enc = new TextEncoder();
 const nowIso = () => new Date().toISOString();
@@ -351,6 +360,10 @@ async function visibleServices(env, user, sid) {
       accent: s.accent,
       icon: s.icon,
       repo: s.repo || null,
+      account: s.account || null,
+      route: s.route || null,
+      links: s.links || null,
+      feed: !!FEED_OF[s.key],
       external: !!s.external,
       ready,
       reauth,
@@ -555,14 +568,362 @@ async function apiSetPassword(request, env, ctx, user) {
 }
 
 // ──────────────────────────────────────────────────────────────
+// 생체인증 (WebAuthn · 패스키)
+// ──────────────────────────────────────────────────────────────
+//
+// 휴대폰의 지문·얼굴로 **로그인**하고, **화면 잠금도 푼다**. 비밀번호를 대신하는 것이
+// 아니라 나란히 둔 두 번째 길이다 — 비밀번호는 그대로 살아 있다.
+//
+// 왜 이렇게 두었나
+//   · 열쇠(개인키)는 휴대폰의 보안칩 밖으로 나오지 않는다. 서버가 갖는 것은 공개키뿐이라
+//     이 포털이 통째로 털려도 남의 지문으로 로그인할 재료가 되지 않는다.
+//   · **주소마다 열쇠가 다르다.** rpId(=호스트)를 열쇠에 함께 저장하고 검증하므로,
+//     workers.dev 에서 만든 패스키는 운영 도메인에서 쓰이지 않는다(피싱 방어의 핵심).
+//   · userVerification: 'required' — "기기를 갖고 있다"가 아니라 "생체인증을 통과했다"를
+//     요구한다. authData 의 UV 비트로 서버가 그것을 확인한다.
+//
+// 등록은 **비밀번호를 한 번 더 확인한 뒤**에만 된다. 세션만 훔친 사람이 자기 지문을
+// 슬쩍 등록해 두는 길을 막는다.
+
+const WEBAUTHN_CHALLENGE_TTL = 300;   // 발급한 난수의 수명(초)
+const FLAG_UP = 0x01;                 // 사용자가 기기를 만졌다
+const FLAG_UV = 0x04;                 // 생체인증(또는 PIN)을 통과했다
+const FLAG_AT = 0x40;                 // 등록 정보(공개키)가 함께 들어 있다
+
+/** 패스키가 매이는 곳은 "지금 들어온 호스트"다. 여기서 만든 것은 여기서만 쓰인다. */
+const rpIdOf = (request) => new URL(request.url).hostname;
+const originOf = (request) => new URL(request.url).origin;
+
+const sha256 = async (bytes) => new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+
+/** 난수를 KV에 맡기고 돌려준다. 되돌아온 것과 맞춰 보기 위해서다. */
+async function newChallenge(env, purpose, data = {}) {
+  const id = randomId(18);
+  const challenge = randomId(32);
+  await env.SESSIONS.put(`wa:${purpose}:${id}`, JSON.stringify({ challenge, ...data }), {
+    expirationTtl: WEBAUTHN_CHALLENGE_TTL,
+  });
+  return { challengeId: id, challenge };
+}
+
+/** 한 번 쓰면 사라진다 — 같은 응답을 두 번 들이밀지 못하게(재생 공격). */
+async function takeChallenge(env, purpose, id) {
+  const k = `wa:${purpose}:${String(id || '')}`;
+  const v = await env.SESSIONS.get(k, 'json');
+  if (v) await env.SESSIONS.delete(k);
+  return v;
+}
+
+/** 브라우저가 서명한 clientDataJSON 이 우리가 낸 문제에 대한 답이 맞는지. */
+function checkClientData(b64, { type, challenge, origin }) {
+  let cd;
+  try {
+    cd = JSON.parse(new TextDecoder().decode(b64urlToBytes(String(b64 || ''))));
+  } catch {
+    return '인증 데이터를 읽지 못했습니다.';
+  }
+  if (cd.type !== type) return '인증 요청 종류가 맞지 않습니다.';
+  if (!timingSafeEqual(cd.challenge, challenge)) return '인증 시간이 지났습니다. 다시 시도해주세요.';
+  if (cd.origin !== origin) return '다른 주소에서 온 인증입니다.';
+  return null;
+}
+
+/** authenticatorData — 32바이트 rpIdHash · 1바이트 플래그 · 4바이트 카운터 · (등록이면 공개키 묶음) */
+function parseAuthData(bytes) {
+  if (!bytes || bytes.length < 37) return null;
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const out = { rpIdHash: bytes.slice(0, 32), flags: bytes[32], signCount: view.getUint32(33), credId: null };
+  if (out.flags & FLAG_AT && bytes.length >= 55) {
+    const len = view.getUint16(53);                   // 16바이트 aaguid 를 건너뛴 자리
+    if (bytes.length >= 55 + len) out.credId = bytes.slice(55, 55 + len);
+  }
+  return out;
+}
+
+/**
+ * WebAuthn 의 ECDSA 서명은 DER(ASN.1)이고 WebCrypto 는 r‖s 64바이트를 받는다.
+ * 이 변환을 빠뜨리면 "서명이 틀렸다"만 반복해서 나온다.
+ */
+function derToRawSignature(der) {
+  if (!der || der[0] !== 0x30) return null;
+  let i = der[1] & 0x80 ? 2 + (der[1] & 0x7f) : 2;
+  const readInt = () => {
+    if (der[i++] !== 0x02) return null;
+    const len = der[i++];
+    const v = der.slice(i, i + len);
+    i += len;
+    return v.length === len ? v : null;
+  };
+  const r = readInt();
+  const s = readInt();
+  if (!r || !s) return null;
+  const out = new Uint8Array(64);
+  const put = (v, off) => {
+    const t = v[0] === 0 ? v.slice(1) : v;            // DER 의 부호용 0x00 패딩을 걷어낸다
+    if (t.length > 32) return false;
+    out.set(t, off + 32 - t.length);                  // 32바이트 오른쪽 정렬
+    return true;
+  };
+  return put(r, 0) && put(s, 32) ? out : null;
+}
+
+/** 서명 대상은 authenticatorData ‖ SHA-256(clientDataJSON) 이다. */
+async function verifySignature(cred, { authData, clientDataJSON, signature }) {
+  const rsa = Number(cred.alg) === -257;
+  const key = await crypto.subtle.importKey(
+    'spki',
+    b64urlToBytes(cred.public_key),
+    rsa ? { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' } : { name: 'ECDSA', namedCurve: 'P-256' },
+    false,
+    ['verify']
+  );
+  const raw = b64urlToBytes(String(signature || ''));
+  const sig = rsa ? raw : derToRawSignature(raw);
+  if (!sig) return false;
+
+  const cd = await sha256(b64urlToBytes(String(clientDataJSON || '')));
+  const signed = new Uint8Array(authData.length + cd.length);
+  signed.set(authData, 0);
+  signed.set(cd, authData.length);
+
+  return crypto.subtle.verify(rsa ? { name: 'RSASSA-PKCS1-v1_5' } : { name: 'ECDSA', hash: 'SHA-256' }, key, sig, signed);
+}
+
+const credView = (c) => ({
+  id: c.id,
+  label: c.label || '등록한 기기',
+  createdAt: c.created_at,
+  lastUsedAt: c.last_used_at,
+  rpId: c.rp_id,
+});
+
+const listCredentials = async (env, userId) => {
+  const { results } = await env.DB.prepare(
+    'SELECT * FROM webauthn_credentials WHERE user_id = ? ORDER BY created_at DESC'
+  )
+    .bind(userId)
+    .all();
+  return results || [];
+};
+
+/**
+ * 사람마다 하나씩 갖는 임의의 손잡이. 패스키에 심어 두고, 로그인할 때 휴대폰이
+ * 이것을 돌려주면 누구인지 안다. users.id 를 그대로 쓰지 않는 이유는 간단하다 —
+ * 남의 기기에 우리 DB의 일련번호를 적어 둘 이유가 없다.
+ */
+async function userHandle(env, user) {
+  if (user.wa_handle) return user.wa_handle;
+  const handle = randomId(16);
+  await env.DB.prepare('UPDATE users SET wa_handle = ? WHERE id = ?').bind(handle, user.id).run();
+  return handle;
+}
+
+/**
+ * 되돌아온 생체인증 결과를 검증한다. 통과하면 { cred }, 아니면 { error }.
+ * userId 를 주면 그 사람의 열쇠만 받는다(화면 잠금해제).
+ */
+async function verifyAssertion(request, env, body, challenge, { userId = null } = {}) {
+  const id = String(body.id || '');
+  if (!id) return { error: '인증 정보가 없습니다.' };
+
+  const cred = await env.DB.prepare('SELECT * FROM webauthn_credentials WHERE id = ?').bind(id).first();
+  if (!cred) return { error: '등록되지 않은 기기입니다.' };
+  if (userId !== null && cred.user_id !== userId) return { error: '등록되지 않은 기기입니다.' };
+  if (cred.rp_id !== rpIdOf(request)) return { error: '이 주소에 등록된 기기가 아닙니다.' };
+
+  const bad = checkClientData(body.clientDataJSON, {
+    type: 'webauthn.get',
+    challenge,
+    origin: originOf(request),
+  });
+  if (bad) return { error: bad };
+
+  const authData = b64urlToBytes(String(body.authenticatorData || ''));
+  const ad = parseAuthData(authData);
+  if (!ad) return { error: '인증 데이터를 읽지 못했습니다.' };
+  if (b64url(ad.rpIdHash) !== b64url(await sha256(enc.encode(rpIdOf(request))))) {
+    return { error: '다른 주소에서 온 인증입니다.' };
+  }
+  if (!(ad.flags & FLAG_UP)) return { error: '기기 확인이 되지 않았습니다.' };
+  if (!(ad.flags & FLAG_UV)) return { error: '생체인증을 통과하지 못했습니다.' };
+
+  const ok = await verifySignature(cred, {
+    authData,
+    clientDataJSON: body.clientDataJSON,
+    signature: body.signature,
+  }).catch(() => false);
+  if (!ok) return { error: '생체인증에 실패했습니다.' };
+
+  // 복제된 인증기 탐지. 휴대폰 대부분은 카운터를 늘 0으로 돌려주므로 그때는 건너뛴다.
+  if (ad.signCount > 0 && ad.signCount <= cred.sign_count) {
+    return { error: '인증 기기 상태가 올바르지 않습니다. 기기를 다시 등록해주세요.' };
+  }
+  await env.DB.prepare('UPDATE webauthn_credentials SET sign_count = ?, last_used_at = ? WHERE id = ?')
+    .bind(ad.signCount, nowIso(), cred.id)
+    .run();
+
+  return { cred };
+}
+
+// ---------- 등록 ----------
+
+/** 등록을 시작한다. **비밀번호를 한 번 더** 받는다 — 세션만으로는 열쇠를 늘릴 수 없다. */
+async function apiPasskeyRegisterOptions(request, env, user) {
+  const body = await request.json().catch(() => ({}));
+  if (!(await verifyPassword(String(body.password || ''), user.password_hash))) {
+    return fail('비밀번호가 맞지 않습니다.', 403);
+  }
+  const rpId = rpIdOf(request);
+  const handle = await userHandle(env, user);
+  const mine = await listCredentials(env, user.id);
+  const { challengeId, challenge } = await newChallenge(env, 'reg', { uid: user.id, rpId });
+
+  return json({
+    challengeId,
+    challenge,
+    rpId,
+    rpName: 'JAPIS',
+    userHandle: handle,
+    userName: user.email,
+    userDisplayName: user.name || user.email,
+    // 이미 등록한 기기에서 또 누르면 브라우저가 "이미 등록됨"이라고 알려 준다.
+    excludeCredentials: mine.filter((c) => c.rp_id === rpId).map((c) => c.id),
+  });
+}
+
+async function apiPasskeyRegister(request, env, ctx, user) {
+  const body = await request.json().catch(() => ({}));
+  const saved = await takeChallenge(env, 'reg', body.challengeId);
+  if (!saved || saved.uid !== user.id) return fail('인증 시간이 지났습니다. 다시 시도해주세요.', 400);
+
+  const rpId = rpIdOf(request);
+  if (saved.rpId !== rpId) return fail('다른 주소에서 시작한 등록입니다.', 400);
+
+  const bad = checkClientData(body.clientDataJSON, {
+    type: 'webauthn.create',
+    challenge: saved.challenge,
+    origin: originOf(request),
+  });
+  if (bad) return fail(bad, 400);
+
+  const authData = b64urlToBytes(String(body.authenticatorData || ''));
+  const ad = parseAuthData(authData);
+  if (!ad || !ad.credId) return fail('등록 데이터를 읽지 못했습니다.', 400);
+  if (b64url(ad.rpIdHash) !== b64url(await sha256(enc.encode(rpId)))) {
+    return fail('다른 주소에서 온 등록입니다.', 400);
+  }
+  if (!(ad.flags & FLAG_UV)) return fail('생체인증을 통과하지 못했습니다.', 400);
+
+  const id = String(body.id || '');
+  // 기기가 서명해 보낸 열쇠 번호와 브라우저가 알려준 번호가 같아야 한다.
+  if (!id || b64url(ad.credId) !== id) return fail('등록 데이터가 올바르지 않습니다.', 400);
+
+  const publicKey = String(body.publicKey || '');
+  const alg = Number(body.algorithm);
+  if (!publicKey) return fail('이 브라우저는 생체인증 등록을 지원하지 않습니다. 브라우저를 최신으로 올려주세요.', 400);
+  if (alg !== -7 && alg !== -257) return fail('지원하지 않는 인증 방식입니다.', 400);
+
+  const label = String(body.label || '').trim().slice(0, 40) || '등록한 기기';
+  const transports = Array.isArray(body.transports) ? body.transports.join(',').slice(0, 80) : null;
+
+  await env.DB.prepare(
+    `INSERT OR REPLACE INTO webauthn_credentials
+       (id, user_id, public_key, alg, rp_id, sign_count, transports, label, created_at, last_used_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`
+  )
+    .bind(id, user.id, publicKey, alg, rpId, ad.signCount, transports, label, nowIso())
+    .run();
+
+  logAccess(env, ctx, request, { userId: user.id, email: user.email, action: 'passkey_add' });
+  return json({ ok: true, credentials: (await listCredentials(env, user.id)).map(credView) });
+}
+
+async function apiPasskeyDelete(request, env, ctx, user, id) {
+  const res = await env.DB.prepare('DELETE FROM webauthn_credentials WHERE id = ? AND user_id = ?')
+    .bind(id, user.id)
+    .run();
+  if (!res.meta?.changes) return fail('없는 기기입니다.', 404);
+  logAccess(env, ctx, request, { userId: user.id, email: user.email, action: 'passkey_del' });
+  return json({ ok: true, credentials: (await listCredentials(env, user.id)).map(credView) });
+}
+
+// ---------- 생체인증으로 로그인 ----------
+
+/**
+ * 이메일을 묻지 않는다. 휴대폰이 "이 주소에 저장된 패스키"를 스스로 골라 내놓고,
+ * 거기 실린 손잡이(userHandle)로 누구인지 알아낸다. 그래서 이 응답에는
+ * **어떤 계정이 있는지 알려 주는 정보가 하나도 없다.**
+ */
+async function apiPasskeyLoginOptions(request, env) {
+  const rpId = rpIdOf(request);
+  const { challengeId, challenge } = await newChallenge(env, 'login', { rpId });
+  return json({ challengeId, challenge, rpId });
+}
+
+async function apiPasskeyLogin(request, env, ctx) {
+  if (!sessionSecret(env)) return fail('SESSION_SECRET 이 설정되지 않았습니다.', 500);
+
+  const scope = `bio:${clientIp(request) || 'unknown'}`;
+  if ((await tryCount(env, scope)) >= UNLOCK_TRY_MAX) {
+    return fail('시도가 너무 많습니다. 잠시 후 다시 시도해주세요.', 429, { code: 'too_many' });
+  }
+
+  const body = await request.json().catch(() => ({}));
+  const saved = await takeChallenge(env, 'login', body.challengeId);
+  if (!saved) return fail('인증 시간이 지났습니다. 다시 시도해주세요.', 400);
+
+  const { cred, error } = await verifyAssertion(request, env, body, saved.challenge);
+  if (error) {
+    await bumpTry(env, scope);
+    logAccess(env, ctx, request, { action: 'login_fail', ok: false });
+    return fail(error, 403);
+  }
+
+  const user = await getUser(env, cred.user_id);
+  if (!user) return fail('등록되지 않은 기기입니다.', 403);
+  if (user.status !== 'active') return fail('사용이 중지된 계정입니다.', 403, { code: 'blocked' });
+  // 휴대폰이 손잡이를 함께 보냈다면 그것까지 맞춰 본다(보내지 않는 기기도 있다).
+  if (body.userHandle && user.wa_handle && !timingSafeEqual(body.userHandle, user.wa_handle)) {
+    return fail('등록되지 않은 기기입니다.', 403);
+  }
+
+  await clearTry(env, scope);
+  await env.DB.prepare('UPDATE users SET last_login_at = ? WHERE id = ?').bind(nowIso(), user.id).run();
+  const { cookie } = await createSession(env, user);
+  logAccess(env, ctx, request, { userId: user.id, email: user.email, action: 'login_bio' });
+
+  return json({ ok: true, mustChangePw: !!user.must_change_pw, me: userView(user) }, 200, {
+    'Set-Cookie': cookieHeader(cookie, request),
+  });
+}
+
+// ──────────────────────────────────────────────────────────────
 // 화면 열기 — 재인증과 /go/<key>
 // ──────────────────────────────────────────────────────────────
 
-/** 화면 잠금해제: 계정 비밀번호를 한 번 더 받는다. */
+/** 잠긴 화면을 열기 전 단계. 그 사람이 이 주소에 등록해 둔 기기만 후보로 준다. */
+async function apiUnlockOptions(request, env, user, sess) {
+  const body = await request.json().catch(() => ({}));
+  const key = String(body.key || '');
+  const s = serviceOf(key);
+  if (!s) return fail('없는 화면입니다.', 404);
+
+  const perm = await permissionFor(env, user, s);
+  if (!perm.allowed) return fail('이 화면을 볼 권한이 없습니다.', 403, { code: 'forbidden' });
+
+  const rpId = rpIdOf(request);
+  const mine = (await listCredentials(env, user.id)).filter((c) => c.rp_id === rpId);
+  if (!mine.length) return fail('이 기기에 등록된 생체인증이 없습니다.', 404, { code: 'no_passkey' });
+
+  const { challengeId, challenge } = await newChallenge(env, 'unlock', { uid: user.id, sid: sess.sid, key, rpId });
+  return json({ challengeId, challenge, rpId, allowCredentials: mine.map((c) => c.id) });
+}
+
+/** 화면 잠금해제: 계정 비밀번호를 한 번 더 받는다. 생체인증으로 갈음할 수도 있다. */
 async function apiUnlock(request, env, ctx, user, sess) {
   const body = await request.json().catch(() => ({}));
   const key = String(body.key || '');
-  const password = String(body.password || '');
+  const assertion = body.assertion && typeof body.assertion === 'object' ? body.assertion : null;
 
   const s = serviceOf(key);
   if (!s) return fail('없는 화면입니다.', 404);
@@ -576,8 +937,21 @@ async function apiUnlock(request, env, ctx, user, sess) {
     return fail('시도가 너무 많습니다. 잠시 후 다시 시도해주세요.', 429, { code: 'too_many' });
   }
 
-  // 비밀번호가 아직 없는 계정은 여기까지 오지 못한다(must_change_pw 가 앞에서 막는다).
-  if (!(await verifyPassword(password, user.password_hash))) {
+  if (assertion) {
+    // 난수는 이 세션·이 화면에 대해 발급한 것이어야 한다. 다른 화면에서 받은 생체인증을
+    // 옮겨 붙이지 못한다.
+    const saved = await takeChallenge(env, 'unlock', assertion.challengeId);
+    if (!saved || saved.uid !== user.id || saved.sid !== sess.sid || saved.key !== key) {
+      return fail('인증 시간이 지났습니다. 다시 시도해주세요.', 400);
+    }
+    const { error } = await verifyAssertion(request, env, assertion, saved.challenge, { userId: user.id });
+    if (error) {
+      await bumpTry(env, scope);
+      logAccess(env, ctx, request, { userId: user.id, email: user.email, action: 'unlock_fail', serviceKey: key, ok: false });
+      return fail(error, 403);
+    }
+  } else if (!(await verifyPassword(String(body.password || ''), user.password_hash))) {
+    // 비밀번호가 아직 없는 계정은 여기까지 오지 못한다(must_change_pw 가 앞에서 막는다).
     await bumpTry(env, scope);
     logAccess(env, ctx, request, { userId: user.id, email: user.email, action: 'unlock_fail', serviceKey: key, ok: false });
     return fail('비밀번호가 맞지 않습니다.', 403);
@@ -585,7 +959,12 @@ async function apiUnlock(request, env, ctx, user, sess) {
 
   await clearTry(env, scope);
   await setUnlock(env, sess.sid, key, perm.ttl);
-  logAccess(env, ctx, request, { userId: user.id, email: user.email, action: 'unlock', serviceKey: key });
+  logAccess(env, ctx, request, {
+    userId: user.id,
+    email: user.email,
+    action: assertion ? 'unlock_bio' : 'unlock',
+    serviceKey: key,
+  });
 
   return json({ ok: true, ttl: perm.ttl, until: Date.now() + perm.ttl * 1000 });
 }
@@ -608,6 +987,49 @@ async function goService(request, env, ctx, user, sess, key) {
 
   logAccess(env, ctx, request, { userId: user.id, email: user.email, action: 'open', serviceKey: key });
   return redirect(s.url, { 'Referrer-Policy': 'no-referrer' });
+}
+
+// ──────────────────────────────────────────────────────────────
+// 협업 연동 — 최근 데이터 미리보기
+// ──────────────────────────────────────────────────────────────
+
+/**
+ * 카드 앞면에 얹을 최근 항목.
+ *
+ * **잠긴 화면은 잠금을 푼 뒤에만 내용을 보여준다.** 메일 제목과 일정은 그 화면의
+ * 내용이지 목차가 아니다 — 재인증을 세워 둔 화면의 속을 목록 API로 새어 나가게 하면
+ * 자물쇠를 달아 둔 의미가 없다.
+ */
+async function apiFeed(request, env, ctx, user, sess, key) {
+  const s = serviceOf(key);
+  if (!s || !FEED_OF[key]) return fail('미리보기가 없는 화면입니다.', 404);
+
+  const perm = await permissionFor(env, user, s);
+  if (!perm.allowed) return fail('이 화면을 볼 권한이 없습니다.', 403, { code: 'forbidden' });
+  if (perm.reauth && !(await unlockedUntil(env, sess.sid, key))) {
+    return json({ state: 'locked', items: [] });
+  }
+  return json(await feedFor(env, ctx, user.id, key));
+}
+
+/** 동의 화면으로 보낸다. 돌아오는 곳은 /connect/<provider>/callback 하나뿐이다. */
+async function apiConnectStart(request, env, user, name) {
+  if (!PROVIDERS[name]) return text('없는 연결입니다.', 404);
+  const to = await connectStart(env, user, name);
+  if (!to) return redirect('/?connect=unconfigured#/g/collab');
+  return redirect(to);
+}
+
+async function apiConnectCallback(request, env, ctx, user, name, url) {
+  const err = url.searchParams.get('error');
+  if (err) return redirect(`/?connect=${encodeURIComponent(err)}#/g/collab`);
+  try {
+    await connectCallback(env, user, name, url.searchParams.get('code'), url.searchParams.get('state'));
+    logAccess(env, ctx, request, { userId: user.id, email: user.email, action: 'connect', serviceKey: name });
+    return redirect('/?connect=ok#/g/collab');
+  } catch (e) {
+    return redirect(`/?connect=${encodeURIComponent(e.message)}#/g/collab`);
+  }
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -864,6 +1286,27 @@ export default {
         return requireLogin(request, env, (user) => apiSetPassword(request, env, ctx, user), { allowPwChange: true });
       }
 
+      // ---- 생체인증(패스키) ----
+      // 로그인 전에 열려 있는 둘. 어떤 계정이 있는지는 알려주지 않는다.
+      if (path === '/api/webauthn/login/options' && method === 'POST') return apiPasskeyLoginOptions(request, env);
+      if (path === '/api/webauthn/login' && method === 'POST') return apiPasskeyLogin(request, env, ctx);
+
+      if (path === '/api/webauthn/register/options' && method === 'POST') {
+        return requireLogin(request, env, (user) => apiPasskeyRegisterOptions(request, env, user));
+      }
+      if (path === '/api/webauthn/register' && method === 'POST') {
+        return requireLogin(request, env, (user) => apiPasskeyRegister(request, env, ctx, user));
+      }
+      if (path === '/api/webauthn/credentials' && method === 'GET') {
+        return requireLogin(request, env, async (user) =>
+          json({ credentials: (await listCredentials(env, user.id)).map(credView), rpId: rpIdOf(request) })
+        );
+      }
+      const mCred = path.match(/^\/api\/webauthn\/credentials\/([A-Za-z0-9_-]{1,255})$/);
+      if (mCred && method === 'DELETE') {
+        return requireLogin(request, env, (user) => apiPasskeyDelete(request, env, ctx, user, mCred[1]));
+      }
+
       // ---- 화면 목록 · 잠금해제 ----
       if (path === '/api/services' && method === 'GET') {
         return requireLogin(request, env, async (user, sess) =>
@@ -872,6 +1315,33 @@ export default {
       }
       if (path === '/api/unlock' && method === 'POST') {
         return requireLogin(request, env, (user, sess) => apiUnlock(request, env, ctx, user, sess));
+      }
+      if (path === '/api/unlock/options' && method === 'POST') {
+        return requireLogin(request, env, (user, sess) => apiUnlockOptions(request, env, user, sess));
+      }
+
+      // ---- 협업 연동 ----
+      if (path === '/api/connect' && method === 'GET') {
+        return requireLogin(request, env, async (user) => json({ connections: await connectionStatus(env, user.id) }));
+      }
+      const mConn = path.match(/^\/api\/connect\/([a-z]{1,20})$/);
+      if (mConn && method === 'DELETE') {
+        return requireLogin(request, env, async (user) => {
+          await disconnect(env, user.id, mConn[1]);
+          return json({ ok: true, connections: await connectionStatus(env, user.id) });
+        });
+      }
+      const mFeed = path.match(/^\/api\/feed\/([a-z0-9_-]{1,40})$/i);
+      if (mFeed && method === 'GET') {
+        return requireLogin(request, env, (user, sess) => apiFeed(request, env, ctx, user, sess, mFeed[1]));
+      }
+      const mStart = path.match(/^\/connect\/([a-z]{1,20})\/start$/);
+      if (mStart && method === 'GET') {
+        return requireLogin(request, env, (user) => apiConnectStart(request, env, user, mStart[1]));
+      }
+      const mBack = path.match(/^\/connect\/([a-z]{1,20})\/callback$/);
+      if (mBack && method === 'GET') {
+        return requireLogin(request, env, (user) => apiConnectCallback(request, env, ctx, user, mBack[1], url));
       }
 
       // ---- 실제 서비스로 나가는 유일한 문 ----

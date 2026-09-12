@@ -16,6 +16,8 @@ const state = {
   groups: [],
   services: [],
   admin: null,       // 관리자 화면이 받아 온 { users, catalog, groups }
+  feeds: new Map(),  // 협업 카드에 얹는 최근 항목 (key → 응답)
+  credentials: [],   // 이 주소에 등록해 둔 생체인증 기기
 };
 
 // ──────────────────────────────────────────────────────────────
@@ -90,6 +92,10 @@ function showGate() {
   el('view-login').hidden = false;
   el('view-setpw').hidden = true;
   el('login-email').focus();
+  // 기기에 지문·얼굴 잠금이 있을 때만 생체인증 자리를 연다(없는 기기에 헛버튼을 두지 않는다).
+  bioAvailable().then((ok) => {
+    el('login-bio-wrap').hidden = !ok;
+  });
 }
 
 function showSetPw(st) {
@@ -112,10 +118,22 @@ function enterPortal(st) {
   state.services = st.services || [];
   el('gate').hidden = true;
   el('app').hidden = false;
+  loadCredentials();
   renderNav();
   renderFoot();
   handleServerHint();
   route();
+}
+
+/** 잠금 모달이 생체인증 버튼을 띄울지 정하는 데 쓴다(등록한 기기가 없으면 안 띄운다). */
+async function loadCredentials() {
+  if (!(await bioAvailable())) return;
+  try {
+    const r = await api('/api/webauthn/credentials');
+    state.credentials = r.credentials || [];
+  } catch {
+    state.credentials = [];
+  }
 }
 
 /** 서버가 /go/<key> 에서 되돌려보내며 붙인 힌트(?locked=…)를 읽고 주소창을 정리한다. */
@@ -124,8 +142,18 @@ function handleServerHint() {
   const locked = q.get('locked');
   const denied = q.get('denied');
   const soon = q.get('soon');
-  if (locked || denied || soon) {
+  const connect = q.get('connect');
+  if (locked || denied || soon || connect) {
     history.replaceState(null, '', location.pathname + location.hash);
+  }
+  if (connect) {
+    toast(
+      connect === 'ok'
+        ? '연결했습니다. 최근 항목이 곧 카드에 올라옵니다.'
+        : connect === 'unconfigured'
+          ? '이 연결은 아직 설정 전입니다(제공자 키가 필요합니다).'
+          : `연결하지 못했습니다: ${connect}`
+    );
   }
   if (denied) toast('그 화면을 볼 권한이 없습니다.');
   else if (soon) toast('아직 준비 중인 화면입니다.');
@@ -199,6 +227,155 @@ async function logout() {
 }
 
 // ──────────────────────────────────────────────────────────────
+// 생체인증 (WebAuthn · 패스키)
+// ──────────────────────────────────────────────────────────────
+//
+// 브라우저는 서버가 낸 난수에 기기로 서명해 돌려줄 뿐이다. 지문도 얼굴도 이 코드를
+// 지나가지 않는다(휴대폰 보안칩 안에서 끝난다). 우리가 주고받는 것은 전부 바이트열이라
+// b64url 로 감싸 실어 보낸다.
+
+const toB64 = (buf) => {
+  const b = new Uint8Array(buf);
+  let s = '';
+  for (const x of b) s += String.fromCharCode(x);
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+};
+
+const fromB64 = (s) => {
+  const t = String(s).replace(/-/g, '+').replace(/_/g, '/');
+  const bin = atob(t + '='.repeat((4 - (t.length % 4)) % 4));
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+};
+
+const idList = (ids) => (ids || []).map((id) => ({ id: fromB64(id), type: 'public-key' }));
+
+/** 이 기기에 지문·얼굴 잠금이 있는가. 없으면 생체인증 자리를 아예 띄우지 않는다. */
+let bioReady = null;
+async function bioAvailable() {
+  if (bioReady === null) {
+    bioReady =
+      !!window.PublicKeyCredential &&
+      !!window.isSecureContext &&
+      (await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().catch(() => false));
+  }
+  return bioReady;
+}
+
+/** 사용자가 취소한 것과 진짜 실패를 가른다 — 취소에 빨간 경고를 띄울 이유가 없다. */
+const bioMessage = (e) =>
+  e && (e.name === 'NotAllowedError' || e.name === 'AbortError')
+    ? '생체인증이 취소되었습니다.'
+    : e && e.name === 'InvalidStateError'
+      ? '이미 등록된 기기입니다.'
+      : e?.message || '생체인증에 실패했습니다.';
+
+const assertionBody = (cred) => ({
+  id: cred.id,
+  clientDataJSON: toB64(cred.response.clientDataJSON),
+  authenticatorData: toB64(cred.response.authenticatorData),
+  signature: toB64(cred.response.signature),
+  userHandle: cred.response.userHandle ? toB64(cred.response.userHandle) : null,
+});
+
+/** 로그인. 이메일을 묻지 않는다 — 휴대폰이 이 주소에 저장된 패스키를 스스로 고른다. */
+async function bioLogin() {
+  const opt = await api('/api/webauthn/login/options', { method: 'POST' });
+  const cred = await navigator.credentials.get({
+    publicKey: {
+      challenge: fromB64(opt.challenge),
+      rpId: opt.rpId,
+      userVerification: 'required',
+      timeout: 60000,
+    },
+  });
+  if (!cred) throw new Error('생체인증이 취소되었습니다.');
+  return api('/api/webauthn/login', {
+    method: 'POST',
+    body: { challengeId: opt.challengeId, ...assertionBody(cred) },
+  });
+}
+
+/** 잠긴 화면 열기. 서버가 이 사람의 기기 목록을 주고, 그중 하나로만 열린다. */
+async function bioUnlock(key) {
+  const opt = await api('/api/unlock/options', { method: 'POST', body: { key } });
+  const cred = await navigator.credentials.get({
+    publicKey: {
+      challenge: fromB64(opt.challenge),
+      rpId: opt.rpId,
+      allowCredentials: idList(opt.allowCredentials),
+      userVerification: 'required',
+      timeout: 60000,
+    },
+  });
+  if (!cred) throw new Error('생체인증이 취소되었습니다.');
+  return api('/api/unlock', {
+    method: 'POST',
+    body: { key, assertion: { challengeId: opt.challengeId, ...assertionBody(cred) } },
+  });
+}
+
+/** 이 기기를 등록한다. 서버가 비밀번호를 한 번 더 확인한 뒤에야 난수를 내준다. */
+async function bioRegister(password, label) {
+  const opt = await api('/api/webauthn/register/options', { method: 'POST', body: { password } });
+  const cred = await navigator.credentials.create({
+    publicKey: {
+      challenge: fromB64(opt.challenge),
+      rp: { id: opt.rpId, name: opt.rpName },
+      user: { id: fromB64(opt.userHandle), name: opt.userName, displayName: opt.userDisplayName },
+      // ES256 을 먼저 둔다. 안 되는 기기만 RS256 으로 내려간다.
+      pubKeyCredParams: [
+        { type: 'public-key', alg: -7 },
+        { type: 'public-key', alg: -257 },
+      ],
+      authenticatorSelection: {
+        authenticatorAttachment: 'platform',   // 휴대폰·노트북에 붙어 있는 잠금장치
+        residentKey: 'preferred',              // 이메일 없이 로그인하려면 이게 필요하다
+        userVerification: 'required',          // "갖고 있다"가 아니라 "생체인증을 통과했다"
+      },
+      excludeCredentials: idList(opt.excludeCredentials),
+      attestation: 'none',
+      timeout: 60000,
+    },
+  });
+  if (!cred) throw new Error('등록이 취소되었습니다.');
+
+  const r = cred.response;
+  const spki = r.getPublicKey ? r.getPublicKey() : null;
+  if (!spki) throw new Error('이 브라우저는 생체인증 등록을 지원하지 않습니다. 브라우저를 최신으로 올려주세요.');
+
+  return api('/api/webauthn/register', {
+    method: 'POST',
+    body: {
+      challengeId: opt.challengeId,
+      id: cred.id,
+      clientDataJSON: toB64(r.clientDataJSON),
+      authenticatorData: toB64(r.getAuthenticatorData()),
+      publicKey: toB64(spki),
+      algorithm: r.getPublicKeyAlgorithm(),
+      transports: r.getTransports ? r.getTransports() : [],
+      label,
+    },
+  });
+}
+
+el('login-bio').addEventListener('click', async () => {
+  const btn = el('login-bio');
+  showError(el('login-error'), '');
+  btn.disabled = true;
+  try {
+    const r = await bioLogin();
+    if (r.mustChangePw) return showSetPw(r);
+    enterPortal(await api('/api/status'));
+  } catch (e) {
+    showError(el('login-error'), bioMessage(e));
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+// ──────────────────────────────────────────────────────────────
 // 상단 메뉴
 // ──────────────────────────────────────────────────────────────
 
@@ -260,6 +437,7 @@ function renderFoot() {
 
 window.addEventListener('hashchange', () => {
   if (el('app').hidden) return;
+  closeLock();          // 다른 화면으로 넘어가면 열려 있던 잠금 모달은 의미가 없다
   renderNav();
   route();
 });
@@ -272,6 +450,7 @@ function route() {
 
   if (hash === '#/' || hash === '') return renderDashboard(page);
   if (hash.startsWith('#/g/')) return renderGroup(page, hash.slice(4));
+  if (hash === '#/sns') return renderLinks(page, 'sns');
   if (hash === '#/me') return renderMe(page);
   if (state.me.role === 'admin') {
     if (hash === '#/admin') return renderAdmin(page);
@@ -286,35 +465,118 @@ function route() {
 // 서비스 카드
 // ──────────────────────────────────────────────────────────────
 
-function cardHtml(s) {
-  const soon = !s.ready;
-  const tag = soon
+const cardTag = (s) =>
+  !s.ready
     ? '<span class="tag">준비중</span>'
     : s.reauth
       ? '<span class="tag">🔒 재인증</span>'
       : '<span class="tag open">바로 열기</span>';
-  const repo = s.repo ? `<span class="faint">${esc(s.repo.split('/')[1])}</span>` : '';
+
+const cardMark = (s) => `
+  <span class="card-top">
+    <span class="card-icon" aria-hidden="true">${esc(s.icon || '•')}</span>
+    <span class="card-title">${esc(s.label)}</span>
+  </span>
+  <span class="card-desc">${esc(s.desc || '')}</span>`;
+
+/** 카드 아래 한 줄 — 상태표와 '어느 계정인지'. 여러 계정을 오가는 협업 묶음에 특히 필요하다. */
+const cardFoot = (s) =>
+  `<span class="card-foot">${cardTag(s)}${
+    s.account ? `<span class="faint">${esc(s.account)}</span>` : s.repo ? `<span class="faint">${esc(s.repo.split('/')[1])}</span>` : ''
+  }</span>`;
+
+function cardHtml(s) {
+  // 최근 항목을 얹는 카드는 안에 버튼·링크가 들어가므로 카드 자체를 버튼으로 만들 수 없다.
+  if (s.feed) return liveCardHtml(s);
+  const soon = !s.ready;
   return `
     <button class="card${soon ? ' is-soon' : ''}" type="button" data-key="${esc(s.key)}"${soon ? ' disabled' : ''}>
       <span class="card-band band-${esc(s.accent || 'sky')}"></span>
-      <span class="card-body">
-        <span class="card-top">
-          <span class="card-icon" aria-hidden="true">${esc(s.icon || '•')}</span>
-          <span class="card-title">${esc(s.label)}</span>
-        </span>
-        <span class="card-desc">${esc(s.desc || '')}</span>
-        <span class="card-foot">${tag}${repo}</span>
-      </span>
+      <span class="card-body">${cardMark(s)}${cardFoot(s)}</span>
     </button>`;
 }
 
+/** 협업 카드 — 최근 것 몇 개를 앞면에 얹는다. 내용은 loadFeed 가 나중에 채운다. */
+function liveCardHtml(s) {
+  return `
+    <div class="card card-live" data-card="${esc(s.key)}">
+      <span class="card-band band-${esc(s.accent || 'sky')}"></span>
+      <div class="card-body">
+        ${cardMark(s)}
+        <div class="card-feed" data-feed="${esc(s.key)}"><span class="spinner"></span></div>
+        <div class="card-foot">
+          <button class="btn-utility" type="button" data-key="${esc(s.key)}"${s.ready ? '' : ' disabled'}>
+            ${s.ready ? '열기' : '준비중'}
+          </button>
+          ${cardTag(s)}
+          ${s.account ? `<span class="faint">${esc(s.account)}</span>` : ''}
+        </div>
+      </div>
+    </div>`;
+}
+
 function wireCards(root) {
-  root.querySelectorAll('.card[data-key]').forEach((btn) => {
+  root.querySelectorAll('.card[data-key], .card-live button[data-key]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const s = state.services.find((x) => x.key === btn.dataset.key);
       if (s) openService(s);
     });
   });
+  root.querySelectorAll('.card-feed[data-feed]').forEach((n) => loadFeed(n.dataset.feed));
+}
+
+// ---------- 협업 카드의 최근 항목 ----------
+
+const feedWhen = (iso, allDay) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleString('ko-KR',
+    allDay ? { month: 'numeric', day: 'numeric' } : { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+};
+
+function feedHtml(key, f) {
+  if (!f) return '<span class="spinner"></span>';
+  if (f.state === 'locked') return '<p class="feed-note">🔒 잠금을 풀면 최근 항목이 보입니다.</p>';
+  if (f.state === 'unconfigured') {
+    return '<p class="feed-note">연동 설정 전입니다. (관리자가 제공자 키를 등록해야 합니다)</p>';
+  }
+  if (f.state === 'disconnected') {
+    return `<p class="feed-note">아직 연결하지 않았습니다.</p>
+      <a class="btn-utility" href="/connect/${esc(f.provider)}/start">${esc(f.provider === 'google' ? '구글' : '마이크로소프트')} 연결하기</a>`;
+  }
+  if (f.state === 'error') return `<p class="feed-note">불러오지 못했습니다. ${esc(f.note || '')}</p>`;
+  if (!f.items?.length) return `<p class="feed-note">${esc(f.note || '보여줄 것이 없습니다.')}</p>`;
+
+  // 사진은 글자보다 그림이 낫다.
+  if (key === 'gphotos') {
+    return `<div class="feed-thumbs">${f.items
+      .filter((i) => i.thumb)
+      .map((i) => `<img src="${esc(i.thumb)}" alt="${esc(i.title)}" loading="lazy" referrerpolicy="no-referrer">`)
+      .join('')}</div>`;
+  }
+  return `<ul class="feed-list">${f.items
+    .map(
+      (i) => `<li>
+        <span class="feed-title">${esc(i.title)}</span>
+        <span class="feed-sub">${esc(i.sub || '')}${i.sub && i.at ? ' · ' : ''}${esc(feedWhen(i.at, i.allDay))}</span>
+      </li>`
+    )
+    .join('')}</ul>`;
+}
+
+async function loadFeed(key) {
+  const paint = () => {
+    const node = $(`.card-feed[data-feed="${key}"]`, el('page'));
+    if (node) node.innerHTML = feedHtml(key, state.feeds.get(key));
+  };
+  if (state.feeds.has(key)) return paint();
+  try {
+    state.feeds.set(key, await api(`/api/feed/${encodeURIComponent(key)}`));
+  } catch (e) {
+    state.feeds.set(key, { state: 'error', note: e.message, items: [] });
+  }
+  paint();
 }
 
 /**
@@ -330,6 +592,11 @@ function openService(s) {
 }
 
 function go(s) {
+  // 포털 안 화면은 새로 고칠 이유가 없다 — 그 자리에서 넘어간다.
+  if (s.route) {
+    location.hash = s.route;
+    return;
+  }
   if (s.external) window.open(`/go/${encodeURIComponent(s.key)}`, '_blank', 'noopener');
   else location.href = `/go/${encodeURIComponent(s.key)}`;
 }
@@ -340,16 +607,56 @@ let lockTarget = null;
 
 function showLock(s) {
   lockTarget = s;
+  const bio = state.credentials.length > 0;
   el('lock-icon').textContent = s.icon || '🔒';
   el('lock-title').textContent = `${s.label} 열기`;
-  el('lock-lead').textContent = '이 화면은 들어갈 때마다 비밀번호를 한 번 더 확인합니다.';
+  el('lock-lead').textContent = bio
+    ? '이 화면은 들어갈 때마다 본인 확인을 한 번 더 합니다.'
+    : '이 화면은 들어갈 때마다 비밀번호를 한 번 더 확인합니다.';
   el('lock-password').value = '';
   showError(el('lock-error'), '');
+  el('lock-bio-wrap').hidden = !bio;
   $('#form-lock').hidden = false;
   el('lock-done').hidden = true;
   el('lock').hidden = false;
-  el('lock-password').focus();
+  if (bio) el('lock-bio').focus();
+  else el('lock-password').focus();
 }
+
+/** 잠금이 풀린 뒤 — 비밀번호로 풀었든 생체인증으로 풀었든 여기로 모인다. */
+function lockOpened(r) {
+  lockTarget.unlockedUntil = r.until || 0;
+  const mins = Math.round((r.ttl || 600) / 60);
+
+  el('lock-password').value = '';
+  $('#form-lock').hidden = true;
+  el('lock-open').href = `/go/${encodeURIComponent(lockTarget.key)}`;
+  el('lock-open').textContent = `${lockTarget.label} 열기`;
+  el('lock-open').target = lockTarget.external ? '_blank' : '_self';
+  el('lock-note').textContent = `앞으로 ${mins}분 동안은 다시 묻지 않습니다.`;
+  el('lock-done').hidden = false;
+  el('lock-open').focus();
+
+  // 잠금이 풀렸으니 그 화면의 미리보기도 이제 받아 올 수 있다.
+  if (lockTarget.feed) {
+    state.feeds.delete(lockTarget.key);
+    loadFeed(lockTarget.key);
+  }
+}
+
+el('lock-bio').addEventListener('click', async () => {
+  if (!lockTarget) return;
+  const btn = el('lock-bio');
+  showError(el('lock-error'), '');
+  btn.disabled = true;
+  try {
+    lockOpened(await bioUnlock(lockTarget.key));
+  } catch (e) {
+    showError(el('lock-error'), bioMessage(e));
+  } finally {
+    btn.disabled = false;
+  }
+});
 
 function closeLock() {
   el('lock').hidden = true;
@@ -370,22 +677,13 @@ $('#form-lock').addEventListener('submit', async (e) => {
   btn.disabled = true;
   btn.textContent = '확인 중…';
   try {
-    const r = await api('/api/unlock', {
-      method: 'POST',
-      body: { key: lockTarget.key, password: el('lock-password').value },
-    });
     // 목록에도 반영해 둔다 — 유효시간 안에는 다시 묻지 않는다.
-    lockTarget.unlockedUntil = r.until || 0;
-    const mins = Math.round((r.ttl || 600) / 60);
-
-    el('lock-password').value = '';
-    $('#form-lock').hidden = true;
-    el('lock-open').href = `/go/${encodeURIComponent(lockTarget.key)}`;
-    el('lock-open').textContent = `${lockTarget.label} 열기`;
-    el('lock-open').target = lockTarget.external ? '_blank' : '_self';
-    el('lock-note').textContent = `앞으로 ${mins}분 동안은 다시 묻지 않습니다.`;
-    el('lock-done').hidden = false;
-    el('lock-open').focus();
+    lockOpened(
+      await api('/api/unlock', {
+        method: 'POST',
+        body: { key: lockTarget.key, password: el('lock-password').value },
+      })
+    );
   } catch (err) {
     showError(el('lock-error'), err.message);
   } finally {
@@ -435,13 +733,93 @@ function renderGroup(page, key) {
     location.hash = '#/';
     return;
   }
+  const lead = items.some((s) => s.feed)
+    ? '연결해 두면 최근 것 몇 개가 카드 앞면에 그대로 올라옵니다.'
+    : `${items.length}개 화면`;
+
   page.innerHTML = `
     <div class="page-head">
       <h1 class="page-title">${esc(groupLabel(key))}</h1>
-      <p class="page-lead">${items.length}개 화면</p>
+      <p class="page-lead">${esc(lead)}</p>
     </div>
+    <div id="connect-bar"></div>
     <div class="cards">${items.map(cardHtml).join('')}</div>`;
   wireCards(page);
+  if (items.some((s) => s.feed)) renderConnectBar();
+}
+
+/** 이 묶음이 쓰는 바깥 계정의 연결 상태. 구글 셋은 연결 하나를 나눠 쓴다. */
+async function renderConnectBar() {
+  const bar = el('connect-bar');
+  if (!bar) return;
+  let data;
+  try {
+    data = await api('/api/connect');
+  } catch {
+    return;
+  }
+  const rows = data.connections
+    .map((c) => {
+      const action = !c.configured
+        ? '<span class="faint">설정 전</span>'
+        : c.connected
+          ? `<button class="btn-utility" data-off="${esc(c.provider)}" data-label="${esc(c.label)}">연결 끊기</button>`
+          : `<a class="btn-utility" href="/connect/${esc(c.provider)}/start">연결하기</a>`;
+      return `<div class="connect-row">
+        <span class="connect-dot${c.connected ? ' on' : ''}" aria-hidden="true"></span>
+        <span class="connect-name">${esc(c.label)}</span>
+        <span class="faint">${esc(c.account)}</span>
+        <span class="connect-act">${action}</span>
+      </div>`;
+    })
+    .join('');
+
+  bar.innerHTML = `<div class="panel connect-panel">
+    <div class="panel-title">연결</div>${rows}
+    <p class="field-hint">한 번 연결해 두면 구글 포토·메일·캘린더가 그 로그인 하나를 함께 씁니다.</p>
+  </div>`;
+
+  bar.querySelectorAll('[data-off]').forEach((b) =>
+    b.addEventListener('click', async () => {
+      if (!confirm(`${b.dataset.label} 연결을 끊을까요?`)) return;
+      try {
+        await api(`/api/connect/${b.dataset.off}`, { method: 'DELETE' });
+        state.feeds.clear();
+        toast('연결을 끊었습니다.');
+        route();
+      } catch (e) {
+        toast(e.message);
+      }
+    })
+  );
+}
+
+/** 링크만 묶어 둔 화면(SNS). 주소가 공개된 사이트라 목록 API가 그대로 싣고 온다. */
+function renderLinks(page, key) {
+  const s = state.services.find((x) => x.key === key);
+  if (!s || !s.links) {
+    location.hash = '#/';
+    return;
+  }
+  page.innerHTML = `
+    <div class="page-head">
+      <h1 class="page-title">${esc(s.icon)} ${esc(s.label)}</h1>
+      <p class="page-lead">${esc(s.desc || '')}</p>
+    </div>
+    <div class="cards">${s.links
+      .map(
+        (l) => `<a class="card" href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">
+          <span class="card-band band-${esc(s.accent || 'sky')}"></span>
+          <span class="card-body">
+            <span class="card-top">
+              <span class="card-icon" aria-hidden="true">${esc(l.icon || '🔗')}</span>
+              <span class="card-title">${esc(l.label)}</span>
+            </span>
+            <span class="card-foot"><span class="tag open">바로 열기</span></span>
+          </span>
+        </a>`
+      )
+      .join('')}</div>`;
 }
 
 const emptyHtml = (title, sub) =>
@@ -467,6 +845,24 @@ function renderMe(page) {
         </tbody>
       </table></div>
     </div>
+    <div class="panel" id="bio-panel" hidden>
+      <div class="panel-title">생체인증</div>
+      <p class="field-hint" style="margin:0 0 12px">
+        이 기기의 지문·얼굴로 로그인하고 잠긴 화면도 엽니다. 지문 자체는 기기 밖으로
+        나가지 않고, 포털에는 확인용 공개키만 남습니다. 등록한 주소에서만 쓰입니다.
+      </p>
+      <div id="bio-list"></div>
+      <form id="form-bio" style="max-width:380px;margin-top:16px">
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0 16px">
+          <label class="field"><span class="field-label">기기 이름</span>
+            <input id="bio-label" type="text" maxlength="40" placeholder="예: 갤럭시 S25"></label>
+          <label class="field"><span class="field-label">현재 비밀번호</span>
+            <input id="bio-password" type="password" autocomplete="current-password" required></label>
+        </div>
+        <p id="bio-error" class="form-error" role="alert" hidden></p>
+        <button class="btn-primary" type="submit" id="bio-add">이 기기 등록</button>
+      </form>
+    </div>
     <div class="panel">
       <div class="panel-title">비밀번호 변경</div>
       <form id="form-mypw" style="max-width:380px">
@@ -483,6 +879,8 @@ function renderMe(page) {
       <p class="field-hint" style="margin-top:12px">비밀번호를 바꾸면 다른 기기에 열어 둔 창은 모두 로그아웃됩니다.</p>
     </div>`;
 
+  wireBio();
+
   $('#form-mypw').addEventListener('submit', async (e) => {
     e.preventDefault();
     const next = el('mypw-next').value;
@@ -494,6 +892,70 @@ function renderMe(page) {
       toast('비밀번호를 바꿨습니다.');
     } catch (err) {
       showError(el('mypw-error'), err.message);
+    }
+  });
+}
+
+/** 내 계정 화면의 생체인증 칸. 이 기기에 잠금장치가 없으면 칸 자체를 띄우지 않는다. */
+async function wireBio() {
+  if (!(await bioAvailable())) return;
+  const panel = el('bio-panel');
+  if (!panel) return;                 // 그새 다른 화면으로 넘어갔다
+  panel.hidden = false;
+
+  const paint = () => {
+    el('bio-list').innerHTML = state.credentials.length
+      ? `<div class="table-wrap"><table class="data">
+          <thead><tr><th>기기</th><th>등록</th><th>마지막 사용</th><th></th></tr></thead>
+          <tbody>${state.credentials
+            .map(
+              (c) => `<tr>
+                <td>${esc(c.label)}</td>
+                <td class="muted nowrap">${fmt(c.createdAt)}</td>
+                <td class="muted nowrap">${fmt(c.lastUsedAt)}</td>
+                <td><button class="btn-utility danger" data-bio-del="${esc(c.id)}">삭제</button></td>
+              </tr>`
+            )
+            .join('')}</tbody>
+        </table></div>`
+      : '<p class="field-hint" style="margin:0">아직 등록한 기기가 없습니다.</p>';
+
+    el('bio-list')
+      .querySelectorAll('[data-bio-del]')
+      .forEach((b) =>
+        b.addEventListener('click', async () => {
+          if (!confirm('이 기기의 생체인증을 지울까요?')) return;
+          try {
+            const r = await api(`/api/webauthn/credentials/${encodeURIComponent(b.dataset.bioDel)}`, { method: 'DELETE' });
+            state.credentials = r.credentials || [];
+            toast('지웠습니다.');
+            paint();
+          } catch (e) {
+            toast(e.message);
+          }
+        })
+      );
+  };
+  paint();
+
+  $('#form-bio').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = el('bio-add');
+    showError(el('bio-error'), '');
+    btn.disabled = true;
+    btn.textContent = '기기 확인 중…';
+    try {
+      const r = await bioRegister(el('bio-password').value, el('bio-label').value);
+      state.credentials = r.credentials || [];
+      el('bio-password').value = '';
+      el('bio-label').value = '';
+      toast('이 기기를 등록했습니다. 다음부터 생체인증으로 들어올 수 있습니다.');
+      paint();
+    } catch (err) {
+      showError(el('bio-error'), bioMessage(err));
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '이 기기 등록';
     }
   });
 }
@@ -738,10 +1200,15 @@ async function renderPerms(page, id) {
 
 const ACTION_LABEL = {
   login: '로그인',
+  login_bio: '로그인 (생체인증)',
   login_fail: '로그인 실패',
   logout: '로그아웃',
   unlock: '잠금 해제',
+  unlock_bio: '잠금 해제 (생체인증)',
   unlock_fail: '잠금 해제 실패',
+  passkey_add: '생체인증 등록',
+  passkey_del: '생체인증 삭제',
+  connect: '외부 계정 연결',
   open: '화면 열기',
   password_set: '비밀번호 변경',
   admin_user_create: '사용자 생성',

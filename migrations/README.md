@@ -14,4 +14,6 @@ npx wrangler d1 execute japis-db --remote --file=./migrations/00X_....sql
 > ⚠️ 새 파일을 만들었다면 **push하기 전에** 운영 D1에 먼저 적용하세요.
 > 새 코드가 읽을 표가 배포 시점에 이미 있어야 합니다.
 
-지금은 비어 있습니다 (schema.sql 이 최초 스키마 전부).
+| 파일 | 내용 |
+|---|---|
+| `001_biometric_connect_menu.sql` | 생체인증(패스키) 표·컬럼, 협업 연동 토큰 표, 없어진 화면(갤러리·위키·기업정보·google)의 권한 행 정리 |

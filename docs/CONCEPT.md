@@ -36,11 +36,12 @@ JPI(Jaden Personal Intelligence)에 구동 체계(**S**ystem/**S**ervice)를 붙
        ┌──────────────────────┼──────────────────────┐
        ▼                      ▼                      ▼
  [ 개인 웹 UI/서비스 ]   [ OAuth / API 프록시 ]   [ 자체 DB & 캐시 ]
-  · wepic                · Google (Drive,         · Cloudflare D1  (사용자·권한·기록)
-  · 카드모아               Photos, Gmail,          · Cloudflare KV  (세션·화면잠금)
-  · 가계부 / 위키           Calendar, Timeline)     · Vectorize      (검색 — 훗날)
-  · Taylor Bookshelf     · OneDrive
-  · Julie English        · Naver Memo
+  · wepic                · Google (Photos,        · Cloudflare D1  (사용자·권한·기록·
+  · 카드모아                 Gmail, Calendar)                       패스키·연동토큰)
+  · 가계부                · OneDrive               · Cloudflare KV  (세션·화면잠금·
+  · Taylor Bookshelf     · Naver Memo (예정)                        난수·피드캐시)
+  · 제이든 wiki (옵시디언)                          · Vectorize      (검색 — 훗날)
+  · Julie · SNS
 ```
 
 **기획서와 달라진 점 하나.** 기획서는 인증을 Cloudflare Access(Zero Trust)에 맡기자고
@@ -54,23 +55,31 @@ JPI(Jaden Personal Intelligence)에 구동 체계(**S**ystem/**S**ervice)를 붙
 Access는 문 앞에서 한 번 걸러 줄 뿐, 이 세 가지를 표현하지 못한다. 대신 wepic·가계부가
 이미 쓰고 있는 D1 + KV + PBKDF2 얼개를 그대로 가져와, 같은 방식으로 관리한다.
 
-## 1단계 — 지금 (완료)
+## 1단계 — 완료
 
 - 로그인 게이트 · 관리자 사용자 생성 · 화면별 권한 · 화면별 재인증 · 접속 기록
-- 이미 배포된 서비스 5개 연결 (wepic · 가계부 · 카드모아 · Taylor Bookshelf · Julie English)
-- 아직 배포 전인 것 5개는 카드 자리만 잡아 둠 (갤러리 · 타임라인 · 기업정보 · Word Writer · 위키)
+- 이미 배포된 서비스 연결 (wepic · 가계부 · 카드모아 · Taylor Bookshelf · Julie)
+- 아직 배포 전인 것은 카드 자리만 (타임라인 · Word Writer)
 
-## 2단계 — 통합 위젯 (기획서의 "Data Aggregation")
+## 1.5단계 — 생체인증 (완료)
 
-`connect` 묶음(Google · OneDrive · Naver)이 그 자리다. Worker가 API 프록시가 되어
-대시보드에 바로 얹는다.
+기획서에 없던 것이다. 휴대폰에서 비밀번호를 매번 치는 것이 실제로 쓰기 어려웠다.
 
-- **Google Calendar / Gmail / Naver Memo**: 최신 일정, 안 읽은 메일, 메모 요약을 한눈에
-- **Google Drive / OneDrive / Photos**: 개별 사이트로 옮겨가지 않고 검색·퀵뷰
+WebAuthn 패스키를 **로그인**과 **화면 잠금해제** 둘 다에 붙였다. 비밀번호를 대신하는
+것이 아니라 나란히 둔 두 번째 길이다. `userVerification: 'required'` 로 두었으므로
+"기기를 갖고 있다"가 아니라 "생체인증을 통과했다"만 통과한다. 열쇠는 rpId(호스트)에
+매이므로 주소마다 다르고, 서버가 갖는 것은 공개키뿐이다.
 
-필요한 것: 제공자별 OAuth 클라이언트, Refresh Token 을 담을 자리(Worker Secret + KV,
-암호화 저장), 그리고 각 위젯의 캐시 정책. `cloudflare/services.js` 의 `connect` 항목에
-`url` 을 채우고 내부 화면을 붙이면 그날부터 열린다.
+## 2단계 — 통합 위젯 (기획서의 "Data Aggregation") — 절반
+
+`collab`(협업) 묶음이 그 자리다. Worker가 API 프록시가 되어 카드 앞면에 최근 것 몇 개를
+얹는다 — 안 읽은 메일, 다가오는 일정, 최근 사진, 최근에 연 문서.
+
+- **얼개는 다 있다**: OAuth 왕복(`cloudflare/connect.js`) · Refresh Token 암호화 보관
+  (AES-GCM, 열쇠는 SESSION_SECRET) · 5분 캐시 · 잠긴 화면은 잠금을 푼 뒤에만 내용을 준다.
+- **남은 것은 열쇠뿐**: `GOOGLE_CLIENT_*` · `MS_CLIENT_*` 시크릿을 등록하면 그날부터
+  카드가 채워진다(cloudflare/README.md 3번).
+- **네이버 메모**는 API가 없어 지금은 링크만 둔다. 자체 제작이 곧 그 자리다.
 
 ## 3단계 — 검색
 

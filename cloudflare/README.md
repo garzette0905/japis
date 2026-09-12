@@ -42,6 +42,30 @@ npx wrangler d1 execute japis-db --remote --file=./schema.sql
 |---|---|---|
 | `SESSION_SECRET` | 세션 서명용 임의의 긴 문자열(16자 이상) | ✅ 없으면 로그인 자체가 거부됩니다 |
 | `ADMIN_EMAIL` | 최초 관리자 이메일. 기본값 `garzette@paran.com` | 선택 |
+| `GOOGLE_CLIENT_ID` · `GOOGLE_CLIENT_SECRET` | 구글 포토·메일·캘린더 최근 항목 미리보기 | 선택 |
+| `MS_CLIENT_ID` · `MS_CLIENT_SECRET` | OneDrive 최근 항목 미리보기 | 선택 |
+
+> ⚠️ `SESSION_SECRET` 을 바꾸면 협업 연결의 토큰을 풀 수 없게 됩니다(그 열쇠로 싸 두기
+> 때문입니다). 카드에서 *연결하기* 를 한 번 더 누르면 됩니다.
+
+### 협업 연동 키 만들기 (선택)
+
+**구글** — [Google Cloud Console](https://console.cloud.google.com/) → 프로젝트 생성 →
+*API 및 서비스*에서 **Photos Library API · Gmail API · Calendar API** 사용 설정 →
+*OAuth 동의 화면*(외부, 테스트 사용자에 본인 계정 추가) → *사용자 인증 정보 →
+OAuth 클라이언트 ID(웹 애플리케이션)*.
+
+**마이크로소프트** — [Microsoft Entra](https://entra.microsoft.com/) → *앱 등록* →
+지원 계정 유형은 **개인 Microsoft 계정**.
+
+두 곳 모두 **승인된 리디렉션 URI** 에 아래를 그대로 넣습니다(쓰는 주소마다 하나씩):
+
+```
+https://<포털주소>/connect/google/callback
+https://<포털주소>/connect/microsoft/callback
+```
+
+등록한 뒤 포털에서 **협업 → 연결하기** 를 누르면 그날부터 카드에 최근 항목이 올라옵니다.
 
 ```bash
 npx wrangler secret put SESSION_SECRET

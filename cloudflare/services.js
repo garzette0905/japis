@@ -17,12 +17,19 @@
 //   icon     카드에 얹는 이모지 하나
 //   reauth   기본값. 관리자가 사용자별로 덮어쓸 수 있다(user_services.reauth)
 //   external true 면 다른 사이트로 나간다(새 탭). false 면 포털 안 화면.
+//   account  이 화면이 쓰는 계정(선택). 카드에 그대로 적어 둔다 — 여러 계정을
+//            오가는 협업 묶음에서 "지금 어느 계정으로 들어가는지"가 늘 헷갈린다.
+//   route    포털 **안**의 화면일 때 그 해시 주소(선택). 있으면 새로 고치지 않고
+//            그 자리에서 넘어간다. /go/<key> 로 직접 들어와도 같은 곳에 닿는다.
+//   links    한 카드가 여러 바깥 주소를 묶을 때(선택). SNS 처럼 "모음" 성격의 화면이
+//            쓴다. 공개 사이트 주소라 숨길 것이 없어 목록 API에 그대로 실어 보낸다
+//            (감추는 것은 개인 서비스의 주소다 — 그건 /go/<key> 만 안다).
 
 export const GROUPS = [
   { key: 'home', label: '대시보드' },
-  { key: 'service', label: '서비스' },
-  { key: 'tool', label: '도구' },
-  { key: 'connect', label: '연동' },
+  { key: 'personal', label: '개인서비스' },
+  { key: 'homepage', label: '홈페이지' },
+  { key: 'collab', label: '협업' },
 ];
 
 export const SERVICES = [
@@ -41,11 +48,11 @@ export const SERVICES = [
     always: true,           // 권한표와 무관하게 모두에게 보인다
   },
 
-  // ── 서비스 (운영 중) ───────────────────────────────────────────────────
+  // ── 개인서비스 ────────────────────────────────────────────────────────
   {
     key: 'wepic',
     label: 'wepic',
-    group: 'service',
+    group: 'personal',
     desc: '구글 포토 사진을 감성 슬라이드쇼로 — 웹 사진 액자',
     url: 'https://wepic.kr',
     repo: 'garzette0905/wepic-live',
@@ -57,9 +64,9 @@ export const SERVICES = [
   {
     key: 'gagyebu',
     label: '가계부',
-    group: 'service',
+    group: 'personal',
     desc: '카드·계좌 내역을 모아 보는 가계·자산 장부',
-    url: 'https://gagyebu.wepiclab.workers.dev',
+    url: 'https://gagyebu.wepiclab.workers.dev/',
     repo: 'garzette0905/gagyebu',
     accent: 'green',
     icon: '💰',
@@ -69,7 +76,7 @@ export const SERVICES = [
   {
     key: 'cardmoa',
     label: '카드모아',
-    group: 'service',
+    group: 'personal',
     desc: '카드 정보를 모아 비교한다',
     url: 'https://cardmoa.wepiclab.workers.dev',
     repo: 'garzette0905/cardmoa',
@@ -81,7 +88,7 @@ export const SERVICES = [
   {
     key: 'taylor',
     label: 'Taylor Bookshelf',
-    group: 'service',
+    group: 'personal',
     desc: '읽은 책과 읽을 책을 꽂아 두는 책장',
     url: 'https://taylor-bookshelf.pages.dev',
     repo: 'garzette0905/taylor-bookshelf',
@@ -91,37 +98,9 @@ export const SERVICES = [
     external: true,
   },
   {
-    key: 'julie',
-    label: 'Julie English',
-    group: 'service',
-    desc: '줄리영어학원 홈페이지',
-    url: 'https://julieenglish.co.kr',
-    repo: 'garzette0905/julie-enlgish',
-    accent: 'purple',
-    icon: '🔤',
-    reauth: false,          // 바깥에 공개된 홈페이지라 한 번 더 물을 이유가 없다
-    external: true,
-  },
-
-  // ── 도구 (저장소는 있으나 아직 배포 전) ─────────────────────────────────
-  // url 이 null 인 항목은 카드에 '준비중'으로 뜨고 눌리지 않는다. 배포가 끝나면
-  // 여기 url 한 줄만 채우면 그날부터 열린다.
-  {
-    key: 'gallery',
-    label: '온라인 갤러리',
-    group: 'tool',
-    desc: '주가·이미지 분석 갤러리',
-    url: null,
-    repo: 'garzette0905/my_online_gallery',
-    accent: 'purple',
-    icon: '🎨',
-    reauth: true,
-    external: true,
-  },
-  {
-    key: 'timeline',
-    label: '구글 타임라인',
-    group: 'tool',
+    key: 'timeline',            // key 는 그대로 둔다(권한표가 이 값으로 붙어 있다)
+    label: '타임라인',
+    group: 'personal',
     desc: '이동 기록을 달력·지도로 되짚어 본다',
     url: null,
     repo: 'garzette0905/google-timeline',
@@ -131,22 +110,26 @@ export const SERVICES = [
     external: true,
   },
   {
-    key: 'enterprise',
-    label: '기업정보 에이전트',
-    group: 'tool',
-    desc: '기업 개요를 뽑아 오는 멀티 에이전트',
-    url: null,
-    repo: 'garzette0905/enterprise_info',
-    accent: 'brown',
-    icon: '🏢',
+    key: 'jadenwiki',
+    label: '제이든 wiki',
+    group: 'personal',
+    desc: '옵시디언 보관함을 그대로 연다',
+    // ⚠️ 보관함(vault) 이름이 다르면 옵시디언이 "없는 보관함"이라며 멈춘다.
+    //    실제 이름으로 바꿔 두세요. 옵시디언 Publish 를 쓰게 되면 그 https 주소가 더 낫다.
+    url: 'obsidian://open?vault=Jaden',
+    accent: 'purple',
+    icon: '📓',
     reauth: true,
     external: true,
   },
+
+  // ── 홈페이지 ──────────────────────────────────────────────────────────
   {
     key: 'wordwriter',
     label: 'Word Writer',
-    group: 'tool',
-    desc: '보고서 양식에 맞춰 Word 문서를 만든다',
+    group: 'homepage',
+    desc: '보고서 종류를 고르면 Prompt Builder 가 열린다',
+    // 배포되면 **Prompt Builder 화면 주소**를 적는다(첫 화면이 곧 Prompt Builder 여야 한다).
     url: null,
     repo: 'garzette0905/samsung-word-writer-pro',
     accent: 'orange',
@@ -155,52 +138,104 @@ export const SERVICES = [
     external: true,
   },
   {
-    key: 'wiki',
-    label: '개인 위키',
-    group: 'tool',
-    desc: '메모와 자료를 엮어 두는 개인 위키',
-    url: null,
-    accent: 'teal',
-    icon: '📓',
-    reauth: true,
+    key: 'julie',
+    label: 'Julie',
+    group: 'homepage',
+    desc: '줄리영어학원 홈페이지',
+    url: 'https://julieenglish.co.kr',
+    repo: 'garzette0905/julie-enlgish',
+    accent: 'purple',
+    icon: '🔤',
+    reauth: false,          // 바깥에 공개된 홈페이지라 한 번 더 물을 이유가 없다
+    external: true,
+  },
+  {
+    key: 'sns',
+    label: 'SNS',
+    group: 'homepage',
+    desc: '인스타그램 · Thread · Facebook · 카카오톡 · Telegram',
+    url: '/#/sns',
+    route: '#/sns',
+    accent: 'pink',
+    icon: '💬',
+    reauth: false,
     external: false,
+    // 본인 계정 주소(프로필·채널)가 정해지면 여기만 고친다.
+    links: [
+      { label: '인스타그램', icon: '📷', url: 'https://www.instagram.com' },
+      { label: 'Thread', icon: '🧵', url: 'https://www.threads.net' },
+      { label: 'Facebook', icon: '👥', url: 'https://www.facebook.com' },
+      { label: '카카오톡', icon: '💛', url: 'https://www.kakao.com' },
+      { label: 'Telegram', icon: '✈️', url: 'https://web.telegram.org' },
+    ],
   },
 
-  // ── 연동 (기획서 2단계 — Worker API 프록시) ──────────────────────────────
-  // 기획서(개인 포털 아키텍처)의 "통합 위젯" 자리다. OAuth 토큰을 Worker Secret·KV에
-  // 두고 여기서 캘린더·메일·드라이브를 한눈에 보여줄 계획이다. 지금은 자리만 있다.
+  // ── 협업 ──────────────────────────────────────────────────────────────
+  // 지금은 **계정을 지정한 바로가기**다. 주소에 계정을 박아 두었으므로 구글 세 개는
+  // 한 번 로그인해 두면 그대로 이어진다. "최근 데이터를 대시보드에 얹는 것"(위젯)은
+  // 제공자별 OAuth 클라이언트와 Refresh Token 자리가 필요해 아직 하지 않았다 —
+  // roadmap.md 참고.
   {
-    key: 'google',
-    label: 'Google',
-    group: 'connect',
-    desc: '캘린더 · Gmail · 드라이브 · 포토를 한눈에',
-    url: null,
+    key: 'gphotos',
+    label: '구글 포토',
+    group: 'collab',
+    desc: '사진과 앨범을 연다',
+    url: 'https://photos.google.com/?authuser=garzette@gmail.com',
+    account: 'garzette@gmail.com',
     accent: 'sky',
-    icon: '🔗',
+    icon: '📷',
     reauth: true,
-    external: false,
+    external: true,
   },
   {
-    key: 'onedrive',
-    label: 'OneDrive',
-    group: 'connect',
-    desc: '문서를 포털에서 바로 찾아본다',
-    url: null,
-    accent: 'teal',
-    icon: '☁️',
+    key: 'gmail',
+    label: '구글 메일',
+    group: 'collab',
+    desc: '받은 편지함을 연다',
+    url: 'https://mail.google.com/mail/u/garzette@gmail.com/',
+    account: 'garzette@gmail.com',
+    accent: 'orange',
+    icon: '✉️',
     reauth: true,
-    external: false,
+    external: true,
   },
   {
-    key: 'naver',
-    label: 'Naver Memo',
-    group: 'connect',
-    desc: '네이버 메모를 대시보드에 모아 본다',
-    url: null,
+    key: 'gcalendar',
+    label: '구글 캘린더',
+    group: 'collab',
+    desc: '일정을 연다',
+    url: 'https://calendar.google.com/calendar/u/garzette@gmail.com/r',
+    account: 'garzette@gmail.com',
+    accent: 'green',
+    icon: '📅',
+    reauth: true,
+    external: true,
+  },
+  {
+    key: 'naver',               // key 는 그대로 둔다(예전 'Naver Memo' 권한이 이어진다)
+    label: '네이버 메모',
+    group: 'collab',
+    // 자체 제작 전까지는 네이버 메모를 그대로 연다. 네이버는 메모 API를 열지 않아
+    // 최근 글 미리보기는 붙일 수 없다 — 링크만 둔다.
+    desc: '네이버 메모를 연다 — 자체 제작 전까지',
+    url: 'https://memo.naver.com',
+    account: 'garzette',
     accent: 'green',
     icon: '📝',
     reauth: true,
-    external: false,
+    external: true,
+  },
+  {
+    key: 'onedrive',
+    label: 'One Drive',
+    group: 'collab',
+    desc: '문서를 찾아본다',
+    url: 'https://onedrive.live.com',
+    account: 'garzette@naver.com',
+    accent: 'teal',
+    icon: '☁️',
+    reauth: true,
+    external: true,
   },
 ];
 

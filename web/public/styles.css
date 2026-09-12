@@ -408,6 +408,65 @@ button { font-family: inherit; }
 }
 .tag.open { color: var(--primary); border-color: rgba(0,117,222,.28); background: rgba(0,117,222,.06); }
 
+/* 최근 항목을 얹는 카드(협업) — 안에 버튼이 들어가므로 카드 자체는 버튼이 아니다 */
+.card-live { cursor: default; }
+.card-live:hover { box-shadow: none; }
+.card-live .card-foot { gap: var(--s-xs); flex-wrap: wrap; }
+
+.card-feed {
+  margin-top: var(--s-sm);
+  padding-top: var(--s-sm);
+  border-top: 1px dashed var(--hairline);
+  min-height: 56px;
+}
+.feed-note { margin: 0 0 6px; font-size: 14px; line-height: 1.43; color: var(--ink-faint); }
+
+.feed-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.feed-list li { display: grid; gap: 1px; min-width: 0; }
+.feed-title {
+  font-size: 14px; font-weight: 500; line-height: 1.4; color: var(--ink-secondary);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.feed-sub {
+  font-size: 12px; line-height: 1.4; color: var(--ink-faint);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.feed-thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(54px, 1fr)); gap: 4px; }
+.feed-thumbs img {
+  width: 100%; aspect-ratio: 1; object-fit: cover;
+  border-radius: var(--r-sm); background: var(--canvas-soft);
+}
+
+/* 연결 상태 줄 */
+.connect-panel { margin-bottom: var(--s-lg); }
+.connect-row {
+  display: flex; align-items: center; gap: var(--s-xs);
+  padding: var(--s-xs) 0;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 15px;
+}
+.connect-row:last-of-type { border-bottom: none; }
+.connect-name { font-weight: 500; }
+.connect-act { margin-left: auto; font-size: 14px; }
+.connect-dot {
+  width: 8px; height: 8px; flex: none;
+  border-radius: 50%;
+  background: var(--hairline);
+  border: 1px solid var(--ink-faint);
+}
+.connect-dot.on { background: var(--a-green); border-color: var(--a-green); }
+
+/* 로그인·잠금 모달의 "또는" 가름줄 */
+.or-line {
+  display: flex; align-items: center; gap: var(--s-xs);
+  margin: var(--s-md) 0;
+  font-size: 13px; color: var(--ink-faint);
+}
+.or-line::before, .or-line::after {
+  content: ''; flex: 1; height: 1px; background: var(--hairline);
+}
+
 /* ---------- 표 ---------- */
 
 .panel {
