@@ -43,11 +43,16 @@ export const PROVIDERS = {
     label: '구글',
     auth: 'https://accounts.google.com/o/oauth2/v2/auth',
     token: 'https://oauth2.googleapis.com/token',
-    // 세 화면(포토·메일·캘린더)이 이 동의 하나를 함께 쓴다. 전부 읽기 전용이다.
+    // 네 화면(포토·메일·캘린더·할일)이 이 동의 하나를 함께 쓴다. 전부 읽기 전용이다.
+    //
+    // ⚠️ 이 목록을 늘리면 **이미 연결해 둔 사람의 토큰에는 새 권한이 없다.** 구글은
+    //    옛 토큰을 조용히 그대로 쓰다가 새 API에서만 403(insufficient scopes)을 낸다.
+    //    그래서 늘린 뒤에는 '연결 끊기 → 연결하기'를 한 번 해야 한다(화면이 안내한다).
     scope: [
       'https://www.googleapis.com/auth/photoslibrary.readonly',
       'https://www.googleapis.com/auth/gmail.readonly',
       'https://www.googleapis.com/auth/calendar.readonly',
+      'https://www.googleapis.com/auth/tasks.readonly',
     ].join(' '),
     hint: 'garzette@gmail.com',
     idOf: (env) => env.GOOGLE_CLIENT_ID,
@@ -72,6 +77,7 @@ export const FEED_OF = {
   gphotos: 'google',
   gmail: 'google',
   gcalendar: 'google',
+  gtasks: 'google',
   onedrive: 'microsoft',
 };
 
@@ -244,7 +250,13 @@ const authed = (token) => ({ headers: { Authorization: `Bearer ${token}` } });
 
 const askJson = async (url, token) => {
   const res = await fetch(url, authed(token));
-  if (!res.ok) throw new Error(`${new URL(url).hostname} 응답 ${res.status}`);
+  if (!res.ok) {
+    const e = new Error(`${new URL(url).hostname} 응답 ${res.status}`);
+    e.status = res.status;
+    // 스코프를 늘린 뒤 옛 토큰으로 새 API를 부르면 여기로 온다. 본문의 사유까지 본다.
+    e.body = await res.text().catch(() => '');
+    throw e;
+  }
   return res.json();
 };
 
@@ -313,7 +325,37 @@ async function oneDriveFeed(token) {
   return { items, note: items.length ? null : '최근에 연 문서가 없습니다.' };
 }
 
-const FEEDS = { gmail: gmailFeed, gcalendar: calendarFeed, gphotos: photosFeed, onedrive: oneDriveFeed };
+/** 아직 안 끝낸 할 일 몇 개. 기한이 있는 것이 먼저 온다. */
+async function tasksFeed(token) {
+  const q = new URLSearchParams({
+    showCompleted: 'false',
+    showHidden: 'false',
+    maxResults: String(FEED_MAX * 2),   // 완료된 것이 섞여 와도 다섯은 남게 넉넉히
+  });
+  const data = await askJson(`https://tasks.googleapis.com/tasks/v1/lists/@default/tasks?${q}`, token);
+
+  const items = (data.items || [])
+    .filter((t) => t.status !== 'completed' && t.title)
+    // 기한이 있는 것을 앞에, 그 안에서는 빠른 것부터. 기한 없는 것은 뒤로 민다.
+    .sort((a, b) => (a.due || '9999').localeCompare(b.due || '9999'))
+    .slice(0, FEED_MAX)
+    .map((t) => ({
+      title: t.title,
+      sub: t.notes ? String(t.notes).replace(/[\r\n]+/g, ' ').trim().slice(0, 40) : '',
+      at: t.due || null,
+      allDay: true,                     // 구글 할일의 기한은 날짜까지다(시각이 없다)
+    }));
+
+  return { items, note: items.length ? null : '남은 할 일이 없습니다.' };
+}
+
+const FEEDS = {
+  gmail: gmailFeed,
+  gcalendar: calendarFeed,
+  gphotos: photosFeed,
+  gtasks: tasksFeed,
+  onedrive: oneDriveFeed,
+};
 
 /**
  * 카드 앞면에 얹을 것.
@@ -343,6 +385,11 @@ export async function feedFor(env, ctx, userId, key) {
     return out;
   } catch (e) {
     console.warn('feed 실패', key, e.message);
+    // 스코프를 늘린 뒤 옛 토큰으로 부르면 403이 온다. "불러오지 못했습니다"로 뭉뚱그리면
+    // 무엇을 해야 하는지 알 수 없다 — 다시 연결하라고 그대로 말해 준다.
+    if (e.status === 403 && /insufficient|scope/i.test(String(e.body || ''))) {
+      return { state: 'reconnect', items: [], provider };
+    }
     return { state: 'error', items: [], provider, note: e.message };
   }
 }

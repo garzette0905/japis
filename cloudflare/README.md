@@ -66,7 +66,8 @@ npx wrangler d1 execute japis-db --remote --file=./schema.sql
 ### 협업 연동 키 만들기 (선택)
 
 **구글** — [Google Cloud Console](https://console.cloud.google.com/) → 프로젝트 생성 →
-*API 및 서비스*에서 **Photos Library API · Gmail API · Calendar API** 사용 설정 →
+*API 및 서비스*에서 **Photos Library API · Gmail API · Calendar API · Tasks API**
+사용 설정 →
 *OAuth 동의 화면*(외부, 테스트 사용자에 본인 계정 추가) → *사용자 인증 정보 →
 OAuth 클라이언트 ID(웹 애플리케이션)*.
 
@@ -84,8 +85,13 @@ https://<포털주소>/connect/microsoft/callback
 
 구글 쪽에서 빠뜨리기 쉬운 것들:
 
-- **API 세 개를 각각** 사용 설정해야 합니다. 하나라도 빠지면 그 카드만 *불러오지
-  못했습니다* 로 뜹니다(나머지는 잘 나옵니다 — 그래서 원인이 잘 안 보입니다).
+- **API 네 개를 각각** 사용 설정해야 합니다(Photos Library · Gmail · Calendar · **Tasks**).
+  하나라도 빠지면 그 카드만 *불러오지 못했습니다* 로 뜹니다(나머지는 잘 나옵니다 —
+  그래서 원인이 잘 안 보입니다).
+- **권한(스코프)을 늘린 뒤에는 다시 연결해야 합니다.** 구글은 이미 내준 토큰에 새 권한을
+  얹어 주지 않습니다. 옛 토큰을 조용히 그대로 쓰다가 새 API에서만 403을 냅니다.
+  포털이 이 경우를 알아보고 카드에 *구글 다시 연결하기* 를 띄웁니다 — 그것을 누르거나
+  **협업 → 연결 끊기 → 연결하기** 를 한 번 하면 됩니다.
 - OAuth 동의 화면이 **테스트** 상태면 *테스트 사용자* 에 `garzette@gmail.com` 을 넣어야
   합니다. 안 넣으면 동의 화면에서 `403 access_denied` 로 막힙니다.
 - 리디렉션 URI는 **한 글자도 다르면 안 됩니다**(끝의 `/` 유무 포함).

@@ -1291,6 +1291,9 @@ function frameAllowed(res, origin) {
 async function probeFrame(env, s) {
   if (s.frame === false) return false;
   if (!isReady(s)) return false;
+  // frame: true 는 "조사하지 말고 담아라"다. 로그인해야 보이는 임베드는 서버가
+  // 로그인하지 않은 채로 두드려서 구글 로그인 화면(DENY)을 보게 된다.
+  if (s.frame === true) return true;
   const url = frameUrlOf(s);           // 프레임에 실제로 들어갈 주소를 조사해야 한다
   let target;
   try {

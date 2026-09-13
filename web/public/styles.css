@@ -507,11 +507,86 @@ body.frame-open .shell { grid-template-columns: 232px minmax(0, 1fr) minmax(380p
   font-size: 16px; color: var(--ink-muted); max-width: 60ch;
 }
 
+/* 대시보드 — 한 화면에 들어오도록 위아래를 조인다 */
+.page-head.tight { margin-bottom: var(--s-lg); }
+.page-head.tight .page-title { font-size: 32px; letter-spacing: -.75px; }
+.page-head.tight + .section { margin-top: 0; }
+.page-head.tight ~ .section { margin-top: var(--s-lg); }
+
 .section { margin-top: var(--s-xxl); }
 .section-title {
   font-size: 22px; line-height: 1.27; letter-spacing: -.25px;
   margin-bottom: var(--s-md);
 }
+/* 대시보드의 묶음 이름 — 타일이 주인공이라 제목은 한 단 낮춘다 */
+.section-title.sm {
+  font-size: 12px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-bottom: var(--s-xs);
+}
+
+/* ---------- 대시보드 타일 — 이름만 ----------
+   설명까지 붙은 카드는 둘러보라는 뜻이고, 이름만 있는 타일은 고르라는 뜻이다.
+   대시보드는 고르는 곳이라 여기서는 타일을 깐다(설명은 묶음 화면이 맡는다). */
+
+.tiles {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; gap: 6px;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+}
+.tile-row { position: relative; display: flex; }
+
+.tile {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  font: inherit; font-size: 15px; line-height: 1.4;
+  text-align: left;
+  color: var(--ink-secondary);
+  background: var(--surface);
+  border: 1px solid var(--hairline); border-radius: var(--r-md);
+  cursor: pointer;
+}
+.tile:hover { border-color: var(--primary); color: var(--ink); box-shadow: var(--sh-1); }
+.tile:active { transform: scale(.995); }
+
+.tile-ico {
+  flex: none;
+  width: 28px; height: 28px;
+  display: grid; place-items: center;
+  font-size: 15px; line-height: 1;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--a-sky) 16%, transparent);
+}
+.tile-ico.band-purple { background: color-mix(in srgb, var(--a-purple) 34%, transparent); }
+.tile-ico.band-pink   { background: color-mix(in srgb, var(--a-pink)   14%, transparent); }
+.tile-ico.band-orange { background: color-mix(in srgb, var(--a-orange) 13%, transparent); }
+.tile-ico.band-teal   { background: color-mix(in srgb, var(--a-teal)   15%, transparent); }
+.tile-ico.band-green  { background: color-mix(in srgb, var(--a-green)  15%, transparent); }
+.tile-ico.band-sky    { background: color-mix(in srgb, var(--a-sky)    18%, transparent); }
+.tile-ico.band-brown  { background: color-mix(in srgb, var(--a-brown)  12%, transparent); }
+
+.tile-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.tile-row.is-soon .tile { color: var(--ink-faint); cursor: default; background: none; }
+.tile-row.is-soon .tile:hover { border-color: var(--hairline); box-shadow: none; }
+.tile-row.is-soon .tile-ico { filter: grayscale(1); opacity: .5; }
+
+.tile-pop {
+  position: absolute; right: 5px; top: 50%; transform: translateY(-50%);
+  width: 24px; height: 24px;
+  display: grid; place-items: center;
+  font-size: 12px; line-height: 1;
+  color: var(--ink-faint);
+  background: var(--surface);
+  border: 1px solid transparent; border-radius: var(--r-sm);
+  cursor: pointer;
+}
+.tile-pop { opacity: 0; transition: opacity .12s ease, color .12s ease, border-color .12s ease; }
+.tile-row.is-tab .tile-pop { opacity: 1; }
+.tile-row:hover .tile-pop, .tile-pop:focus-visible { opacity: 1; }
+.tile-pop:hover { color: var(--primary); border-color: var(--primary); }
+.tile-row.is-tab .tile-name, .tile-row:hover .tile-name { padding-right: 22px; }
 
 /* ---------- 서비스 카드 ---------- */
 
@@ -630,10 +705,31 @@ body.frame-open .shell { grid-template-columns: 232px minmax(0, 1fr) minmax(380p
   border-radius: var(--r-sm); background: var(--canvas-soft);
 }
 
-/* 대시보드 맨 위의 '오늘' — 메일·일정을 펼쳐 둔 자리 */
-.today { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--s-md); }
-.today-panel { margin: 0; }
-.today-panel .panel-title { display: flex; align-items: center; justify-content: space-between; gap: var(--s-xs); }
+/* 대시보드 맨 위의 '오늘' — 일정·할일·메일을 펼쳐 둔 자리.
+   셋이 한 줄에 서야 대시보드가 한 화면에 들어온다. */
+.today { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--s-sm); }
+.today-panel { margin: 0; padding: var(--s-md); }
+/* 할 일이 스무 개여도 이 칸이 화면을 밀어내지 않게 한다 */
+.today-panel .card-feed { max-height: 168px; overflow-y: auto; }
+.today-panel .panel-title {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s-xs);
+  min-width: 0;
+}
+/* 제목 자체가 여는 단추다 */
+.today-title {
+  display: flex; align-items: center; gap: 7px;
+  min-width: 0; flex: 1 1 auto;
+  padding: 2px 0;
+  font: inherit; font-size: 15px; font-weight: 600; letter-spacing: -.1px;
+  color: var(--ink);
+  background: none; border: none; border-radius: var(--r-sm);
+  cursor: pointer; text-align: left;
+}
+.today-title > span:last-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.today-title:hover { color: var(--primary); }
+.today-title:disabled { color: var(--ink-faint); cursor: default; }
+.today-panel .card-pop { position: static; flex: none; opacity: 1; border-color: transparent; }
+.today-panel .card-pop:hover { border-color: var(--primary); }
 .today-panel .card-feed { border-top: none; margin-top: 0; padding-top: 0; }
 .today-panel .feed-list { gap: var(--s-sm); }
 
@@ -853,6 +949,7 @@ table.data tr:last-child td { border-bottom: none; }
   .page-title { font-size: 30px; letter-spacing: -.75px; }
   .cards { grid-template-columns: 1fr; }
   .today { grid-template-columns: 1fr; }
+  .tiles { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
   .perm-grid { grid-template-columns: 1fr; }
   .panel { padding: var(--s-md); }
 }

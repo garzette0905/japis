@@ -664,7 +664,7 @@ function liveCardHtml(s) {
 }
 
 function wireCards(root) {
-  root.querySelectorAll('.card[data-key], .card-live button[data-key], .btn-utility[data-key]').forEach((btn) => {
+  root.querySelectorAll('.card[data-key], .card-live button[data-key], .btn-utility[data-key], .tile[data-key], .today-title[data-key]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const s = state.services.find((x) => x.key === btn.dataset.key);
       if (s) openService(s);
@@ -698,6 +698,10 @@ function feedHtml(key, f) {
   }
   if (f.state === 'unconfigured') {
     return '<p class="feed-note">연동 설정 전입니다. (관리자가 제공자 키를 등록해야 합니다)</p>';
+  }
+  if (f.state === 'reconnect') {
+    return `<p class="feed-note">권한이 하나 늘었습니다. 구글을 다시 연결해 주세요.</p>
+      <a class="btn-utility" href="/connect/google/start">구글 다시 연결하기</a>`;
   }
   if (f.state === 'disconnected') {
     return `<p class="feed-note">아직 연결하지 않았습니다.</p>
@@ -986,6 +990,7 @@ const groupLabel = (key) => state.groups.find((g) => g.key === key)?.label || ke
 
 const TODAY = [
   { key: 'gcalendar', title: '다가오는 일정' },
+  { key: 'gtasks', title: '남은 할 일' },
   { key: 'gmail', title: '안 읽은 메일' },
 ];
 
@@ -997,14 +1002,14 @@ function todayHtml() {
     <div class="today">${panels
       .map((s) => {
         const t = TODAY.find((x) => x.key === s.key);
+        // 제목 자체가 여는 단추다. 옆에 '열기' 를 또 두면 세 칸이 나란히 설 자리가 없다.
         return `<div class="panel today-panel">
           <div class="panel-title">
-            <span>${esc(s.icon)} ${esc(t.title)}</span>
-            <span class="today-acts">
-              <button class="btn-utility" type="button" data-key="${esc(s.key)}"${s.ready ? '' : ' disabled'}>
-                ${s.ready ? '열기' : '준비중'}</button>
-              ${popBtn(s)}
-            </span>
+            <button class="today-title" type="button" data-key="${esc(s.key)}"
+                    title="${esc(s.label)} 열기"${s.ready ? '' : ' disabled'}>
+              <span aria-hidden="true">${esc(s.icon)}</span><span>${esc(t.title)}</span>
+            </button>
+            ${popBtn(s)}
           </div>
           <div class="card-feed" data-feed="${esc(s.key)}"><span class="spinner"></span></div>
         </div>`;
@@ -1013,28 +1018,46 @@ function todayHtml() {
   </section>`;
 }
 
+/**
+ * 대시보드 — **한 화면에 들어와야 한다.**
+ *
+ * 카드에 설명까지 붙여 놓으니 스크롤을 두세 번 굴려야 끝이 보였다. 대시보드는
+ * 둘러보는 곳이 아니라 **고르는 곳**이다. 그래서 여기서는 이름만 남긴 작은 타일로
+ * 깔고, 설명·계정·저장소 같은 나머지는 묶음 화면(#/g/<key>)이 맡는다.
+ */
 function renderDashboard(page) {
-  const groups = menuGroups();
-  const hour = new Date().getHours();
-  const greet = hour < 6 ? '늦은 밤이네요' : hour < 12 ? '좋은 아침입니다' : hour < 18 ? '좋은 오후입니다' : '좋은 저녁입니다';
+  const greetHour = new Date().getHours();
+  const greet =
+    greetHour < 6 ? '늦은 밤이네요' : greetHour < 12 ? '좋은 아침입니다' : greetHour < 18 ? '좋은 오후입니다' : '좋은 저녁입니다';
   const who = state.me.name || state.me.email.split('@')[0];
 
-  const sections = groups
+  const tile = (s) => `<li class="tile-row${s.ready ? '' : ' is-soon'}${opensInTab(s) ? ' is-tab' : ''}">
+      <button class="tile" type="button" data-key="${esc(s.key)}"${s.ready ? '' : ' disabled'}>
+        <span class="tile-ico band-${esc(s.accent || 'sky')}" aria-hidden="true">${esc(s.icon || '•')}</span>
+        <span class="tile-name">${esc(s.label)}</span>
+      </button>
+      ${
+        s.ready && s.external
+          ? `<button class="tile-pop" type="button" data-pop="${esc(s.key)}"
+               title="새 탭에서 열기" aria-label="${esc(s.label)} 새 탭에서 열기">↗</button>`
+          : ''
+      }
+    </li>`;
+
+  const sections = menuGroups()
     .map((g) => {
       const items = state.services.filter((s) => s.group === g.key);
       if (!items.length) return '';
       return `<section class="section">
-          <h2 class="section-title">${esc(g.label)}</h2>
-          <div class="cards">${items.map(cardHtml).join('')}</div>
+          <h2 class="section-title sm">${esc(g.label)}</h2>
+          <ul class="tiles">${items.map(tile).join('')}</ul>
         </section>`;
     })
     .join('');
 
   page.innerHTML = `
-    <div class="page-head">
+    <div class="page-head tight">
       <h1 class="page-title">${esc(greet)}, ${esc(who)}님</h1>
-      <p class="page-lead">흩어져 있던 서비스를 한자리에 모았습니다.
-        누르면 오른쪽에서 열리고, ↗ 를 누르면 새 탭으로 나갑니다.</p>
     </div>
     ${todayHtml()}
     ${sections || emptyHtml('열람할 수 있는 화면이 없습니다.', '관리자에게 화면 권한을 요청해주세요.')}`;

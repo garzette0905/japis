@@ -29,6 +29,9 @@
 //            '붙여 쓰라고' 따로 내주는 주소가 있는 곳에 적는다(구글 캘린더의 임베드).
 //            ↗(새 탭)는 언제나 위의 url 로 나간다 — 프레임은 보기용, 새 탭은 쓰기용.
 //   frame    false 면 오른쪽 프레임에 담지 않고 언제나 새 탭으로 연다(선택).
+//            true 면 **조사하지 않고** 담는다. 로그인해야 보이는 임베드에 쓴다 —
+//            서버는 로그인하지 않은 채로 두드리므로 구글 로그인 화면(DENY)을 보고
+//            "막혔다"고 잘못 판단한다. 실제 브라우저에서 빈 칸이 뜨면 이 줄을 지운다.
 //            제공자가 프레임을 막는 것이 확실한 곳(구글·네이버·OneDrive)과 http(s)가
 //            아닌 주소(obsidian://)에 적어 둔다 — 굳이 물어보고 실패할 이유가 없다.
 //            적지 않으면 서버가 한 번 열어 보고 판단한다(/api/frameable).
@@ -233,6 +236,22 @@ export const SERVICES = [
     account: 'garzette@gmail.com',
     accent: 'green',
     icon: '📅',
+    reauth: false,
+    external: true,
+  },
+  {
+    key: 'gtasks',
+    label: '구글 할일',
+    group: 'collab',
+    desc: '할 일 목록을 연다',
+    url: 'https://tasks.google.com/u/0/?authuser=garzette@gmail.com',
+    // 캘린더와 같은 얼개다 — 프레임에서는 '붙여 쓰라고' 내주는 임베드 주소를 쓰고,
+    // ↗(새 탭)는 위의 본 화면으로 나간다.
+    frameUrl: 'https://tasks.google.com/embed/list/~default?fullWidth=1',
+    frame: true,            // 로그인해야 보이는 임베드라 서버 조사로는 판정할 수 없다
+    account: 'garzette@gmail.com',
+    accent: 'purple',
+    icon: '✅',
     reauth: false,
     external: true,
   },
