@@ -121,7 +121,7 @@ function enterPortal(st) {
   el('gate').hidden = true;
   el('app').hidden = false;
   loadCredentials();
-  loadFrameable();
+  loadFrameableAndPaint();
   renderNav();
   renderSide();
   renderFoot();
@@ -428,18 +428,25 @@ function renderSide() {
   const on = (h) => (hash === h ? ' is-active' : '');
 
   // 한 줄 = [아이콘] 이름 … [↗]. ↗ 는 평소 숨어 있다가 그 줄에 손이 닿을 때만 나온다.
-  const row = (s) => `<li class="side-row${s.ready ? '' : ' is-soon'}">
-      <button class="side-item" type="button" data-key="${esc(s.key)}" title="${esc(s.label)}"${s.ready ? '' : ' disabled'}>
+  // 새 탭으로만 열리는 줄은 ↗ 를 **늘** 보여 준다 — 그것이 그 줄의 유일한 길이라서다.
+  // 프레임에서 열리는 줄은 손이 닿을 때만 나온다(기본 동작이 프레임이므로).
+  const row = (s) => {
+    const tab = opensInTab(s);
+    const hint = tab ? '새 탭에서 열립니다' : '오른쪽에서 열기 · ↗ 는 새 탭';
+    return `<li class="side-row${s.ready ? '' : ' is-soon'}${tab ? ' is-tab' : ''}">
+      <button class="side-item" type="button" data-key="${esc(s.key)}"
+              title="${esc(s.label)} — ${hint}"${s.ready ? '' : ' disabled'}>
         <span class="side-ico band-${esc(s.accent || 'sky')}" aria-hidden="true">${esc(s.icon || '•')}</span>
         <span class="side-name">${esc(s.label)}</span>
       </button>
       ${
         s.ready && s.external
           ? `<button class="side-pop" type="button" data-pop="${esc(s.key)}"
-               title="새 창에서 열기" aria-label="${esc(s.label)} 새 창에서 열기">↗</button>`
+               title="새 탭에서 열기" aria-label="${esc(s.label)} 새 탭에서 열기">↗</button>`
           : ''
       }
     </li>`;
+  };
 
   const groups = menuGroups()
     .map((g) => {
@@ -589,12 +596,17 @@ function route() {
 // 서비스 카드
 // ──────────────────────────────────────────────────────────────
 
+/** 카드에 붙는 한 마디 — **어디서 열리는지**를 그대로 적는다. 눌러 보고 알게 하지 않는다. */
 const cardTag = (s) =>
   !s.ready
     ? '<span class="tag">준비중</span>'
     : s.reauth
       ? '<span class="tag">🔒 재인증</span>'
-      : '<span class="tag open">바로 열기</span>';
+      : !s.external
+        ? '<span class="tag open">바로 열기</span>'
+        : opensInTab(s)
+          ? '<span class="tag">↗ 새 탭</span>'
+          : '<span class="tag open">▸ 오른쪽에서</span>';
 
 const cardMark = (s) => `
   <span class="card-top">
@@ -613,7 +625,7 @@ const cardFoot = (s) =>
 const popBtn = (s) =>
   s.ready && s.external
     ? `<button class="card-pop" type="button" data-pop="${esc(s.key)}"
-         title="새 창에서 열기" aria-label="${esc(s.label)} 새 창에서 열기">↗</button>`
+         title="새 탭에서 열기" aria-label="${esc(s.label)} 새 탭에서 열기">↗</button>`
     : '';
 
 function cardHtml(s) {
@@ -788,6 +800,20 @@ async function loadFrameable() {
   }
 }
 
+/**
+ * 처음 들어올 때 한 번. 답이 오면 메뉴와 본문을 다시 그린다 —
+ * "이건 새 탭에서 열립니다" 표시가 이 답에 달려 있기 때문이다.
+ */
+async function loadFrameableAndPaint() {
+  await loadFrameable();
+  if (el('app').hidden) return;
+  renderSide();
+  route();
+}
+
+/** 눌렀을 때 새 탭으로 나가는 화면인가(= 프레임에 담기지 않는다). */
+const opensInTab = (s) => !!s.external && s.ready && !canFrame(s);
+
 // ---------- 오른쪽 프레임 ----------
 
 let framed = null;
@@ -809,7 +835,7 @@ function openFrame(s) {
   // 포털의 뒤로가기가 엉킨다.
   el('frame-body').innerHTML = `
     <iframe class="frame-view" id="frame-view" title="${esc(s.label)}"
-            src="/go/${encodeURIComponent(s.key)}"
+            src="/go/${encodeURIComponent(s.key)}?in=frame"
             referrerpolicy="no-referrer"
             sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-modals allow-top-navigation-by-user-activation"></iframe>
     <div class="frame-fallback" id="frame-fallback" hidden>

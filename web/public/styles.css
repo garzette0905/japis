@@ -428,20 +428,25 @@ body.frame-open .shell { grid-template-columns: 232px minmax(0, 1fr) minmax(380p
 }
 .side-solo.is-active { position: relative; }
 
-/* ↗ — 평소에는 없는 셈 치고, 그 줄에 손이 닿을 때만 나온다 */
+/* ↗ — 새 탭으로만 열리는 줄(.is-tab)은 **늘** 보인다. 그것이 그 줄의 유일한 길이다.
+   프레임에서 열리는 줄은 기본 동작이 따로 있으니 손이 닿을 때만 나온다. */
 .side-pop {
   position: absolute; right: 6px;
   width: 24px; height: 24px;
   display: grid; place-items: center;
   font-size: 12px; line-height: 1;
-  color: var(--ink-muted);
+  color: var(--ink-faint);
   background: var(--canvas);
   border: 1px solid var(--hairline); border-radius: var(--r-sm);
   cursor: pointer; opacity: 0;
-  transition: opacity .12s ease;
+  transition: opacity .12s ease, color .12s ease, border-color .12s ease;
 }
+.side-row.is-tab .side-pop { opacity: 1; border-color: transparent; background: none; }
 .side-row:hover .side-pop, .side-pop:focus-visible { opacity: 1; }
+.side-row:hover .side-pop { border-color: var(--hairline); background: var(--canvas); }
 .side-pop:hover { color: var(--primary); border-color: var(--primary); }
+/* ↗ 자리를 비워 둔다 — 이름이 단추 밑으로 들어가지 않게 */
+.side-row.is-tab .side-name, .side-row:hover .side-name { padding-right: 22px; }
 
 /* ---------- 오른쪽 프레임 ---------- */
 
@@ -587,13 +592,10 @@ body.frame-open .shell { grid-template-columns: 232px minmax(0, 1fr) minmax(380p
   color: var(--ink-muted);
   background: var(--surface);
   border: 1px solid var(--hairline); border-radius: var(--r-sm);
-  cursor: pointer; opacity: 0;
-  transition: opacity .12s ease;
+  cursor: pointer;
+  transition: color .12s ease, border-color .12s ease;
 }
-.card-wrap:hover .card-pop, .card-pop:focus-visible { opacity: 1; }
-.card-pop:hover { color: var(--primary); border-color: var(--primary); }
-/* 손가락으로 만지는 화면에는 hover 가 없다 — 늘 보이게 둔다 */
-@media (hover: none) { .card-pop, .side-pop { opacity: 1; } }
+.card-pop:hover { color: var(--primary); border-color: var(--primary); background: var(--canvas-soft); }
 
 .today-acts { display: inline-flex; align-items: center; gap: 6px; }
 .today-acts .card-pop { position: static; opacity: 1; }

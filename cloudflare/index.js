@@ -977,7 +977,7 @@ async function apiUnlock(request, env, ctx, user, sess) {
  * 목록 API가 url 을 담지 않으므로, 페이지 소스를 뒤져도 서비스 주소가 나오지 않는다.
  * 잠금이 걸린 화면은 잠금해제 없이 이 문을 통과할 수 없다.
  */
-async function goService(request, env, ctx, user, sess, key) {
+async function goService(request, env, ctx, user, sess, key, inFrame = false) {
   const s = serviceOf(key);
   if (!s) return text('없는 화면입니다.', 404);
 
@@ -989,7 +989,7 @@ async function goService(request, env, ctx, user, sess, key) {
   }
 
   logAccess(env, ctx, request, { userId: user.id, email: user.email, action: 'open', serviceKey: key });
-  return redirect(s.url, { 'Referrer-Policy': 'no-referrer' });
+  return redirect(inFrame ? frameUrlOf(s) : s.url, { 'Referrer-Policy': 'no-referrer' });
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -1260,6 +1260,15 @@ async function adminLogs(env, url) {
 
 const FRAME_TTL = 86400;
 
+/** 프레임에 넣을 주소. 따로 내주는 것이 있으면 그것을, 없으면 본 주소를 쓴다. */
+const frameUrlOf = (s) => s.frameUrl || s.url;
+
+/** 캐시 키에 섞을 짧은 지문. 주소가 바뀌면 옛 판정이 딸려 오지 않게 한다. */
+async function shortHash(text) {
+  const bits = await crypto.subtle.digest('SHA-256', enc.encode(String(text)));
+  return b64url(new Uint8Array(bits)).slice(0, 12);
+}
+
 /** 헤더만 보고 판단한다. 본문은 읽지 않고 곧바로 버린다. */
 function frameAllowed(res, origin) {
   const xfo = String(res.headers.get('X-Frame-Options') || '').trim().toLowerCase();
@@ -1282,22 +1291,24 @@ function frameAllowed(res, origin) {
 async function probeFrame(env, s) {
   if (s.frame === false) return false;
   if (!isReady(s)) return false;
+  const url = frameUrlOf(s);           // 프레임에 실제로 들어갈 주소를 조사해야 한다
   let target;
   try {
-    target = new URL(s.url);
+    target = new URL(url);
   } catch {
     return false;                       // 상대 주소(포털 안 화면) — 프레임을 쓸 일이 없다
   }
   if (target.protocol !== 'https:' && target.protocol !== 'http:') return false;  // obsidian:// 등
 
-  const cacheKey = `frame:${s.key}`;
+  // 주소를 고치면 옛 판정이 남지 않게 캐시 키에 주소를 섞는다.
+  const cacheKey = `frame:${s.key}:${await shortHash(url)}`;
   const hit = await env.SESSIONS.get(cacheKey, 'json').catch(() => null);
   if (hit && typeof hit.ok === 'boolean') return hit.ok;
 
   let ok = true;
   try {
     // redirect:'manual' 로 두면 중간 302에 헤더가 없어 오판한다 — 끝까지 따라간다.
-    const res = await fetch(s.url, { method: 'GET', redirect: 'follow', headers: { 'User-Agent': 'JAPIS/1.0' } });
+    const res = await fetch(url, { method: 'GET', redirect: 'follow', headers: { 'User-Agent': 'JAPIS/1.0' } });
     ok = frameAllowed(res, env.BASE_URL);
     if (res.body) await res.body.cancel();
   } catch (e) {
@@ -1514,7 +1525,9 @@ export default {
       // ---- 실제 서비스로 나가는 유일한 문 ----
       const mGo = path.match(/^\/go\/([a-z0-9_-]{1,40})$/i);
       if (mGo && method === 'GET') {
-        return requireLogin(request, env, (user, sess) => goService(request, env, ctx, user, sess, mGo[1]));
+        // ?in=frame 이면 오른쪽 프레임이 부른 것이다 — frameUrl 이 있으면 그쪽으로 보낸다.
+        const inFrame = url.searchParams.get('in') === 'frame';
+        return requireLogin(request, env, (user, sess) => goService(request, env, ctx, user, sess, mGo[1], inFrame));
       }
 
       // ---- 관리자 ----

@@ -25,6 +25,9 @@
 //            오가는 협업 묶음에서 "지금 어느 계정으로 들어가는지"가 늘 헷갈린다.
 //   route    포털 **안**의 화면일 때 그 해시 주소(선택). 있으면 새로 고치지 않고
 //            그 자리에서 넘어간다. /go/<key> 로 직접 들어와도 같은 곳에 닿는다.
+//   frameUrl 오른쪽 프레임에서만 쓰는 다른 주소(선택). 본 화면은 프레임을 막아 두었지만
+//            '붙여 쓰라고' 따로 내주는 주소가 있는 곳에 적는다(구글 캘린더의 임베드).
+//            ↗(새 탭)는 언제나 위의 url 로 나간다 — 프레임은 보기용, 새 탭은 쓰기용.
 //   frame    false 면 오른쪽 프레임에 담지 않고 언제나 새 탭으로 연다(선택).
 //            제공자가 프레임을 막는 것이 확실한 곳(구글·네이버·OneDrive)과 http(s)가
 //            아닌 주소(obsidian://)에 적어 둔다 — 굳이 물어보고 실패할 이유가 없다.
@@ -220,11 +223,17 @@ export const SERVICES = [
     group: 'collab',
     desc: '일정을 연다',
     url: 'https://calendar.google.com/calendar/r?authuser=garzette@gmail.com',
+    // 캘린더 본 화면은 X-Frame-Options: SAMEORIGIN 이라 프레임에 담기지 않는다. 다만
+    // **임베드 주소**는 애초에 남의 사이트에 붙이라고 만든 것이라 그 헤더가 없다 —
+    // 오른쪽 프레임에서는 이쪽을 쓴다(↗ 로 새 탭을 열면 위의 본 화면으로 나간다).
+    // mode=AGENDA 는 좁은 칸에서 가장 잘 읽히는 '일정 목록' 모양이다.
+    //   바꿀 수 있는 것: mode=MONTH|WEEK|AGENDA · ctz(시간대) · showTitle=0 등
+    frameUrl:
+      'https://calendar.google.com/calendar/embed?src=garzette%40gmail.com&ctz=Asia%2FSeoul&mode=AGENDA&showTitle=0&showPrint=0&showCalendars=0',
     account: 'garzette@gmail.com',
     accent: 'green',
     icon: '📅',
     reauth: false,
-    frame: false,           // 구글은 X-Frame-Options: DENY 로 내려온다
     external: true,
   },
   {
