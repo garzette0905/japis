@@ -44,6 +44,7 @@ const FOLDER_COLORS = ['sky', 'green', 'orange', 'purple', 'pink', 'teal', 'brow
 /** 다른 화면으로 넘어가기 전에 부른다(app.js 의 라우터가 부른다). 쓰다 만 것을 흘리지 않는다. */
 export function wikiLeaving() {
   clearTimeout(saveTimer);
+  dropImage();
   if (wiki.editing && wiki.dirty) saveNote({ silent: true });
 }
 
@@ -63,6 +64,7 @@ export async function renderWiki(page, sub) {
 
 async function renderBoard(page) {
   wiki.editing = null;
+  dropImage();
   page.innerHTML = `
     <div class="wiki">
       <aside class="wiki-side" id="wiki-side"></aside>
@@ -234,7 +236,7 @@ function paintBar() {
                 title="목록으로 보기" aria-label="목록으로 보기">☰</button>
       </div>
       <label class="btn-utility wiki-import" title="html 파일을 메모로 불러옵니다">
-        <span aria-hidden="true">📥</span> 불러오기
+        <span aria-hidden="true">📥</span> <span class="wiki-lbl">불러오기</span>
         <input type="file" id="wiki-import" accept=".html,.htm,text/html" multiple hidden>
       </label>
     </div>`;
@@ -553,6 +555,7 @@ const HIGHLIGHT = ['#fff3a3', '#c8f7c5', '#c9e7ff', '#ffd6e7', '#e7dcff', '#ffe0
 
 async function openEditor(page, id) {
   wiki.dirty = false;
+  dropImage();          // 앞서 열었던 메모의 손잡이가 남아 있지 않게
 
   // 폴더 목록이 없으면(바로 #/wiki/12 로 들어온 경우) 먼저 받아 둔다 — 위쪽 폴더 고르개가 쓴다.
   if (!wiki.folders.length) {
@@ -592,7 +595,9 @@ async function openEditor(page, id) {
   page.innerHTML = `
     <div class="wiki-editor">
       <div class="wiki-ed-head">
-        <button class="btn-utility" type="button" id="ed-back" title="목록으로">← 목록</button>
+        <button class="btn-utility" type="button" id="ed-back" title="목록으로" aria-label="목록으로">
+          ← <span class="wiki-lbl">목록</span>
+        </button>
         <select id="ed-folder" class="wiki-select" aria-label="폴더">
           <option value="">내 메모</option>
           ${wiki.folders
@@ -603,11 +608,12 @@ async function openEditor(page, id) {
         <div class="wiki-ed-acts">
           <button class="wiki-act${note.starred ? ' is-on' : ''}" type="button" id="ed-star"
                   title="중요 표시" aria-label="중요 표시">${note.starred ? '★' : '☆'}</button>
-          <button class="btn-utility" type="button" id="ed-export" title="이 메모를 html 파일로 내려받습니다">
-            <span aria-hidden="true">📤</span> html 저장
+          <button class="btn-utility" type="button" id="ed-export" title="이 메모를 html 파일로 내려받습니다"
+                  aria-label="html 파일로 저장">
+            <span aria-hidden="true">📤</span> <span class="wiki-lbl">html 저장</span>
           </button>
           <label class="btn-utility" title="html 파일의 내용을 이 메모에 덧붙입니다">
-            <span aria-hidden="true">📥</span> html 열기
+            <span aria-hidden="true">📥</span> <span class="wiki-lbl">html 열기</span>
             <input type="file" id="ed-import" accept=".html,.htm,text/html" hidden>
           </label>
           <button class="btn-utility" type="button" id="ed-del" title="휴지통으로">🗑️</button>
@@ -865,12 +871,26 @@ function wireEditor() {
   // (checked 프로퍼티만 바뀐다) 여기서 속성에 그대로 옮겨 적는다. 그래야 저장된다.
   body.addEventListener('click', (e) => {
     const box = e.target.closest('input[type=checkbox]');
-    if (!box) return;
-    if (box.checked) box.setAttribute('checked', '');
-    else box.removeAttribute('checked');
-    box.closest('li')?.classList.toggle('todo-done', box.checked);
-    touched();
+    if (box) {
+      if (box.checked) box.setAttribute('checked', '');
+      else box.removeAttribute('checked');
+      box.closest('li')?.classList.toggle('todo-done', box.checked);
+      touched();
+      return;
+    }
+    // 사진을 누르면 고른다(크기 손잡이가 붙는다). 그 밖을 누르면 풀린다.
+    const img = e.target.closest('img');
+    if (img && body.contains(img)) selectImage(img);
+    else dropImage();
   });
+
+  // 글을 고쳐 쓰기 시작하면 사진 고르기는 풀린다 — 손잡이가 글자 위에 남으면 걸리적거린다.
+  body.addEventListener('input', dropImage);
+  body.addEventListener('blur', () => setTimeout(() => {
+    // 손잡이를 잡느라 본문에서 손이 떠난 것뿐이면 풀지 않는다.
+    if (!document.activeElement?.closest?.('.wiki-imgbox')) dropImage();
+  }, 150));
+  window.addEventListener('resize', paintImageBox);
 
   // 붙여넣기 — 그림은 올리고, 글은 서식을 지키되 위험한 것은 서버가 다시 씻는다.
   body.addEventListener('paste', (e) => {
@@ -987,6 +1007,157 @@ async function deleteFromEditor() {
   } catch (e) {
     toast(e.message);
   }
+}
+
+// ---------- 사진 고르기 · 크기 바꾸기 ----------
+//
+// 사진을 한 번 누르면 '고른' 상태가 된다. 고른 사진에는 네 귀퉁이에 손잡이가 붙고,
+// 위에는 크기 단추(작게·중간·크게·원본)가 뜬다.
+//
+// 왜 손잡이만으로 끝내지 않는가 — 휴대폰에서 귀퉁이를 정확히 집어 끄는 것은 생각보다
+// 어렵다(손가락이 사진을 가린다). 그래서 **한 번 눌러 끝나는 크기 단추**를 같이 둔다.
+// 손잡이는 마우스가 있는 곳에서, 단추는 어디서나.
+//
+// 크기는 <img width="320"> 로 적는다. style 이 아니라 속성으로 두는 이유는 html 로
+// 내보낸 파일에서도, 씻어 내는 쪽(ALLOWED_ATTR.img)에서도 그대로 살아남기 때문이다.
+// 높이는 적지 않는다 — 폭만 주면 브라우저가 비율을 지킨다.
+
+let picked = null;        // 지금 고른 <img>
+let imgBox = null;        // 그 위에 얹은 손잡이 상자
+
+const SIZES = [
+  { label: '작게', ratio: 0.25 },
+  { label: '중간', ratio: 0.5 },
+  { label: '크게', ratio: 1 },
+  { label: '원본', ratio: null },   // 폭을 지운다 — 사진이 가진 크기로 돌아간다
+];
+
+function selectImage(img) {
+  if (picked === img) return void paintImageBox();
+  dropImage();
+  picked = img;
+  img.classList.add('is-picked');
+
+  // 브라우저의 고르기에도 이 사진을 얹어 둔다. 그래야 Backspace 로 지우는 것과
+  // 가운데 맞춤 같은 명령이 **따로 만들지 않아도** 그대로 먹는다.
+  try {
+    const r = document.createRange();
+    r.selectNode(img);
+    const sel = getSelection();
+    sel.removeAllRanges();
+    sel.addRange(r);
+  } catch {
+    /* 고르기를 못 얹어도 손잡이는 그대로 쓴다 */
+  }
+
+  imgBox = document.createElement('div');
+  imgBox.className = 'wiki-imgbox';
+  imgBox.innerHTML =
+    '<div class="wiki-imgsize">' +
+    SIZES.map((z, i) => `<button type="button" data-size="${i}">${z.label}</button>`).join('') +
+    '<span class="wiki-imgpx" aria-live="off"></span>' +
+    '</div>' +
+    ['nw', 'ne', 'sw', 'se'].map((c) => `<span class="wiki-grip is-${c}" data-grip="${c}"></span>`).join('');
+
+  (document.querySelector('.wiki-sheet') || el('ed-body').parentNode).appendChild(imgBox);
+
+  // 단추를 눌러도 본문에서 손이 떠나지 않게 한다(떠나면 고르기가 풀린다).
+  imgBox.addEventListener('mousedown', (e) => {
+    if (!e.target.closest('[data-grip]')) e.preventDefault();
+  });
+  imgBox.querySelectorAll('[data-size]').forEach((b) =>
+    b.addEventListener('click', () => sizeImage(SIZES[Number(b.dataset.size)].ratio))
+  );
+  imgBox.querySelectorAll('[data-grip]').forEach((g) => g.addEventListener('pointerdown', startResize));
+
+  paintImageBox();
+}
+
+function dropImage() {
+  if (picked) picked.classList.remove('is-picked');
+  picked = null;
+  imgBox?.remove();
+  imgBox = null;
+}
+
+/** 손잡이 상자를 사진 위에 맞춰 놓는다. 종이(.wiki-sheet) 안에서의 자리로 잡는다. */
+function paintImageBox() {
+  if (!picked || !imgBox) return;
+  const sheet = imgBox.offsetParent;
+  if (!sheet) return;
+  const a = picked.getBoundingClientRect();
+  const b = sheet.getBoundingClientRect();
+  imgBox.style.left = a.left - b.left + sheet.scrollLeft + 'px';
+  imgBox.style.top = a.top - b.top + sheet.scrollTop + 'px';
+  imgBox.style.width = a.width + 'px';
+  imgBox.style.height = a.height + 'px';
+  // 사진이 종이 맨 위에 붙어 있으면 크기 단추가 놓일 자리가 없다 — 아래로 내려 붙인다.
+  imgBox.classList.toggle('is-below', a.top - b.top < 44);
+  const px = imgBox.querySelector('.wiki-imgpx');
+  if (px) px.textContent = Math.round(a.width) + '×' + Math.round(a.height);
+}
+
+/** 본문 한 줄이 쓸 수 있는 폭. 크기 단추의 '크게'(100%)가 여기에 맞춘다. */
+const bodyWidth = () => Math.max(120, el('ed-body')?.clientWidth || 640);
+
+function setWidth(px) {
+  if (!picked) return;
+  picked.removeAttribute('height');
+  picked.style.removeProperty('height');
+  if (px === null) {
+    picked.removeAttribute('width');
+    picked.style.removeProperty('width');
+  } else {
+    picked.setAttribute('width', String(Math.round(px)));
+    picked.style.removeProperty('width');   // 속성과 style 이 다투지 않게 한쪽만 쓴다
+  }
+  paintImageBox();
+  touched();
+}
+
+const sizeImage = (ratio) => setWidth(ratio === null ? null : bodyWidth() * ratio);
+
+/**
+ * 귀퉁이를 끌어 크기를 바꾼다. pointer 이벤트 하나로 마우스와 손가락을 함께 받는다.
+ *
+ * ⚠️ 끄는 동안의 이벤트는 **window** 에서 듣는다. 손잡이에 걸어 두면 손이 손잡이
+ *    밖으로 조금만 나가도 거기서 끊긴다 — 빠르게 끌면 늘 일어나는 일이다.
+ *    setPointerCapture 가 그 자리를 메워 주지만 그것 하나에만 기대지는 않는다.
+ *    (그 함수는 붙잡을 포인터가 없으면 예외를 던지고, 그러면 끌기 자체가 시작도
+ *     못 한 채 조용히 죽는다. 손잡이 하나가 먹지 않는 고장이 실제로 이것이었다.)
+ */
+function startResize(e) {
+  if (!picked) return;
+  e.preventDefault();
+  e.stopPropagation();
+
+  const grip = e.currentTarget;
+  const west = grip.dataset.grip.includes('w');    // 왼쪽 손잡이는 끄는 방향이 반대다
+  const startX = e.clientX;
+  const startW = picked.getBoundingClientRect().width;
+  const max = bodyWidth();
+  try {
+    grip.setPointerCapture(e.pointerId);
+  } catch {
+    /* 못 붙잡아도 window 가 듣고 있으니 그대로 간다 */
+  }
+  document.body.classList.add('wiki-resizing');
+
+  const move = (ev) => {
+    const dx = (ev.clientX - startX) * (west ? -1 : 1);
+    // 40px 보다 작게는 줄이지 않는다 — 그보다 작아지면 다시 잡을 손잡이가 없어진다.
+    setWidth(Math.min(Math.max(startW + dx, 40), max));
+  };
+  const up = () => {
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', up);
+    window.removeEventListener('pointercancel', up);
+    document.body.classList.remove('wiki-resizing');
+    saveNote({ silent: true });
+  };
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', up);
+  window.addEventListener('pointercancel', up);
 }
 
 // ---------- 사진 ----------

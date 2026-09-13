@@ -302,6 +302,8 @@
 /* ---------- 종이 ---------- */
 
 .wiki-sheet {
+  /* 사진 손잡이 상자(.wiki-imgbox)가 이 안에서 자리를 잡는다 */
+  position: relative;
   background: var(--surface);
   border: 1px solid var(--hairline);
   border-radius: var(--r-lg);
@@ -374,7 +376,84 @@
 }
 .wiki-ed-body ul.wiki-todo li.todo-done { color: var(--ink-faint); text-decoration: line-through; }
 
-/* ---------- 좁은 화면 ---------- */
+/* ---------- 고른 사진 · 크기 손잡이 ---------- */
+
+.wiki-ed-body img { cursor: pointer; }
+.wiki-ed-body img.is-picked { outline: 2px solid var(--primary); outline-offset: 1px; }
+
+/* 끄는 동안에는 글자가 딸려 잡히지 않게 한다 */
+body.wiki-resizing { user-select: none; -webkit-user-select: none; }
+body.wiki-resizing .wiki-ed-body { cursor: nwse-resize; }
+
+.wiki-imgbox {
+  position: absolute;
+  z-index: 4;            /* 붙박이 서식 줄(5)보다 아래 — 올려 붙인 손잡이가 서식 줄을 덮지 않게 */
+  pointer-events: none;      /* 상자 자체는 투명하다 — 손잡이와 단추만 받는다 */
+}
+
+.wiki-grip {
+  position: absolute;
+  width: 14px; height: 14px;
+  background: var(--surface);
+  border: 2px solid var(--primary);
+  border-radius: 3px;
+  pointer-events: auto;
+  touch-action: none;        /* 끌 때 화면이 같이 밀리지 않게 */
+}
+.wiki-grip.is-nw { top: -7px;    left: -7px;  cursor: nwse-resize; }
+.wiki-grip.is-ne { top: -7px;    right: -7px; cursor: nesw-resize; }
+.wiki-grip.is-sw { bottom: -7px; left: -7px;  cursor: nesw-resize; }
+.wiki-grip.is-se { bottom: -7px; right: -7px; cursor: nwse-resize; }
+
+/* 크기 단추 — 사진 위에 띄운다. 자리가 없으면(맨 위 사진) 아래로 내려 붙인다 */
+.wiki-imgsize {
+  position: absolute;
+  bottom: calc(100% + 8px); left: 0;
+  display: flex; align-items: center; gap: 2px;
+  padding: 3px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+  box-shadow: var(--sh-1);
+  pointer-events: auto;
+  white-space: nowrap;
+}
+.wiki-imgbox:not(.is-below) .wiki-imgsize { bottom: calc(100% + 8px); top: auto; }
+.wiki-imgbox.is-below .wiki-imgsize { top: calc(100% + 8px); bottom: auto; }
+
+.wiki-imgsize button {
+  padding: 4px 9px;
+  font-family: inherit; font-size: 13px;
+  color: var(--ink-secondary);
+  background: none; border: none; border-radius: var(--r-sm);
+  cursor: pointer;
+}
+.wiki-imgsize button:hover { background: var(--canvas); color: var(--primary); }
+.wiki-imgpx { padding: 0 6px; font-size: 11px; color: var(--ink-faint); }
+
+/* ============================================================================
+   좁은 화면 · 손가락
+   ----------------------------------------------------------------------------
+   휴대폰에서도 **읽기만이 아니라 쓰고 고치는** 것까지 다 되어야 한다. 그러려면
+   세 가지가 걸린다 — (1) 마우스가 없으니 hover 로 숨겨 둔 단추는 영영 안 나온다,
+   (2) 서식 단추 25개가 줄바꿈하면 화면 절반을 먹는다, (3) iOS 는 글씨가 16px 보다
+   작은 입력칸을 누르면 화면을 통째로 확대해 버린다. 아래가 그 셋에 대한 답이다.
+   ========================================================================== */
+
+/* (1) 손가락만 있는 기기 — 숨겨 두었던 것을 늘 보이게.
+   hover 가 없는 곳에서 '손이 닿으면 나오는' 단추는 없는 단추와 같다. */
+@media (hover: none) {
+  .wiki-card-acts { opacity: 1; }
+  .wiki-folder-edit { opacity: 1; }
+  .wiki-act { width: 30px; height: 30px; font-size: 14px; }
+  /* 손잡이도 손가락에 맞춰 키운다 */
+  .wiki-grip { width: 20px; height: 20px; }
+  .wiki-grip.is-nw { top: -10px;    left: -10px; }
+  .wiki-grip.is-ne { top: -10px;    right: -10px; }
+  .wiki-grip.is-sw { bottom: -10px; left: -10px; }
+  .wiki-grip.is-se { bottom: -10px; right: -10px; }
+  .wiki-imgsize button { padding: 7px 12px; font-size: 14px; }
+}
 
 /* 프레임을 열어 두면 본문 칸이 좁아진다 — 폴더 칸을 접고 한 줄로 세운다 */
 @media (max-width: 1180px) {
@@ -385,14 +464,72 @@
 @media (max-width: 860px) {
   .wiki { grid-template-columns: minmax(0, 1fr); gap: var(--s-md); }
   .wiki-side { position: static; }
+  /* 폴더 목록을 세로 기둥에서 **가로로 흐르는 알약**으로. 세로로 세우면 메모가
+     화면 밖으로 밀려난다 — 좁은 화면에서 주인공은 메모다. */
   .wiki-nav, .wiki-folders { display: flex; flex-wrap: wrap; gap: 4px; }
-  .wiki-nav-foot { width: 100%; }
-  .wiki-navitem, .wiki-folder-go { width: auto; }
+  .wiki-nav-foot { width: 100%; margin-top: var(--s-xs); padding-top: var(--s-xs); }
+  .wiki-navitem, .wiki-folder-go { width: auto; border: 1px solid var(--hairline); }
   .wiki-side-head { padding: 0; }
   .wiki-where { font-size: 22px; }
-  .wiki-search input { width: 100%; }
   .wiki-search { flex: 1 1 140px; }
+  .wiki-search input, .wiki-search input:focus { width: 100%; }
   .wiki-sheet { padding: var(--s-md); }
   .wiki-ed-title { font-size: 22px; }
   .wiki-list.is-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+}
+
+@media (max-width: 760px) {
+  /* (3) iOS 확대 막기 — 입력칸 글씨는 16px 아래로 내려가지 않는다.
+     (meta viewport 에 user-scalable=no 를 박는 대신 이렇게 한다. 손가락으로
+      넓혀 보는 것까지 막아 버리면 눈이 나쁜 사람에게서 화면을 빼앗는 셈이다.) */
+  .wiki-search input, .wiki-select, .wiki-ed-title, .wiki-ed-body { font-size: 16px; }
+  .wiki-ed-title { font-size: 21px; }
+
+  /* (2) 서식 줄은 **한 줄로 두고 옆으로 민다.** 25개가 줄바꿈하면 다섯 줄이 되어
+     정작 글 쓸 자리가 없어진다. 휴대폰 편집기들이 다 이렇게 한다. */
+  .wiki-toolbar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    top: 0;
+    border-radius: var(--r-md);
+  }
+  .wiki-toolbar::-webkit-scrollbar { display: none; }
+  .wiki-tool-group { flex: none; }
+  .wiki-tool { min-width: 34px; height: 34px; font-size: 15px; }
+  .wiki-tool-select { height: 34px; font-size: 14px; flex: none; }
+
+  /* 편집기 머리 — 글자 이름표를 걷고 아이콘만 남겨 한 줄에 앉힌다.
+     '저장'만 글자로 남긴다(가장 자주 누르고, 잘못 누르면 안 되는 단추라서). */
+  .wiki-ed-head { gap: 6px; }
+  .wiki-lbl { display: none; }
+  .wiki-ed-head .btn-utility { padding: 6px 10px; }
+  .wiki-ed-acts { gap: 6px; }
+  .wiki-ed-state { flex: 1 0 100%; order: 9; font-size: 12px; }
+
+  /* 종이의 좌우 여백을 줄여 글 폭을 넓힌다 */
+  .wiki-sheet { padding: var(--s-sm); border-radius: var(--r-md); }
+  .wiki-ed-body { min-height: 52vh; line-height: 1.65; }
+
+  /* 카드는 한 칸씩. 두 칸으로 쪼개면 제목이 두 글자마다 꺾인다 */
+  .wiki-list.is-grid { grid-template-columns: 1fr; }
+  .wiki-card-text { -webkit-line-clamp: 3; }
+  /* 목록 보기에서 눕혀 둔 카드는 좁은 화면에서 다시 세운다 */
+  .wiki-list.is-list .wiki-card { flex-direction: column; align-items: stretch; padding-right: 0; }
+  .wiki-list.is-list .wiki-card-body { display: block; }
+  .wiki-list.is-list .wiki-card-title { max-width: none; }
+  .wiki-list.is-list .wiki-card-text { white-space: pre-wrap; }
+  .wiki-list.is-list .wiki-card-acts { top: 6px; transform: none; }
+
+  /* 표가 화면을 넘으면 본문이 통째로 옆으로 밀린다 — 표만 따로 밀리게 한다 */
+  .wiki-ed-body table { display: block; overflow-x: auto; max-width: 100%; }
+}
+
+/* 아주 좁은 기기(360px 언저리) — 검색칸이 제목과 한 줄에 못 선다 */
+@media (max-width: 420px) {
+  .wiki-bar-right { width: 100%; }
+  .wiki-search { flex: 1 1 100%; order: -1; }
+  .wiki-where { font-size: 20px; }
 }
