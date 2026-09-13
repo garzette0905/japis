@@ -5,11 +5,8 @@
 // 받지 않고, 열 때 /go/<key> 로 나간다(주소는 서버만 안다). 그래서 로그인하지 않은
 // 사람이 이 파일을 통째로 읽어도 어떤 화면이 있는지 알 수 없다.
 
-const $ = (sel, root = document) => root.querySelector(sel);
-const el = (id) => document.getElementById(id);
-
-const esc = (s) =>
-  String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+import { $, el, esc, api, toast } from './util.js';
+import { renderWiki, wikiLeaving } from './wiki.js';
 
 const state = {
   me: null,
@@ -26,38 +23,7 @@ const state = {
 // 서버와 말하기
 // ──────────────────────────────────────────────────────────────
 
-async function api(path, { method = 'GET', body } = {}) {
-  const res = await fetch(path, {
-    method,
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-    credentials: 'same-origin',
-  });
-  let data = {};
-  try {
-    data = await res.json();
-  } catch {
-    /* 본문이 없거나 JSON이 아니면 빈 객체로 둔다 */
-  }
-  if (!res.ok) {
-    const err = new Error(data.error || `요청 실패 (${res.status})`);
-    err.status = res.status;
-    err.code = data.code;
-    throw err;
-  }
-  return data;
-}
-
-let toastTimer = null;
-function toast(msg) {
-  const t = el('toast');
-  t.textContent = msg;
-  t.hidden = false;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => {
-    t.hidden = true;
-  }, 3200);
-}
+// api() · toast() 는 util.js 에 있다(메모 화면과 같은 것을 쓴다).
 
 function showError(node, msg) {
   node.textContent = msg;
@@ -569,6 +535,7 @@ function renderFoot() {
 window.addEventListener('hashchange', () => {
   if (el('app').hidden) return;
   closeLock();          // 다른 화면으로 넘어가면 열려 있던 잠금 모달은 의미가 없다
+  wikiLeaving();        // 메모를 쓰다 말고 나가면 그 자리에서 저장해 둔다
   renderSide();
   route();
 });
@@ -582,6 +549,14 @@ function route() {
   if (hash === '#/' || hash === '') return renderDashboard(page);
   if (hash.startsWith('#/g/')) return renderGroup(page, hash.slice(4));
   if (hash === '#/sns') return renderLinks(page, 'sns');
+  // Jaden wiki — 포털 안 메모. #/wiki(목록) · #/wiki/new · #/wiki/<번호>
+  if (hash === '#/wiki' || hash.startsWith('#/wiki/')) {
+    if (!state.services.some((s) => s.key === 'jadenwiki')) {
+      location.hash = '#/';
+      return;
+    }
+    return renderWiki(page, hash.slice(7));
+  }
   if (hash === '#/me') return renderMe(page);
   if (state.me.role === 'admin') {
     if (hash === '#/admin') return renderAdmin(page);

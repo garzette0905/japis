@@ -85,3 +85,10 @@ crons = ["17 19 * * *"]
 #
 # ⚠️ ADMIN_PASSWORD 는 두지 않는다. 최초 관리자는 **비밀번호 없이** 한 번 로그인하고
 #    그 자리에서 비밀번호를 정한다(cloudflare/index.js 의 ensureBootstrapAdmin 주석 참고).
+
+# Jaden wiki 의 사진 보관함. 메모 본문에 붙는 그림은 D1(표)에 담지 않는다 —
+# 표에 큰 덩어리를 넣으면 목록 질의까지 같이 무거워진다. 파일은 여기, 이름표만 D1에.
+#   생성: npx wrangler r2 bucket create japis-wiki
+[[r2_buckets]]
+binding = "WIKI_FILES"
+bucket_name = "japis-wiki"

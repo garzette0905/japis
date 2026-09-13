@@ -144,18 +144,20 @@ export const SERVICES = [
     external: true,
   },
   {
+    // 예전에는 이 자리가 옵시디언(obsidian://open?vault=Jaden)이었다. 그 주소는 이 컴퓨터의
+    // 프로그램을 부르는 것이라 휴대폰에서도, 남의 컴퓨터에서도 열리지 않았다.
+    // 이제 **포털 안 화면**이다 — 메모가 D1에 있어 어디서 들어와도 같은 것을 본다.
+    // (key 는 그대로 둔다. user_services 의 권한 행이 이 값으로 붙어 있다.)
     key: 'jadenwiki',
-    label: '제이든 wiki',
+    label: 'Jaden wiki',
     group: 'personal',
-    desc: '옵시디언 보관함을 그대로 연다',
-    // ⚠️ 보관함(vault) 이름이 다르면 옵시디언이 "없는 보관함"이라며 멈춘다.
-    //    실제 이름으로 바꿔 두세요. 옵시디언 Publish 를 쓰게 되면 그 https 주소가 더 낫다.
-    url: 'obsidian://open?vault=Jaden',
+    desc: '메모를 쓰고 폴더로 묶고 검색한다 — 사진·html 파일까지',
+    url: '/#/wiki',
+    route: '#/wiki',
     accent: 'purple',
     icon: '📓',
     reauth: false,
-    frame: false,           // obsidian:// 은 웹 주소가 아니다 — 프레임에 담을 수 없다
-    external: true,
+    external: false,
   },
 
   // ── 홈페이지 ──────────────────────────────────────────────────────────

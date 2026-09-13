@@ -23,6 +23,22 @@ import {
   disconnect,
   feedFor,
 } from './connect.js';
+import {
+  wikiOverview,
+  listNotes,
+  getNote,
+  createNote,
+  updateNote,
+  deleteNote,
+  emptyTrash,
+  createFolder,
+  updateFolder,
+  deleteFolder,
+  uploadFile,
+  serveFile,
+  exportNote,
+  importFiles,
+} from './wiki.js';
 
 const enc = new TextEncoder();
 const nowIso = () => new Date().toISOString();
@@ -441,6 +457,24 @@ async function requireLogin(request, env, handler, { allowPwChange = false } = {
 const requireAdmin = (request, env, handler) =>
   requireLogin(request, env, (user, sess) => {
     if (user.role !== 'admin') return fail('관리자만 쓸 수 있습니다.', 403, { code: 'forbidden' });
+    return handler(user, sess);
+  });
+
+/**
+ * Jaden wiki 를 쓸 수 있는 사람만.
+ *
+ * 메모 화면은 포털 **안**에 있지만, 문은 다른 화면과 똑같이 'jadenwiki' 권한 하나로
+ * 연다 — 관리 → 화면 권한에서 그 줄을 끄면 메뉴에서 사라지는 동시에 API도 닫힌다.
+ * (화면에서만 감추고 API를 열어 두면 감춘 것이 아니다.)
+ */
+const requireWiki = (request, env, handler) =>
+  requireLogin(request, env, async (user, sess) => {
+    const s = serviceOf('jadenwiki');
+    const perm = await permissionFor(env, user, s);
+    if (!perm.allowed) return fail('이 화면을 볼 권한이 없습니다.', 403, { code: 'forbidden' });
+    if (perm.reauth && !(await unlockedUntil(env, sess.sid, 'jadenwiki'))) {
+      return fail('화면 잠금을 먼저 풀어주세요.', 403, { code: 'locked' });
+    }
     return handler(user, sess);
   });
 
@@ -1531,6 +1565,59 @@ export default {
         // ?in=frame 이면 오른쪽 프레임이 부른 것이다 — frameUrl 이 있으면 그쪽으로 보낸다.
         const inFrame = url.searchParams.get('in') === 'frame';
         return requireLogin(request, env, (user, sess) => goService(request, env, ctx, user, sess, mGo[1], inFrame));
+      }
+
+      // ---- Jaden wiki (포털 안 메모) ----
+      // 문은 'jadenwiki' 권한 하나다(requireWiki). 메모는 사람마다 따로이므로
+      // 아래 함수들은 전부 user.id 를 받아 질의의 WHERE 에 붙인다.
+      if (path === '/api/wiki' && method === 'GET') {
+        return requireWiki(request, env, async (user) => json(await wikiOverview(env, user.id)));
+      }
+      if (path === '/api/wiki/notes' && method === 'GET') {
+        return requireWiki(request, env, async (user) => json({ notes: await listNotes(env, user.id, url) }));
+      }
+      if (path === '/api/wiki/notes' && method === 'POST') {
+        return requireWiki(request, env, (user) => createNote(request, env, user.id));
+      }
+      if (path === '/api/wiki/trash' && method === 'DELETE') {
+        return requireWiki(request, env, (user) => emptyTrash(env, user.id));
+      }
+      if (path === '/api/wiki/import' && method === 'POST') {
+        return requireWiki(request, env, (user) => importFiles(request, env, user.id));
+      }
+      if (path === '/api/wiki/files' && method === 'POST') {
+        return requireWiki(request, env, (user) => uploadFile(request, env, user.id));
+      }
+      // 파일 이름에 '/'가 들어간다(<user_id>/<uuid>.<확장자>) — 여기만 남은 경로를 통째로 받는다.
+      const mFile = path.match(/^\/api\/wiki\/files\/(\d+\/[A-Za-z0-9._-]{1,120})$/);
+      if (mFile && method === 'GET') {
+        return requireWiki(request, env, (user) => serveFile(env, user.id, decodeURIComponent(mFile[1])));
+      }
+      const mNote = path.match(/^\/api\/wiki\/notes\/(\d+)$/);
+      if (mNote && method === 'GET') {
+        return requireWiki(request, env, (user) => getNote(env, user.id, Number(mNote[1])));
+      }
+      if (mNote && method === 'PATCH') {
+        return requireWiki(request, env, (user) => updateNote(request, env, user.id, Number(mNote[1])));
+      }
+      if (mNote && method === 'DELETE') {
+        return requireWiki(request, env, (user) =>
+          deleteNote(env, user.id, Number(mNote[1]), url.searchParams.get('purge') === '1')
+        );
+      }
+      const mExport = path.match(/^\/api\/wiki\/notes\/(\d+)\/export$/);
+      if (mExport && method === 'GET') {
+        return requireWiki(request, env, (user) => exportNote(env, user.id, Number(mExport[1])));
+      }
+      if (path === '/api/wiki/folders' && method === 'POST') {
+        return requireWiki(request, env, (user) => createFolder(request, env, user.id));
+      }
+      const mFolder = path.match(/^\/api\/wiki\/folders\/(\d+)$/);
+      if (mFolder && method === 'PATCH') {
+        return requireWiki(request, env, (user) => updateFolder(request, env, user.id, Number(mFolder[1])));
+      }
+      if (mFolder && method === 'DELETE') {
+        return requireWiki(request, env, (user) => deleteFolder(env, user.id, Number(mFolder[1])));
       }
 
       // ---- 관리자 ----

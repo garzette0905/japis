@@ -114,3 +114,49 @@ CREATE TABLE IF NOT EXISTS connections (
   updated_at    TEXT    NOT NULL,
   PRIMARY KEY (user_id, provider)
 );
+
+-- ── Jaden wiki (포털 안 메모) ───────────────────────────────────────────
+-- 자세한 설계는 migrations/004_wiki.sql 의 머리말 참고.
+--   · 메모는 사람마다 따로다(user_id 를 모든 질의의 WHERE 에 늘 붙인다)
+--   · html 은 화면에 그리는 본문, plain 은 검색이 훑는 민글자
+--   · 지운 메모는 deleted_at 을 적어 휴지통으로 옮긴다(진짜 삭제는 거기서 한 번 더)
+--   · 그림 파일 자체는 R2(WIKI_FILES)에 있고 여기에는 이름표만 둔다
+
+CREATE TABLE IF NOT EXISTS wiki_folders (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id    INTEGER NOT NULL,
+  name       TEXT    NOT NULL,
+  color      TEXT    NOT NULL DEFAULT 'sky',
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT    NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_wiki_folders_user ON wiki_folders (user_id, sort_order);
+
+CREATE TABLE IF NOT EXISTS wiki_notes (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id    INTEGER NOT NULL,
+  folder_id  INTEGER,
+  title      TEXT    NOT NULL DEFAULT '',
+  html       TEXT    NOT NULL DEFAULT '',
+  plain      TEXT    NOT NULL DEFAULT '',
+  tags       TEXT    NOT NULL DEFAULT '',
+  starred    INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT    NOT NULL,
+  updated_at TEXT    NOT NULL,
+  deleted_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_wiki_notes_user   ON wiki_notes (user_id, deleted_at, updated_at);
+CREATE INDEX IF NOT EXISTS idx_wiki_notes_folder ON wiki_notes (user_id, folder_id);
+
+CREATE TABLE IF NOT EXISTS wiki_files (
+  id         TEXT    PRIMARY KEY,
+  user_id    INTEGER NOT NULL,
+  name       TEXT,
+  mime       TEXT    NOT NULL,
+  size       INTEGER NOT NULL,
+  created_at TEXT    NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_wiki_files_user ON wiki_files (user_id, created_at);
