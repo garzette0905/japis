@@ -15,12 +15,20 @@
 //   repo     GitHub 저장소 (선택) — 아직 배포 전인 것을 어디서 보는지 알려준다
 //   accent   카드 머리띠 색. 노션 스티커 팔레트에서 고른다(장식 전용)
 //   icon     카드에 얹는 이모지 하나
-//   reauth   기본값. 관리자가 사용자별로 덮어쓸 수 있다(user_services.reauth)
+//   reauth   들어갈 때 비밀번호를 한 번 더 받을지. **지금은 모두 false 다** —
+//            이미 로그인한 사람에게 링크 하나 누를 때마다 비밀번호를 또 묻는 것은
+//            보태는 안전보다 깎아먹는 쓸모가 컸다. 장치 자체는 남겨 두었으니,
+//            특별히 가려야 할 화면이 생기면 여기서 true 로 되돌리면 된다
+//            (관리자가 사용자별로 덮어쓸 수도 있다 — user_services.reauth)
 //   external true 면 다른 사이트로 나간다(새 탭). false 면 포털 안 화면.
 //   account  이 화면이 쓰는 계정(선택). 카드에 그대로 적어 둔다 — 여러 계정을
 //            오가는 협업 묶음에서 "지금 어느 계정으로 들어가는지"가 늘 헷갈린다.
 //   route    포털 **안**의 화면일 때 그 해시 주소(선택). 있으면 새로 고치지 않고
 //            그 자리에서 넘어간다. /go/<key> 로 직접 들어와도 같은 곳에 닿는다.
+//   frame    false 면 오른쪽 프레임에 담지 않고 언제나 새 탭으로 연다(선택).
+//            제공자가 프레임을 막는 것이 확실한 곳(구글·네이버·OneDrive)과 http(s)가
+//            아닌 주소(obsidian://)에 적어 둔다 — 굳이 물어보고 실패할 이유가 없다.
+//            적지 않으면 서버가 한 번 열어 보고 판단한다(/api/frameable).
 //   links    한 카드가 여러 바깥 주소를 묶을 때(선택). SNS 처럼 "모음" 성격의 화면이
 //            쓴다. 공개 사이트 주소라 숨길 것이 없어 목록 API에 그대로 실어 보낸다
 //            (감추는 것은 개인 서비스의 주소다 — 그건 /go/<key> 만 안다).
@@ -58,7 +66,7 @@ export const SERVICES = [
     repo: 'garzette0905/wepic-live',
     accent: 'pink',
     icon: '🖼️',
-    reauth: true,
+    reauth: false,
     external: true,
   },
   {
@@ -70,7 +78,7 @@ export const SERVICES = [
     repo: 'garzette0905/gagyebu',
     accent: 'green',
     icon: '💰',
-    reauth: true,
+    reauth: false,
     external: true,
   },
   {
@@ -82,7 +90,7 @@ export const SERVICES = [
     repo: 'garzette0905/cardmoa',
     accent: 'orange',
     icon: '💳',
-    reauth: true,
+    reauth: false,
     external: true,
   },
   {
@@ -94,7 +102,7 @@ export const SERVICES = [
     repo: 'garzette0905/taylor-bookshelf',
     accent: 'teal',
     icon: '📚',
-    reauth: true,
+    reauth: false,
     external: true,
   },
   {
@@ -106,7 +114,7 @@ export const SERVICES = [
     repo: 'garzette0905/google-timeline',
     accent: 'sky',
     icon: '🗺️',
-    reauth: true,
+    reauth: false,
     external: true,
   },
   {
@@ -119,7 +127,8 @@ export const SERVICES = [
     url: 'obsidian://open?vault=Jaden',
     accent: 'purple',
     icon: '📓',
-    reauth: true,
+    reauth: false,
+    frame: false,           // obsidian:// 은 웹 주소가 아니다 — 프레임에 담을 수 없다
     external: true,
   },
 
@@ -134,7 +143,7 @@ export const SERVICES = [
     repo: 'garzette0905/samsung-word-writer-pro',
     accent: 'orange',
     icon: '📄',
-    reauth: true,
+    reauth: false,
     external: true,
   },
   {
@@ -188,7 +197,8 @@ export const SERVICES = [
     account: 'garzette@gmail.com',
     accent: 'sky',
     icon: '📷',
-    reauth: true,
+    reauth: false,
+    frame: false,           // 구글은 X-Frame-Options: DENY 로 내려온다
     external: true,
   },
   {
@@ -200,7 +210,8 @@ export const SERVICES = [
     account: 'garzette@gmail.com',
     accent: 'orange',
     icon: '✉️',
-    reauth: true,
+    reauth: false,
+    frame: false,           // 구글은 X-Frame-Options: DENY 로 내려온다
     external: true,
   },
   {
@@ -212,7 +223,8 @@ export const SERVICES = [
     account: 'garzette@gmail.com',
     accent: 'green',
     icon: '📅',
-    reauth: true,
+    reauth: false,
+    frame: false,           // 구글은 X-Frame-Options: DENY 로 내려온다
     external: true,
   },
   {
@@ -226,7 +238,8 @@ export const SERVICES = [
     account: 'garzette',
     accent: 'green',
     icon: '📝',
-    reauth: true,
+    reauth: false,
+    frame: false,           // 네이버도 프레임을 막는다
     external: true,
   },
   {
@@ -238,7 +251,8 @@ export const SERVICES = [
     account: 'garzette@naver.com',
     accent: 'teal',
     icon: '☁️',
-    reauth: true,
+    reauth: false,
+    frame: false,           // OneDrive 도 프레임을 막는다
     external: true,
   },
 ];

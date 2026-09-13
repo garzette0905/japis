@@ -363,6 +363,9 @@ async function visibleServices(env, user, sid) {
       account: s.account || null,
       route: s.route || null,
       links: s.links || null,
+      // 오른쪽 프레임에 담아도 되는가. false 면 화면이 곧장 새 탭으로 연다.
+      // null 이면 아직 모른다 — 화면이 /api/frameable 로 한 번 물어본다.
+      frame: s.frame === false ? false : null,
       feed: !!FEED_OF[s.key],
       external: !!s.external,
       ready,
@@ -1241,6 +1244,88 @@ async function adminLogs(env, url) {
 }
 
 // ──────────────────────────────────────────────────────────────
+// 오른쪽 프레임에 담을 수 있는가
+// ──────────────────────────────────────────────────────────────
+//
+// 브라우저는 프레임이 막혔다는 것을 자바스크립트에 알려주지 않는다(막힌 프레임도
+// onload 가 그냥 뜬다). 그래서 **서버가 대신 한 번 열어 보고** 응답 헤더를 읽는다.
+//   · X-Frame-Options: DENY | SAMEORIGIN        → 담을 수 없다
+//   · Content-Security-Policy: frame-ancestors … → 우리 주소가 없으면 담을 수 없다
+//
+// 이 결과를 미리 알아 두어야 하는 이유: 누를 때 비로소 물어보면, 답이 온 뒤에
+// 여는 새 탭을 브라우저가 팝업으로 보고 막는다. 그래서 화면이 들어올 때 한 번
+// 물어 두고, 누르는 순간에는 이미 알고 있는 것으로 결정한다.
+//
+// 결과는 KV에 하루 담아 둔다. 남의 사이트를 우리가 반복해서 두드릴 이유가 없다.
+
+const FRAME_TTL = 86400;
+
+/** 헤더만 보고 판단한다. 본문은 읽지 않고 곧바로 버린다. */
+function frameAllowed(res, origin) {
+  const xfo = String(res.headers.get('X-Frame-Options') || '').trim().toLowerCase();
+  if (xfo === 'deny' || xfo === 'sameorigin' || xfo.startsWith('allow-from')) return false;
+
+  const csp = String(res.headers.get('Content-Security-Policy') || '');
+  const m = csp.match(/frame-ancestors([^;]*)/i);
+  if (m) {
+    const list = m[1].trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (!list.length || list.includes("'none'")) return false;
+    const host = new URL(origin).host;
+    const ok = list.some(
+      (v) => v === '*' || v === origin.toLowerCase() || v === host || (v.startsWith('*.') && host.endsWith(v.slice(1)))
+    );
+    if (!ok) return false;
+  }
+  return true;
+}
+
+async function probeFrame(env, s) {
+  if (s.frame === false) return false;
+  if (!isReady(s)) return false;
+  let target;
+  try {
+    target = new URL(s.url);
+  } catch {
+    return false;                       // 상대 주소(포털 안 화면) — 프레임을 쓸 일이 없다
+  }
+  if (target.protocol !== 'https:' && target.protocol !== 'http:') return false;  // obsidian:// 등
+
+  const cacheKey = `frame:${s.key}`;
+  const hit = await env.SESSIONS.get(cacheKey, 'json').catch(() => null);
+  if (hit && typeof hit.ok === 'boolean') return hit.ok;
+
+  let ok = true;
+  try {
+    // redirect:'manual' 로 두면 중간 302에 헤더가 없어 오판한다 — 끝까지 따라간다.
+    const res = await fetch(s.url, { method: 'GET', redirect: 'follow', headers: { 'User-Agent': 'JAPIS/1.0' } });
+    ok = frameAllowed(res, env.BASE_URL);
+    if (res.body) await res.body.cancel();
+  } catch (e) {
+    // 열어 보지도 못했으면 프레임에 담아 봐야 빈 칸이다.
+    console.warn('frame 조사 실패', s.key, e.message);
+    ok = false;
+  }
+  await env.SESSIONS.put(cacheKey, JSON.stringify({ ok, at: nowIso() }), { expirationTtl: FRAME_TTL });
+  return ok;
+}
+
+/** 이 사람에게 보이는 화면들을 한 번에 조사해 { key: true|false } 로 돌려준다. */
+async function apiFrameable(env, user) {
+  const perms = await loadPerms(env, user.id);
+  const admin = user.role === 'admin';
+  const mine = SERVICES.filter(
+    (s) => !isAlways(s) && s.external && (admin || !!perms.get(s.key)?.allowed)
+  );
+  const out = {};
+  await Promise.all(
+    mine.map(async (s) => {
+      out[s.key] = await probeFrame(env, s);
+    })
+  );
+  return json({ frameable: out });
+}
+
+// ──────────────────────────────────────────────────────────────
 // 날씨 — 상단 메뉴의 "지금"
 // ──────────────────────────────────────────────────────────────
 //
@@ -1390,6 +1475,11 @@ export default {
       }
       if (path === '/api/unlock/options' && method === 'POST') {
         return requireLogin(request, env, (user, sess) => apiUnlockOptions(request, env, user, sess));
+      }
+
+      // ---- 오른쪽 프레임에 담을 수 있는 화면이 어느 것인지 ----
+      if (path === '/api/frameable' && method === 'GET') {
+        return requireLogin(request, env, (user) => apiFrameable(env, user));
       }
 
       // ---- 상단 메뉴의 '지금' (날짜·시간은 브라우저가, 날씨만 여기서) ----

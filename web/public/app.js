@@ -19,6 +19,7 @@ const state = {
   feeds: new Map(),  // 협업 카드에 얹는 최근 항목 (key → 응답)
   credentials: [],   // 이 주소에 등록해 둔 생체인증 기기
   weather: null,     // 상단 '지금'에 얹는 날씨 (10분마다 새로 받는다)
+  frameable: {},     // 오른쪽 프레임에 담을 수 있는 화면 (key → true|false)
 };
 
 // ──────────────────────────────────────────────────────────────
@@ -120,6 +121,7 @@ function enterPortal(st) {
   el('gate').hidden = true;
   el('app').hidden = false;
   loadCredentials();
+  loadFrameable();
   renderNav();
   renderSide();
   renderFoot();
@@ -425,33 +427,50 @@ function renderSide() {
   const hash = location.hash || '#/';
   const on = (h) => (hash === h ? ' is-active' : '');
 
+  // 한 줄 = [아이콘] 이름 … [↗]. ↗ 는 평소 숨어 있다가 그 줄에 손이 닿을 때만 나온다.
+  const row = (s) => `<li class="side-row${s.ready ? '' : ' is-soon'}">
+      <button class="side-item" type="button" data-key="${esc(s.key)}" title="${esc(s.label)}"${s.ready ? '' : ' disabled'}>
+        <span class="side-ico band-${esc(s.accent || 'sky')}" aria-hidden="true">${esc(s.icon || '•')}</span>
+        <span class="side-name">${esc(s.label)}</span>
+      </button>
+      ${
+        s.ready && s.external
+          ? `<button class="side-pop" type="button" data-pop="${esc(s.key)}"
+               title="새 창에서 열기" aria-label="${esc(s.label)} 새 창에서 열기">↗</button>`
+          : ''
+      }
+    </li>`;
+
   const groups = menuGroups()
     .map((g) => {
       const items = state.services.filter((s) => s.group === g.key);
-      const rows = items
-        .map(
-          (s) => `<li><button class="side-item${s.ready ? '' : ' is-soon'}" type="button"
-            data-key="${esc(s.key)}"${s.ready ? '' : ' disabled'}>${esc(s.label)}</button></li>`
-        )
-        .join('');
       return `<div class="side-group">
-        <a class="side-head${on('#/g/' + g.key)}" href="#/g/${g.key}">${esc(g.label)}</a>
-        <ul class="side-list">${rows}</ul>
+        <a class="side-head${on('#/g/' + g.key)}" href="#/g/${g.key}">
+          <span>${esc(g.label)}</span><span class="side-count">${items.length}</span>
+        </a>
+        <ul class="side-list">${items.map(row).join('')}</ul>
       </div>`;
     })
     .join('');
 
   el('side').innerHTML = `
     <nav class="side-nav" aria-label="화면 목록">
-      <a class="side-head side-top${on('#/')}" href="#/">대시보드</a>
+      <a class="side-item side-solo${on('#/')}" href="#/">
+        <span class="side-ico band-sky" aria-hidden="true">🏠</span>
+        <span class="side-name">대시보드</span>
+      </a>
       ${groups}
       ${
         isAdmin
           ? `<div class="side-group">
-              <a class="side-head${on('#/admin')}" href="#/admin">관리</a>
+              <a class="side-head${on('#/admin')}" href="#/admin"><span>관리</span></a>
               <ul class="side-list">
-                <li><a class="side-item${on('#/admin')}" href="#/admin">사용자</a></li>
-                <li><a class="side-item${on('#/admin/logs')}" href="#/admin/logs">접속 기록</a></li>
+                <li class="side-row"><a class="side-item${on('#/admin')}" href="#/admin">
+                  <span class="side-ico band-purple" aria-hidden="true">👤</span>
+                  <span class="side-name">사용자</span></a></li>
+                <li class="side-row"><a class="side-item${on('#/admin/logs')}" href="#/admin/logs">
+                  <span class="side-ico band-purple" aria-hidden="true">🧾</span>
+                  <span class="side-name">접속 기록</span></a></li>
               </ul>
             </div>`
           : ''
@@ -465,9 +484,19 @@ function renderSide() {
       if (s) openService(s);
     })
   );
+  el('side').querySelectorAll('[data-pop]').forEach((btn) =>
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      document.body.classList.remove('side-open');
+      const s = state.services.find((x) => x.key === btn.dataset.pop);
+      if (s) openService(s, { newTab: true });
+    })
+  );
   el('side')
     .querySelectorAll('a')
     .forEach((a) => a.addEventListener('click', () => document.body.classList.remove('side-open')));
+
+  if (framed) markHere(framed.key);
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -580,15 +609,26 @@ const cardFoot = (s) =>
     s.account ? `<span class="faint">${esc(s.account)}</span>` : s.repo ? `<span class="faint">${esc(s.repo.split('/')[1])}</span>` : ''
   }</span>`;
 
+/** 카드 오른쪽 위의 ↗. 누르면 프레임 대신 새 탭으로 나간다. */
+const popBtn = (s) =>
+  s.ready && s.external
+    ? `<button class="card-pop" type="button" data-pop="${esc(s.key)}"
+         title="새 창에서 열기" aria-label="${esc(s.label)} 새 창에서 열기">↗</button>`
+    : '';
+
 function cardHtml(s) {
   // 최근 항목을 얹는 카드는 안에 버튼·링크가 들어가므로 카드 자체를 버튼으로 만들 수 없다.
   if (s.feed) return liveCardHtml(s);
   const soon = !s.ready;
+  // 카드(버튼) 안에 또 버튼을 넣을 수 없어, 둘을 감싸고 카드를 겹쳐 깐다.
   return `
-    <button class="card${soon ? ' is-soon' : ''}" type="button" data-key="${esc(s.key)}"${soon ? ' disabled' : ''}>
-      <span class="card-band band-${esc(s.accent || 'sky')}"></span>
-      <span class="card-body">${cardMark(s)}${cardFoot(s)}</span>
-    </button>`;
+    <div class="card-wrap">
+      <button class="card${soon ? ' is-soon' : ''}" type="button" data-key="${esc(s.key)}"${soon ? ' disabled' : ''}>
+        <span class="card-band band-${esc(s.accent || 'sky')}"></span>
+        <span class="card-body">${cardMark(s)}${cardFoot(s)}</span>
+      </button>
+      ${popBtn(s)}
+    </div>`;
 }
 
 /** 협업 카드 — 최근 것 몇 개를 앞면에 얹는다. 내용은 loadFeed 가 나중에 채운다. */
@@ -607,6 +647,7 @@ function liveCardHtml(s) {
           ${s.account ? `<span class="faint">${esc(s.account)}</span>` : ''}
         </div>
       </div>
+      ${popBtn(s)}
     </div>`;
 }
 
@@ -617,6 +658,13 @@ function wireCards(root) {
       if (s) openService(s);
     });
   });
+  root.querySelectorAll('[data-pop]').forEach((btn) =>
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const s = state.services.find((x) => x.key === btn.dataset.pop);
+      if (s) openService(s, { newTab: true });
+    })
+  );
   root.querySelectorAll('.card-feed[data-feed]').forEach((n) => loadFeed(n.dataset.feed));
 }
 
@@ -686,25 +734,124 @@ async function loadFeed(key) {
 
 /**
  * 화면을 연다.
- * 재인증이 걸려 있고 아직 안 열려 있으면 잠금 모달을 띄우고, 그렇지 않으면 바로 나간다.
- * (클릭 그 자리에서 window.open 을 부른다 — 비동기 뒤에 부르면 팝업이 막힌다.)
+ *
+ * 기본은 **오른쪽 프레임**이다 — 포털을 떠나지 않고 이 자리에서 본다.
+ * `newTab` 이면 새 탭으로 나간다(카드·메뉴의 ↗ 단추).
+ *
+ * 프레임에 담기지 않는 곳(구글·네이버·OneDrive 처럼 제공자가 막아 둔 곳, 그리고
+ * obsidian:// 같은 웹이 아닌 주소)은 **누르는 그 자리에서** 새 탭으로 보낸다.
+ * 서버에 먼저 물어보고 열면 그 사이에 클릭이 끊겨 팝업 차단에 걸리므로, 판단에
+ * 쓰는 답(state.frameable)은 들어올 때 미리 받아 둔다.
  */
-function openService(s) {
+function openService(s, { newTab = false } = {}) {
   if (!s.ready) return toast('아직 준비 중인 화면입니다.');
-  const needLock = s.reauth && !(s.unlockedUntil && s.unlockedUntil > Date.now());
-  if (needLock) return showLock(s);
-  go(s);
-}
 
-function go(s) {
-  // 포털 안 화면은 새로 고칠 이유가 없다 — 그 자리에서 넘어간다.
+  // 포털 안 화면(SNS 등)은 프레임에 담을 것이 아니라 그냥 그 화면으로 넘어간다.
   if (s.route) {
+    closeFrame();
     location.hash = s.route;
     return;
   }
-  if (s.external) window.open(`/go/${encodeURIComponent(s.key)}`, '_blank', 'noopener');
-  else location.href = `/go/${encodeURIComponent(s.key)}`;
+  if (!s.external) {
+    location.href = `/go/${encodeURIComponent(s.key)}`;
+    return;
+  }
+  // 재인증은 지금 어느 화면에도 걸려 있지 않다(services.js). 다만 관리 → 화면 권한에서
+  // 다시 켤 수 있으므로, 켜져 있으면 예전처럼 먼저 잠금을 묻는다. 그냥 열어 버리면
+  // /go 가 포털로 되돌려 보내 프레임 안에 포털이 또 뜬다.
+  if (s.reauth && !(s.unlockedUntil && s.unlockedUntil > Date.now())) {
+    lockNext = newTab ? 'tab' : 'frame';
+    return showLock(s);
+  }
+  if (newTab || !canFrame(s)) return popOut(s);
+  openFrame(s);
 }
+
+/** 이 화면을 프레임에 담아도 되는가. 아직 답을 못 받았으면 일단 담아 본다. */
+function canFrame(s) {
+  if (s.frame === false) return false;
+  const known = state.frameable[s.key];
+  return known !== false;
+}
+
+/** 새 탭. 클릭 그 자리에서 불러야 한다 — 비동기 뒤에 부르면 팝업이 막힌다. */
+function popOut(s) {
+  window.open(`/go/${encodeURIComponent(s.key)}`, '_blank', 'noopener');
+}
+
+async function loadFrameable() {
+  try {
+    const r = await api('/api/frameable');
+    state.frameable = r.frameable || {};
+  } catch {
+    state.frameable = {};
+  }
+}
+
+// ---------- 오른쪽 프레임 ----------
+
+let framed = null;
+
+function markHere(key) {
+  el('side')
+    .querySelectorAll('.side-row')
+    .forEach((r) => r.classList.toggle('is-here', !!key && $('.side-item', r)?.dataset.key === key));
+}
+
+function openFrame(s) {
+  framed = s;
+  document.body.classList.add('frame-open');
+  markHere(s.key);
+  el('frame').hidden = false;
+  el('frame-icon').textContent = s.icon || '•';
+  el('frame-title').textContent = s.label;
+  // iframe 을 새로 만든다. src 만 바꾸면 그 사이트의 뒤로가기 기록이 쌓여
+  // 포털의 뒤로가기가 엉킨다.
+  el('frame-body').innerHTML = `
+    <iframe class="frame-view" id="frame-view" title="${esc(s.label)}"
+            src="/go/${encodeURIComponent(s.key)}"
+            referrerpolicy="no-referrer"
+            sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-modals allow-top-navigation-by-user-activation"></iframe>
+    <div class="frame-fallback" id="frame-fallback" hidden>
+      <p class="feed-note">이 사이트는 다른 화면 안에 담기지 않도록 막아 두었습니다(제공자 정책).</p>
+      <button class="btn-primary" type="button" id="frame-fallback-open">새 탭에서 열기</button>
+    </div>`;
+
+  // 미리 받아 둔 답이 아직 안 왔을 수 있다. 늦게 "안 된다"가 오면 그때 안내로 바꾼다.
+  if (state.frameable[s.key] === undefined) {
+    loadFrameable().then(() => {
+      if (framed === s && state.frameable[s.key] === false) showFrameFallback();
+    });
+  }
+}
+
+function showFrameFallback() {
+  const view = el('frame-view');
+  const fb = el('frame-fallback');
+  if (!view || !fb) return;
+  view.hidden = true;
+  fb.hidden = false;
+  el('frame-fallback-open').addEventListener('click', () => framed && popOut(framed));
+}
+
+function closeFrame() {
+  framed = null;
+  document.body.classList.remove('frame-open');
+  markHere(null);
+  el('frame').hidden = true;
+  el('frame-body').innerHTML = '';      // 비워야 그 사이트가 뒤에서 계속 돌지 않는다
+}
+
+el('frame-close').addEventListener('click', closeFrame);
+el('frame-pop').addEventListener('click', () => {
+  if (!framed) return;
+  popOut(framed);
+  closeFrame();
+});
+el('frame-reload').addEventListener('click', () => framed && openFrame(framed));
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && framed && el('lock').hidden) closeFrame();
+});
 
 // ---------- 잠금 모달 ----------
 
@@ -722,31 +869,29 @@ function showLock(s) {
   showError(el('lock-error'), '');
   el('lock-bio-wrap').hidden = !bio;
   $('#form-lock').hidden = false;
-  el('lock-done').hidden = true;
   el('lock').hidden = false;
   if (bio) el('lock-bio').focus();
   else el('lock-password').focus();
 }
 
 /** 잠금이 풀린 뒤 — 비밀번호로 풀었든 생체인증으로 풀었든 여기로 모인다. */
-function lockOpened(r) {
-  lockTarget.unlockedUntil = r.until || 0;
-  const mins = Math.round((r.ttl || 600) / 60);
+let lockNext = 'frame';
 
+function lockOpened(r) {
+  const s = lockTarget;
+  s.unlockedUntil = r.until || 0;
   el('lock-password').value = '';
-  $('#form-lock').hidden = true;
-  el('lock-open').href = `/go/${encodeURIComponent(lockTarget.key)}`;
-  el('lock-open').textContent = `${lockTarget.label} 열기`;
-  el('lock-open').target = lockTarget.external ? '_blank' : '_self';
-  el('lock-note').textContent = `앞으로 ${mins}분 동안은 다시 묻지 않습니다.`;
-  el('lock-done').hidden = false;
-  el('lock-open').focus();
 
   // 잠금이 풀렸으니 그 화면의 미리보기도 이제 받아 올 수 있다.
-  if (lockTarget.feed) {
-    state.feeds.delete(lockTarget.key);
-    loadFeed(lockTarget.key);
+  if (s.feed) {
+    state.feeds.delete(s.key);
+    loadFeed(s.key);
   }
+  closeLock();
+  // 새 탭은 여기서 열지 않는다 — 비동기 뒤라 팝업 차단에 걸린다. 프레임으로 연다.
+  if (lockNext === 'tab') toast(`${s.label} — 새 탭은 다시 한 번 눌러주세요.`);
+  else openService(s);
+  lockNext = 'frame';
 }
 
 el('lock-bio').addEventListener('click', async () => {
@@ -797,7 +942,6 @@ $('#form-lock').addEventListener('submit', async (e) => {
   }
 });
 
-el('lock-open').addEventListener('click', () => setTimeout(closeLock, 120));
 
 // ──────────────────────────────────────────────────────────────
 // 화면들
@@ -830,8 +974,11 @@ function todayHtml() {
         return `<div class="panel today-panel">
           <div class="panel-title">
             <span>${esc(s.icon)} ${esc(t.title)}</span>
-            <button class="btn-utility" type="button" data-key="${esc(s.key)}"${s.ready ? '' : ' disabled'}>
-              ${s.ready ? '열기' : '준비중'}</button>
+            <span class="today-acts">
+              <button class="btn-utility" type="button" data-key="${esc(s.key)}"${s.ready ? '' : ' disabled'}>
+                ${s.ready ? '열기' : '준비중'}</button>
+              ${popBtn(s)}
+            </span>
           </div>
           <div class="card-feed" data-feed="${esc(s.key)}"><span class="spinner"></span></div>
         </div>`;
@@ -861,7 +1008,7 @@ function renderDashboard(page) {
     <div class="page-head">
       <h1 class="page-title">${esc(greet)}, ${esc(who)}님</h1>
       <p class="page-lead">흩어져 있던 서비스를 한자리에 모았습니다.
-        🔒 표시가 붙은 화면은 들어갈 때 비밀번호를 한 번 더 확인합니다.</p>
+        누르면 오른쪽에서 열리고, ↗ 를 누르면 새 탭으로 나갑니다.</p>
     </div>
     ${todayHtml()}
     ${sections || emptyHtml('열람할 수 있는 화면이 없습니다.', '관리자에게 화면 권한을 요청해주세요.')}`;
@@ -876,7 +1023,7 @@ function renderGroup(page, key) {
   }
   const lead = items.some((s) => s.feed)
     ? '연결해 두면 최근 것 몇 개가 카드 앞면에 그대로 올라옵니다.'
-    : `${items.length}개 화면`;
+    : `${items.length}개 화면 — 누르면 오른쪽에서, ↗ 는 새 탭에서 열립니다.`;
 
   page.innerHTML = `
     <div class="page-head">

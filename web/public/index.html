@@ -109,6 +109,20 @@
   <div class="shell">
     <aside class="side" id="side"></aside>
     <main class="page" id="page"></main>
+
+    <!-- 오른쪽 프레임 — 바깥 화면을 포털을 떠나지 않고 이 자리에서 연다.
+         src 에는 실제 주소가 아니라 /go/<key> 를 넣는다. 주소는 서버만 안다는
+         규칙이 프레임에서도 그대로다(302 는 프레임이 알아서 따라간다). -->
+    <section class="frame" id="frame" hidden aria-label="열어 둔 화면">
+      <div class="frame-bar">
+        <span class="frame-icon" id="frame-icon" aria-hidden="true"></span>
+        <span class="frame-title" id="frame-title"></span>
+        <button class="frame-btn" id="frame-reload" type="button" title="새로 고침" aria-label="새로 고침">⟳</button>
+        <button class="frame-btn" id="frame-pop" type="button" title="새 창에서 열기" aria-label="새 창에서 열기">↗</button>
+        <button class="frame-btn" id="frame-close" type="button" title="닫기" aria-label="닫기">✕</button>
+      </div>
+      <div class="frame-body" id="frame-body"></div>
+    </section>
   </div>
   <footer class="foot" id="foot"></footer>
 </div>
@@ -138,11 +152,6 @@
         <button type="submit" class="btn-primary" id="lock-submit">확인</button>
       </div>
     </form>
-    <div id="lock-done" hidden>
-      <p class="modal-ok">인증되었습니다.</p>
-      <a id="lock-open" class="btn-primary btn-block" href="#" target="_blank" rel="noopener noreferrer">열기</a>
-      <p class="modal-note" id="lock-note"></p>
-    </div>
   </div>
 </div>
 
