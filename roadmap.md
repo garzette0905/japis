@@ -23,7 +23,7 @@
 
 - "구글 타임라인" → **타임라인** (key `timeline` 은 그대로 — 권한표가 그 값으로 붙어 있다)
 - **제이든 wiki** 신설 — 옵시디언(`obsidian://open?vault=Jaden`)으로 연결
-- **SNS** 신설 — 포털 안 화면 하나에 인스타그램·Thread·Facebook·카카오톡·Telegram
+- **SNS** 신설 — 포털 안 화면 하나에 인스타그램·Thread·Facebook·Telegram
 - **삭제**: 온라인 갤러리 · 개인 위키 · 기업정보 에이전트 (권한 행은 `migrations/001` 이 정리)
 
 ### 3. 협업 카드에 최근 데이터 — 얼개 완료, 열쇠 대기

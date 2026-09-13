@@ -17,3 +17,4 @@ npx wrangler d1 execute japis-db --remote --file=./migrations/00X_....sql
 | 파일 | 내용 |
 |---|---|
 | `001_biometric_connect_menu.sql` | 생체인증(패스키) 표·컬럼, 협업 연동 토큰 표, 없어진 화면(갤러리·위키·기업정보·google)의 권한 행 정리 |
+| `002_admin_display_name.sql` | 관리자 표시 이름 '관리자' → 'Jaden' (대시보드 인사말이 읽는 값) |

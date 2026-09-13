@@ -293,37 +293,83 @@ button { font-family: inherit; }
 }
 .nav-logo:hover { text-decoration: none; }
 
-.nav-links { display: flex; align-items: center; gap: 2px; flex: 1 1 auto; min-width: 0; overflow-x: auto; }
-.nav-links::-webkit-scrollbar { display: none; }
-
-.nav-link {
-  position: relative;
-  padding: 8px 12px;
-  font-size: 15px; font-weight: 500; line-height: 1.33;
-  color: var(--ink-secondary);
-  border-radius: var(--r-md);
-  white-space: nowrap;
-  background: none; border: none; cursor: pointer;
+/* 상단 가운데의 '지금' — 날짜 · 시간 · 날씨. 눌리는 것이 아니라 읽는 자리라
+   색도 크기도 한 단 낮춘다(메뉴가 아니라 배경 정보다). */
+.nav-now {
+  display: flex; align-items: baseline; gap: var(--s-sm);
+  flex: 1 1 auto; min-width: 0;
+  padding-left: var(--s-xs);
+  font-size: 14px; line-height: 1.43;
+  color: var(--ink-muted);
+  white-space: nowrap; overflow: hidden;
 }
-.nav-link:hover { background: var(--canvas-soft); text-decoration: none; }
-/* 활성 표시도 그 파랑 하나로 */
-.nav-link.is-active { color: var(--primary); font-weight: 600; }
-.nav-link.is-active::after {
-  content: ''; position: absolute; left: 12px; right: 12px; bottom: -1px;
-  height: 2px; background: var(--primary); border-radius: 2px 2px 0 0;
+.now-date { font-weight: 500; color: var(--ink-secondary); }
+.now-time {
+  font-size: 18px; font-weight: 600; letter-spacing: -.25px;
+  color: var(--ink); font-variant-numeric: tabular-nums;
 }
+.now-weather:empty { display: none; }
 
 .nav-right { display: flex; align-items: center; gap: var(--s-xs); flex: none; }
 .nav-who { font-size: 14px; color: var(--ink-muted); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ---------- 왼쪽 기둥 — 글자만 ---------- */
+
+.shell {
+  display: grid;
+  grid-template-columns: 208px minmax(0, 1fr);
+  max-width: 1320px;
+  margin: 0 auto;
+}
+
+.side {
+  position: sticky; top: var(--nav-h);
+  align-self: start;
+  height: calc(100dvh - var(--nav-h));
+  overflow-y: auto;
+  padding: var(--s-lg) var(--s-sm) var(--s-xxl);
+  border-right: 1px solid var(--hairline);
+}
+.side-nav { display: grid; gap: var(--s-lg); }
+.side-group { display: grid; gap: 2px; }
+
+/* 묶음 이름. 작고 흐리게 — 이것은 이정표지 목적지가 아니다 */
+.side-head {
+  padding: 6px 10px;
+  font-size: 12px; font-weight: 600; letter-spacing: .4px;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  border-radius: var(--r-md);
+}
+.side-head:hover { background: var(--canvas-soft); color: var(--ink-secondary); text-decoration: none; }
+.side-top { font-size: 15px; letter-spacing: -.1px; text-transform: none; color: var(--ink-secondary); }
+
+.side-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
+
+/* 화면 이름. 아이콘도 설명도 두지 않는다 — 세로로 훑어 내려가는 단어 목록이다 */
+.side-item {
+  display: block; width: 100%;
+  padding: 7px 10px;
+  font: inherit;
+  font-size: 15px; line-height: 1.4;
+  text-align: left;
+  color: var(--ink-secondary);
+  background: none; border: none; border-radius: var(--r-md);
+  cursor: pointer;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.side-item:hover { background: var(--canvas-soft); color: var(--ink); text-decoration: none; }
+.side-item.is-soon { color: var(--ink-faint); cursor: default; }
+.side-item.is-soon:hover { background: none; }
+.side-head.is-active, .side-item.is-active { color: var(--primary); font-weight: 600; background: var(--canvas-soft); }
 
 .nav-toggle { display: none; }
 
 /* ---------- 본문 ---------- */
 
 .page {
-  max-width: 1080px;
-  margin: 0 auto;
-  padding: var(--s-xxl) var(--s-lg) 64px;
+  min-width: 0;
+  padding: var(--s-xxl) var(--s-xl) 64px;
 }
 
 .page-head { margin-bottom: var(--s-xl); }
@@ -437,6 +483,13 @@ button { font-family: inherit; }
   width: 100%; aspect-ratio: 1; object-fit: cover;
   border-radius: var(--r-sm); background: var(--canvas-soft);
 }
+
+/* 대시보드 맨 위의 '오늘' — 메일·일정을 펼쳐 둔 자리 */
+.today { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: var(--s-md); }
+.today-panel { margin: 0; }
+.today-panel .panel-title { display: flex; align-items: center; justify-content: space-between; gap: var(--s-xs); }
+.today-panel .card-feed { border-top: none; margin-top: 0; padding-top: 0; }
+.today-panel .feed-list { gap: var(--s-sm); }
 
 /* 연결 상태 줄 */
 .connect-panel { margin-bottom: var(--s-lg); }
@@ -603,29 +656,45 @@ table.data tr:last-child td { border-bottom: none; }
   .gate-sub { display: none; }
 }
 
+@media (max-width: 1080px) {
+  .shell { grid-template-columns: 176px minmax(0, 1fr); }
+  .page { padding: var(--s-xl) var(--s-lg) 64px; }
+}
+
+/* 좁은 화면에서는 기둥을 접어 두고, ☰ 를 누를 때만 왼쪽에서 밀어 넣는다.
+   (상단에 가로로 눕히지 않는다 — 이름만 있는 목록이라 세로가 훨씬 빨리 읽힌다) */
 @media (max-width: 760px) {
-  .nav { flex-wrap: wrap; height: auto; padding: var(--s-sm) var(--s-md); gap: var(--s-xs); }
+  /* 좁은 화면에서는 '지금'을 아랫줄로 내린다. 한 줄에 다 욱여넣으면 시간이 잘린다.
+     기둥이 fixed 로 붙는 자리(top)가 --nav-h 이므로 띠가 커진 만큼 같이 올린다. */
+  :root { --nav-h: 92px; }
+  .nav { flex-wrap: wrap; align-content: center; padding: var(--s-xs) var(--s-md); gap: var(--s-xs); }
   .nav-toggle {
-    display: inline-flex; order: 3; margin-left: auto;
+    display: inline-flex; align-items: center; flex: none;
     padding: 6px 10px; font-size: 18px; line-height: 1;
     background: var(--surface); border: 1px solid var(--hairline);
     border-radius: var(--r-md); cursor: pointer;
   }
-  .nav-links {
-    order: 4; flex: 1 0 100%;
-    flex-direction: column; align-items: stretch;
-    gap: 2px; overflow: visible;
-    padding-top: var(--s-xs); border-top: 1px solid var(--hairline);
-  }
-  .nav-links[hidden] { display: none; }
-  .nav-link { padding: 10px 12px; }
-  .nav-link.is-active::after { display: none; }
-  .nav-right { order: 2; }
+  .nav-logo { font-size: 18px; }
+  .nav-right { margin-left: auto; }
   .nav-who { display: none; }
+  .nav-now { order: 3; flex: 1 0 100%; padding: 0 2px; }
+  .now-time { font-size: 16px; }
+
+  .shell { grid-template-columns: minmax(0, 1fr); }
+  .side {
+    position: fixed; top: var(--nav-h); left: 0; z-index: 30;
+    width: 232px; max-width: 82vw;
+    background: var(--canvas);
+    box-shadow: var(--sh-2);
+    transform: translateX(-102%);
+    transition: transform .18s ease;
+  }
+  body.side-open .side { transform: none; }
 
   .page { padding: var(--s-lg) var(--s-md) 48px; }
   .page-title { font-size: 30px; letter-spacing: -.75px; }
   .cards { grid-template-columns: 1fr; }
+  .today { grid-template-columns: 1fr; }
   .perm-grid { grid-template-columns: 1fr; }
   .panel { padding: var(--s-md); }
 }

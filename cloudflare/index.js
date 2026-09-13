@@ -320,7 +320,7 @@ async function ensureBootstrapAdmin(env) {
   const email = String(env.ADMIN_EMAIL || 'garzette@paran.com').trim().toLowerCase();
   await env.DB.prepare(
     `INSERT OR IGNORE INTO users (email, name, password_hash, role, status, must_change_pw, created_at)
-     VALUES (?, '관리자', NULL, 'admin', 'active', 1, ?)`
+     VALUES (?, 'Jaden', NULL, 'admin', 'active', 1, ?)`
   )
     .bind(email, nowIso())
     .run();
@@ -1241,6 +1241,78 @@ async function adminLogs(env, url) {
 }
 
 // ──────────────────────────────────────────────────────────────
+// 날씨 — 상단 메뉴의 "지금"
+// ──────────────────────────────────────────────────────────────
+//
+// 왜 Worker를 거치는가: 브라우저가 바깥 날씨 서버에 직접 말하면 그 서버가 우리 사용자의
+// IP를 보게 된다. 개인 포털에서 굳이 그럴 이유가 없다. 여기서 한 번 물어보고 KV에
+// 10분 담아 두면, 몇 명이 몇 번을 새로 고치든 바깥으로 나가는 요청은 10분에 한 번이다.
+//
+// Open-Meteo 는 키가 필요 없다(그래서 등록할 시크릿이 없다). 위치는 [vars] 에서 바꾼다.
+
+const WEATHER_TTL = 600;
+
+/** WMO 기상코드 → 사람 말과 그림 하나. 표에 없는 코드는 그냥 '흐림'으로 둔다. */
+const WMO = {
+  0:  ['맑음', '☀️'],   1:  ['대체로 맑음', '🌤️'], 2:  ['구름 조금', '⛅'], 3:  ['흐림', '☁️'],
+  45: ['안개', '🌫️'],  48: ['안개', '🌫️'],
+  51: ['이슬비', '🌦️'], 53: ['이슬비', '🌦️'],      55: ['이슬비', '🌦️'],
+  56: ['언 비', '🌧️'],  57: ['언 비', '🌧️'],
+  61: ['약한 비', '🌧️'], 63: ['비', '🌧️'],          65: ['강한 비', '🌧️'],
+  66: ['언 비', '🌧️'],  67: ['언 비', '🌧️'],
+  71: ['약한 눈', '🌨️'], 73: ['눈', '🌨️'],          75: ['많은 눈', '❄️'], 77: ['싸락눈', '🌨️'],
+  80: ['소나기', '🌦️'], 81: ['소나기', '🌧️'],       82: ['강한 소나기', '⛈️'],
+  85: ['소나기눈', '🌨️'], 86: ['소나기눈', '🌨️'],
+  95: ['천둥번개', '⛈️'], 96: ['천둥번개', '⛈️'],     99: ['천둥번개', '⛈️'],
+};
+
+async function apiWeather(env, ctx) {
+  const lat = Number(env.WEATHER_LAT) || 37.5665;       // 기본값: 서울시청
+  const lon = Number(env.WEATHER_LON) || 126.978;
+  const place = String(env.WEATHER_PLACE || '서울');
+  const cacheKey = `weather:${lat},${lon}`;
+
+  const hit = await env.SESSIONS.get(cacheKey, 'json').catch(() => null);
+  if (hit) return json(hit, 200, { 'Cache-Control': 'no-store' });
+
+  try {
+    const q = new URLSearchParams({
+      latitude: String(lat),
+      longitude: String(lon),
+      current: 'temperature_2m,apparent_temperature,weather_code',
+      daily: 'temperature_2m_max,temperature_2m_min',
+      timezone: 'Asia/Seoul',
+      forecast_days: '1',
+    });
+    const res = await fetch(`https://api.open-meteo.com/v1/forecast?${q}`);
+    if (!res.ok) throw new Error(`날씨 응답 ${res.status}`);
+    const d = await res.json();
+
+    const code = Number(d.current?.weather_code);
+    const [label, icon] = WMO[code] || ['흐림', '☁️'];
+    const out = {
+      state: 'ok',
+      place,
+      icon,
+      label,
+      temp: Math.round(Number(d.current?.temperature_2m)),
+      feels: Math.round(Number(d.current?.apparent_temperature)),
+      high: Math.round(Number(d.daily?.temperature_2m_max?.[0])),
+      low: Math.round(Number(d.daily?.temperature_2m_min?.[0])),
+      at: nowIso(),
+    };
+    const put = env.SESSIONS.put(cacheKey, JSON.stringify(out), { expirationTtl: WEATHER_TTL });
+    if (ctx) ctx.waitUntil(put);
+    else await put;
+    return json(out, 200, { 'Cache-Control': 'no-store' });
+  } catch (e) {
+    // 날씨가 안 나오는 것과 포털이 멈추는 것은 다르다 — 조용히 비워서 돌려준다.
+    console.warn('날씨 실패', e.message);
+    return json({ state: 'error', place, note: e.message }, 200, { 'Cache-Control': 'no-store' });
+  }
+}
+
+// ──────────────────────────────────────────────────────────────
 // 라우터
 // ──────────────────────────────────────────────────────────────
 
@@ -1318,6 +1390,11 @@ export default {
       }
       if (path === '/api/unlock/options' && method === 'POST') {
         return requireLogin(request, env, (user, sess) => apiUnlockOptions(request, env, user, sess));
+      }
+
+      // ---- 상단 메뉴의 '지금' (날짜·시간은 브라우저가, 날씨만 여기서) ----
+      if (path === '/api/weather' && method === 'GET') {
+        return requireLogin(request, env, () => apiWeather(env, ctx));
       }
 
       // ---- 협업 연동 ----

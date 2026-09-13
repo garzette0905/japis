@@ -101,10 +101,15 @@
   </div>
 </main>
 
-<!-- ② 포털 — 로그인한 뒤에만 채워진다 (app.js) -->
+<!-- ② 포털 — 로그인한 뒤에만 채워진다 (app.js)
+     상단 띠(nav)에는 로고·'지금'(날짜·시간·날씨)·계정만 둔다.
+     화면 목록은 왼쪽 기둥(side)이 글자로만 세로로 세운다. -->
 <div id="app" hidden>
   <header class="nav" id="nav"></header>
-  <main class="page" id="page"></main>
+  <div class="shell">
+    <aside class="side" id="side"></aside>
+    <main class="page" id="page"></main>
+  </div>
   <footer class="foot" id="foot"></footer>
 </div>
 

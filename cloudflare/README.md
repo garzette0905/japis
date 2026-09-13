@@ -41,12 +41,27 @@ npx wrangler d1 execute japis-db --remote --file=./schema.sql
 | 이름 | 값 | 필수 |
 |---|---|---|
 | `SESSION_SECRET` | 세션 서명용 임의의 긴 문자열(16자 이상) | ✅ 없으면 로그인 자체가 거부됩니다 |
-| `ADMIN_EMAIL` | 최초 관리자 이메일. 기본값 `garzette@paran.com` | 선택 |
 | `GOOGLE_CLIENT_ID` · `GOOGLE_CLIENT_SECRET` | 구글 포토·메일·캘린더 최근 항목 미리보기 | 선택 |
 | `MS_CLIENT_ID` · `MS_CLIENT_SECRET` | OneDrive 최근 항목 미리보기 | 선택 |
 
-> ⚠️ `SESSION_SECRET` 을 바꾸면 협업 연결의 토큰을 풀 수 없게 됩니다(그 열쇠로 싸 두기
-> 때문입니다). 카드에서 *연결하기* 를 한 번 더 누르면 됩니다.
+(`ADMIN_EMAIL` 은 비밀이 아니라 `wrangler.toml` 의 `[vars]` 에 있습니다. 대시보드에서
+평문 '변수'로 넣어 두면 다음 `wrangler deploy` 가 `[vars]` 를 통째로 덮어쓰면서 사라집니다.)
+
+> ⚠️ **시크릿을 지우거나 다시 넣을 때 `SESSION_SECRET` 을 같이 날리지 마세요.** 대시보드에서
+> 변수를 한 줄 지우는 화면이 나머지 줄까지 함께 저장하는 탓에, 다른 키를 고치다 이것이
+> 사라지는 일이 실제로 있었습니다. **확인하는 법**(로그아웃 상태로):
+>
+> ```bash
+> curl -s https://japis.<계정>.workers.dev/api/status
+> ```
+>
+> `{"loggedIn":false,"configured":true}` 가 나와야 합니다. `configured:false` 면
+> `SESSION_SECRET` 이 없는 것이고, 그 상태에서는 **아무도 로그인할 수 없습니다.**
+
+> ⚠️ `SESSION_SECRET` 을 바꾸면 ① 열려 있던 로그인 세션이 전부 끊기고,
+> ② 협업 연결의 토큰을 풀 수 없게 됩니다(그 열쇠로 싸 두기 때문입니다).
+> 카드에서 *연결하기* 를 한 번 더 누르면 됩니다.
+> 비밀번호와 생체인증(패스키)은 이 값과 무관하므로 그대로 쓸 수 있습니다.
 
 ### 협업 연동 키 만들기 (선택)
 
@@ -66,6 +81,21 @@ https://<포털주소>/connect/microsoft/callback
 ```
 
 등록한 뒤 포털에서 **협업 → 연결하기** 를 누르면 그날부터 카드에 최근 항목이 올라옵니다.
+
+구글 쪽에서 빠뜨리기 쉬운 것들:
+
+- **API 세 개를 각각** 사용 설정해야 합니다. 하나라도 빠지면 그 카드만 *불러오지
+  못했습니다* 로 뜹니다(나머지는 잘 나옵니다 — 그래서 원인이 잘 안 보입니다).
+- OAuth 동의 화면이 **테스트** 상태면 *테스트 사용자* 에 `garzette@gmail.com` 을 넣어야
+  합니다. 안 넣으면 동의 화면에서 `403 access_denied` 로 막힙니다.
+- 리디렉션 URI는 **한 글자도 다르면 안 됩니다**(끝의 `/` 유무 포함).
+  `workers.dev` 주소와 커스텀 도메인을 함께 쓴다면 **둘 다** 넣어 주세요.
+- 첫 동의에서만 갱신 토큰이 나옵니다. 이미 동의한 적이 있어 *갱신 토큰을 받지
+  못했습니다* 가 뜨면, [구글 계정 → 보안 → 서드파티 앱](https://myaccount.google.com/connections)
+  에서 이 앱의 접근을 지운 뒤 다시 연결합니다.
+- **구글 포토는 2025년 3월부터** `photoslibrary.readonly` 로 보관함 전체를 읽을 수 없습니다.
+  이 앱이 올린 사진만 보입니다 — 그래서 포토 카드는 동의가 끝나도 비어 있을 수 있고,
+  그것이 정상입니다(메일·캘린더는 영향 없음).
 
 ```bash
 npx wrangler secret put SESSION_SECRET
@@ -110,7 +140,7 @@ npx wrangler secret put SESSION_SECRET
 |---|---|
 | `/` | 로그인 화면만 |
 | `/admin` 직접 입력 | 역시 로그인 화면 (껍데기 HTML은 메뉴를 담고 있지 않다) |
-| `/api/status` (로그아웃 상태) | `{"loggedIn":false,"configured":true}` — 그 이상 아무것도 |
+| `/api/status` (로그아웃 상태) | `{"loggedIn":false,"configured":true}` — 그 이상 아무것도. `configured:false` 면 `SESSION_SECRET` 이 없는 것 |
 | `/go/wepic` (로그아웃 상태) | 401 |
 | 로그인 후 잠긴 카드 클릭 | 비밀번호 재확인 모달 |
 | 관리 → 접속 기록 | 로그인·잠금해제·화면열기가 남는다 |

@@ -54,6 +54,17 @@ SITE_HOSTS = ""
 # 관리자가 사용자·화면별로 더 짧게 줄 수 있고, 이 값은 그 상한이자 기본값이다.
 UNLOCK_TTL_SECONDS = "600"
 
+# 최초 관리자 이메일. users 표가 비어 있을 때 한 번만 쓰인다.
+# ⚠️ 대시보드에서 '변수'로 넣어 두었더라도 여기에 같이 적어 둔다 —
+#    `wrangler deploy` 는 wrangler.toml 의 [vars] 를 **통째로** 덮어쓰므로,
+#    여기에 없는 평문 변수는 배포할 때마다 사라진다(시크릿은 그대로 남는다).
+ADMIN_EMAIL = "garzette@paran.com"
+
+# 상단 메뉴에 띄우는 날씨의 위치(기본: 서울시청). 키가 필요 없는 Open-Meteo 를 쓴다.
+WEATHER_LAT = "37.5665"
+WEATHER_LON = "126.978"
+WEATHER_PLACE = "서울"
+
 # 하루 한 번, 90일이 지난 접속 기록을 지운다(cloudflare/index.js 의 scheduled).
 [triggers]
 crons = ["17 19 * * *"]

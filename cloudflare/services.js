@@ -153,7 +153,7 @@ export const SERVICES = [
     key: 'sns',
     label: 'SNS',
     group: 'homepage',
-    desc: '인스타그램 · Thread · Facebook · 카카오톡 · Telegram',
+    desc: '인스타그램 · Thread · Facebook · Telegram',
     url: '/#/sns',
     route: '#/sns',
     accent: 'pink',
@@ -165,14 +165,18 @@ export const SERVICES = [
       { label: '인스타그램', icon: '📷', url: 'https://www.instagram.com' },
       { label: 'Thread', icon: '🧵', url: 'https://www.threads.net' },
       { label: 'Facebook', icon: '👥', url: 'https://www.facebook.com' },
-      { label: '카카오톡', icon: '💛', url: 'https://www.kakao.com' },
       { label: 'Telegram', icon: '✈️', url: 'https://web.telegram.org' },
     ],
   },
 
   // ── 협업 ──────────────────────────────────────────────────────────────
   // 지금은 **계정을 지정한 바로가기**다. 주소에 계정을 박아 두었으므로 구글 세 개는
-  // 한 번 로그인해 두면 그대로 이어진다. "최근 데이터를 대시보드에 얹는 것"(위젯)은
+  // 한 번 로그인해 두면 그대로 이어진다.
+  //
+  // ⚠️ 구글 주소에 계정을 박는 법은 `?authuser=<이메일>` 하나뿐이다.
+  //    /mail/u/<이메일>/ · /calendar/u/<이메일>/r 처럼 경로에 이메일을 넣으면
+  //    구글이 그 자리를 **계정 번호(0·1·2…)** 로 읽어 "요청한 URL을 찾을 수 없습니다"를
+  //    띄운다. 번호는 로그인 순서에 따라 바뀌므로 번호로 박아 두어서도 안 된다. "최근 데이터를 대시보드에 얹는 것"(위젯)은
   // 제공자별 OAuth 클라이언트와 Refresh Token 자리가 필요해 아직 하지 않았다 —
   // roadmap.md 참고.
   {
@@ -192,7 +196,7 @@ export const SERVICES = [
     label: '구글 메일',
     group: 'collab',
     desc: '받은 편지함을 연다',
-    url: 'https://mail.google.com/mail/u/garzette@gmail.com/',
+    url: 'https://mail.google.com/mail/u/?authuser=garzette@gmail.com',
     account: 'garzette@gmail.com',
     accent: 'orange',
     icon: '✉️',
@@ -204,7 +208,7 @@ export const SERVICES = [
     label: '구글 캘린더',
     group: 'collab',
     desc: '일정을 연다',
-    url: 'https://calendar.google.com/calendar/u/garzette@gmail.com/r',
+    url: 'https://calendar.google.com/calendar/r?authuser=garzette@gmail.com',
     account: 'garzette@gmail.com',
     accent: 'green',
     icon: '📅',

@@ -18,6 +18,7 @@ const state = {
   admin: null,       // 관리자 화면이 받아 온 { users, catalog, groups }
   feeds: new Map(),  // 협업 카드에 얹는 최근 항목 (key → 응답)
   credentials: [],   // 이 주소에 등록해 둔 생체인증 기기
+  weather: null,     // 상단 '지금'에 얹는 날씨 (10분마다 새로 받는다)
 };
 
 // ──────────────────────────────────────────────────────────────
@@ -120,7 +121,9 @@ function enterPortal(st) {
   el('app').hidden = false;
   loadCredentials();
   renderNav();
+  renderSide();
   renderFoot();
+  startNow();
   handleServerHint();
   route();
 }
@@ -387,20 +390,14 @@ function menuGroups() {
 }
 
 function renderNav() {
-  const isAdmin = state.me.role === 'admin';
-  const hash = location.hash || '#/';
-  const on = (h) => (hash === h || (h !== '#/' && hash.startsWith(h)) ? ' is-active' : '');
-
-  const links = [
-    `<a class="nav-link${on('#/')}" href="#/">대시보드</a>`,
-    ...menuGroups().map((g) => `<a class="nav-link${on('#/g/' + g.key)}" href="#/g/${g.key}">${esc(g.label)}</a>`),
-    isAdmin ? `<a class="nav-link${on('#/admin')}" href="#/admin">관리</a>` : '',
-  ].join('');
-
   el('nav').innerHTML = `
-    <a class="nav-logo" href="#/">JAPIS</a>
-    <nav class="nav-links" id="nav-links" aria-label="주 메뉴">${links}</nav>
     <button class="nav-toggle" id="nav-toggle" type="button" aria-label="메뉴 열기" aria-expanded="false">☰</button>
+    <a class="nav-logo" href="#/">JAPIS</a>
+    <div class="nav-now" id="nav-now" aria-live="off">
+      <span class="now-date" id="now-date"></span>
+      <span class="now-time" id="now-time"></span>
+      <span class="now-weather" id="now-weather"></span>
+    </div>
     <div class="nav-right">
       <span class="nav-who">${esc(state.me.name || state.me.email)}</span>
       <a class="btn-utility" href="#/me">내 계정</a>
@@ -408,19 +405,117 @@ function renderNav() {
     </div>`;
 
   el('nav-logout').addEventListener('click', logout);
-
-  const toggle = el('nav-toggle');
-  const linksEl = el('nav-links');
-  const narrow = () => window.matchMedia('(max-width: 760px)').matches;
-  const sync = () => {
-    linksEl.hidden = narrow() && toggle.getAttribute('aria-expanded') !== 'true';
-  };
-  toggle.addEventListener('click', () => {
-    toggle.setAttribute('aria-expanded', toggle.getAttribute('aria-expanded') === 'true' ? 'false' : 'true');
-    sync();
+  el('nav-toggle').addEventListener('click', () => {
+    const open = document.body.classList.toggle('side-open');
+    el('nav-toggle').setAttribute('aria-expanded', open ? 'true' : 'false');
   });
-  window.addEventListener('resize', sync);
-  sync();
+  paintNow();
+}
+
+// ──────────────────────────────────────────────────────────────
+// 왼쪽 메뉴 — **글자만.** 아이콘도 설명도 없다.
+// ──────────────────────────────────────────────────────────────
+//
+// 카드는 "무엇이 있는지 둘러보는" 자리이고, 이 기둥은 "이미 아는 곳으로 바로 가는"
+// 자리다. 그래서 여기서는 그림을 다 걷어내고 이름만 세로로 세운다 — 눈이 한 줄기로
+// 훑고 내려가면 끝나야 한다.
+
+function renderSide() {
+  const isAdmin = state.me.role === 'admin';
+  const hash = location.hash || '#/';
+  const on = (h) => (hash === h ? ' is-active' : '');
+
+  const groups = menuGroups()
+    .map((g) => {
+      const items = state.services.filter((s) => s.group === g.key);
+      const rows = items
+        .map(
+          (s) => `<li><button class="side-item${s.ready ? '' : ' is-soon'}" type="button"
+            data-key="${esc(s.key)}"${s.ready ? '' : ' disabled'}>${esc(s.label)}</button></li>`
+        )
+        .join('');
+      return `<div class="side-group">
+        <a class="side-head${on('#/g/' + g.key)}" href="#/g/${g.key}">${esc(g.label)}</a>
+        <ul class="side-list">${rows}</ul>
+      </div>`;
+    })
+    .join('');
+
+  el('side').innerHTML = `
+    <nav class="side-nav" aria-label="화면 목록">
+      <a class="side-head side-top${on('#/')}" href="#/">대시보드</a>
+      ${groups}
+      ${
+        isAdmin
+          ? `<div class="side-group">
+              <a class="side-head${on('#/admin')}" href="#/admin">관리</a>
+              <ul class="side-list">
+                <li><a class="side-item${on('#/admin')}" href="#/admin">사용자</a></li>
+                <li><a class="side-item${on('#/admin/logs')}" href="#/admin/logs">접속 기록</a></li>
+              </ul>
+            </div>`
+          : ''
+      }
+    </nav>`;
+
+  el('side').querySelectorAll('.side-item[data-key]').forEach((btn) =>
+    btn.addEventListener('click', () => {
+      document.body.classList.remove('side-open');
+      const s = state.services.find((x) => x.key === btn.dataset.key);
+      if (s) openService(s);
+    })
+  );
+  el('side')
+    .querySelectorAll('a')
+    .forEach((a) => a.addEventListener('click', () => document.body.classList.remove('side-open')));
+}
+
+// ──────────────────────────────────────────────────────────────
+// 상단의 '지금' — 날짜·시간·날씨
+// ──────────────────────────────────────────────────────────────
+//
+// 날짜와 시간은 브라우저가 이미 알고 있다(서버에 물을 이유가 없다). 날씨만 Worker가
+// 대신 물어보고 10분 담아 둔 것을 받아 온다. 실패해도 자리를 비워 둘 뿐, 아무것도
+// 막지 않는다 — 날씨가 안 뜨는 것과 포털이 안 뜨는 것은 다르다.
+
+let nowTimer = null;
+let weatherTimer = null;
+
+function paintNow() {
+  const d = new Date();
+  const date = el('now-date');
+  const time = el('now-time');
+  if (date) date.textContent = d.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' });
+  if (time) time.textContent = d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+  paintWeather();
+}
+
+function paintWeather() {
+  const node = el('now-weather');
+  if (!node) return;
+  const w = state.weather;
+  if (!w || w.state !== 'ok') return void (node.textContent = '');
+  node.textContent = `${w.icon} ${w.temp}°`;
+  node.title = `${w.place} · ${w.label} · 체감 ${w.feels}° · 최고 ${w.high}° / 최저 ${w.low}°`;
+}
+
+async function loadWeather() {
+  try {
+    state.weather = await api('/api/weather');
+  } catch {
+    state.weather = null;
+  }
+  paintWeather();
+}
+
+/** 시계는 30초마다, 날씨는 10분마다. 다시 들어와도 타이머가 겹치지 않게 먼저 끈다. */
+function startNow() {
+  clearInterval(nowTimer);
+  clearInterval(weatherTimer);
+  paintNow();
+  loadWeather();
+  nowTimer = setInterval(paintNow, 30000);
+  weatherTimer = setInterval(loadWeather, 600000);
 }
 
 function renderFoot() {
@@ -438,7 +533,7 @@ function renderFoot() {
 window.addEventListener('hashchange', () => {
   if (el('app').hidden) return;
   closeLock();          // 다른 화면으로 넘어가면 열려 있던 잠금 모달은 의미가 없다
-  renderNav();
+  renderSide();
   route();
 });
 
@@ -516,7 +611,7 @@ function liveCardHtml(s) {
 }
 
 function wireCards(root) {
-  root.querySelectorAll('.card[data-key], .card-live button[data-key]').forEach((btn) => {
+  root.querySelectorAll('.card[data-key], .card-live button[data-key], .btn-utility[data-key]').forEach((btn) => {
     btn.addEventListener('click', () => {
       const s = state.services.find((x) => x.key === btn.dataset.key);
       if (s) openService(s);
@@ -537,7 +632,10 @@ const feedWhen = (iso, allDay) => {
 
 function feedHtml(key, f) {
   if (!f) return '<span class="spinner"></span>';
-  if (f.state === 'locked') return '<p class="feed-note">🔒 잠금을 풀면 최근 항목이 보입니다.</p>';
+  if (f.state === 'locked') {
+    return `<p class="feed-note">🔒 잠금을 풀면 최근 항목이 보입니다.</p>
+      <button class="btn-utility" type="button" data-unlock="${esc(key)}">잠금 해제</button>`;
+  }
   if (f.state === 'unconfigured') {
     return '<p class="feed-note">연동 설정 전입니다. (관리자가 제공자 키를 등록해야 합니다)</p>';
   }
@@ -568,7 +666,14 @@ function feedHtml(key, f) {
 async function loadFeed(key) {
   const paint = () => {
     const node = $(`.card-feed[data-feed="${key}"]`, el('page'));
-    if (node) node.innerHTML = feedHtml(key, state.feeds.get(key));
+    if (!node) return;
+    node.innerHTML = feedHtml(key, state.feeds.get(key));
+    node.querySelectorAll('[data-unlock]').forEach((b) =>
+      b.addEventListener('click', () => {
+        const s = state.services.find((x) => x.key === b.dataset.unlock);
+        if (s) showLock(s);
+      })
+    );
   };
   if (state.feeds.has(key)) return paint();
   try {
@@ -700,6 +805,41 @@ el('lock-open').addEventListener('click', () => setTimeout(closeLock, 120));
 
 const groupLabel = (key) => state.groups.find((g) => g.key === key)?.label || key;
 
+// ---------- 대시보드 맨 위의 '오늘' ----------
+//
+// 메일과 캘린더는 **기본으로 펼쳐 둔다.** 매번 눌러서 들어가 봐야 아는 것이라면
+// 포털이 한 일이 없다. 다만 화면을 통째로 iframe 에 끼울 수는 없다 —
+// 구글이 mail.google.com·calendar.google.com 을 `X-Frame-Options: DENY` 로 내보내서
+// 어느 사이트에서도 프레임에 담기지 않는다(구글의 정책이라 우리 쪽에서 풀 수 없다).
+// 그래서 화면을 빌려 오는 대신 **내용을 받아 와서 우리 글자로 그린다**(/api/feed).
+// 본문은 내려오지 않는다 — 제목·보낸이·시각뿐이다.
+
+const TODAY = [
+  { key: 'gcalendar', title: '다가오는 일정' },
+  { key: 'gmail', title: '안 읽은 메일' },
+];
+
+function todayHtml() {
+  const panels = TODAY.map((t) => state.services.find((s) => s.key === t.key && s.feed)).filter(Boolean);
+  if (!panels.length) return '';
+  return `<section class="section">
+    <h2 class="section-title">오늘</h2>
+    <div class="today">${panels
+      .map((s) => {
+        const t = TODAY.find((x) => x.key === s.key);
+        return `<div class="panel today-panel">
+          <div class="panel-title">
+            <span>${esc(s.icon)} ${esc(t.title)}</span>
+            <button class="btn-utility" type="button" data-key="${esc(s.key)}"${s.ready ? '' : ' disabled'}>
+              ${s.ready ? '열기' : '준비중'}</button>
+          </div>
+          <div class="card-feed" data-feed="${esc(s.key)}"><span class="spinner"></span></div>
+        </div>`;
+      })
+      .join('')}</div>
+  </section>`;
+}
+
 function renderDashboard(page) {
   const groups = menuGroups();
   const hour = new Date().getHours();
@@ -723,6 +863,7 @@ function renderDashboard(page) {
       <p class="page-lead">흩어져 있던 서비스를 한자리에 모았습니다.
         🔒 표시가 붙은 화면은 들어갈 때 비밀번호를 한 번 더 확인합니다.</p>
     </div>
+    ${todayHtml()}
     ${sections || emptyHtml('열람할 수 있는 화면이 없습니다.', '관리자에게 화면 권한을 요청해주세요.')}`;
   wireCards(page);
 }
@@ -992,6 +1133,7 @@ async function renderAdmin(page) {
         <td class="muted nowrap">${fmt(u.lastLoginAt)}</td>
         <td><div class="row-actions">
           <a class="btn-utility" href="#/admin/perm/${u.id}">화면 권한</a>
+          <button class="btn-utility" data-act="rename" data-id="${u.id}">이름</button>
           <button class="btn-utility" data-act="reset" data-id="${u.id}">비번 초기화</button>
           <button class="btn-utility" data-act="toggle" data-id="${u.id}">${u.status === 'blocked' ? '해제' : '중지'}</button>
           <button class="btn-utility danger" data-act="del" data-id="${u.id}">삭제</button>
@@ -1089,6 +1231,17 @@ async function adminAction(act, id) {
         body: { status: u.status === 'blocked' ? 'active' : 'blocked' },
       });
       toast(u.status === 'blocked' ? '중지를 해제했습니다.' : '계정을 중지했습니다.');
+    } else if (act === 'rename') {
+      // 대시보드 인사말("좋은 아침입니다, ○○님")이 그대로 부르는 값이다.
+      const name = prompt(`${u.email} 의 표시 이름`, u.name || '');
+      if (name === null) return;
+      await api(`/api/admin/users/${id}`, { method: 'PATCH', body: { name } });
+      toast('이름을 바꿨습니다.');
+      // 내 이름을 내가 바꿨다면 상단 띠도 바로 고쳐 준다.
+      if (id === state.me.id) {
+        state.me.name = name.trim() || null;
+        renderNav();
+      }
     } else if (act === 'reset') {
       const pw = prompt(`${u.email} 의 새 비밀번호 (비우면 "비밀번호 없이 최초 로그인"으로 되돌립니다)`, '');
       if (pw === null) return;
@@ -1188,7 +1341,7 @@ async function renderPerms(page, id) {
       if (id === state.me.id) {
         const st = await api('/api/services');
         state.services = st.services || [];
-        renderNav();
+        renderSide();
       }
     } catch (e) {
       toast(e.message);
