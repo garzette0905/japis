@@ -16,6 +16,22 @@
 - 구글 메일·캘린더 주소를 `?authuser=<이메일>` 형식으로. `/u/<이메일>/` 의 `u/` 자리를
   구글이 계정 번호로 읽어 "요청한 URL을 찾을 수 없습니다"가 뜨고 있었다.
 
+### 구글 링크에 계정 박기 — 완료
+
+"구글 포토가 안 열린다"의 정체를 찾았다. 주소를 끝까지 따라가 보니
+
+    photos.google.com/?authuser=garzette@gmail.com
+      → (authuser 를 지우고) photos.google.com/
+      → www.google.com/photos/about/          ← 소개 페이지
+
+포토는 `authuser` 를 **버린다.** 캘린더는 지키고, 메일은 로그인 단계에서 조용히
+버린다 — 서비스마다 제각각이다. 그래서 넷 모두 `googleAs()` 로 감쌌다
+(`accounts.google.com/AccountChooser?Email=…&continue=…`). 이미 그 계정으로 로그인해
+있으면 그대로 통과하고, 여러 계정이 물려 있으면 이 계정으로 바꿔 주고, 로그인 전이면
+이메일이 채워진 로그인 화면이 뜬다. 어느 쪽이든 엉뚱한 곳에 닿지 않는다.
+
+프레임에 넣는 주소(frameUrl)는 그대로 두었다 — accounts.google.com 은 프레임을 막는다.
+
 ### 대시보드 정리 · 구글 할일 — 완료
 
 - **대시보드를 한 화면에.** 설명이 붙은 카드를 이름만 남긴 타일로 바꾸고, 머리말

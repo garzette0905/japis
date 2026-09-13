@@ -99,6 +99,11 @@ https://<포털주소>/connect/microsoft/callback
 - 첫 동의에서만 갱신 토큰이 나옵니다. 이미 동의한 적이 있어 *갱신 토큰을 받지
   못했습니다* 가 뜨면, [구글 계정 → 보안 → 서드파티 앱](https://myaccount.google.com/connections)
   에서 이 앱의 접근을 지운 뒤 다시 연결합니다.
+- **구글 링크에 계정을 박는 법은 `AccountChooser` 하나뿐입니다.** `?authuser=<이메일>`
+  은 서비스마다 다르게 굽니다 — 캘린더는 지키고, 메일은 로그인 단계에서 조용히 버리고,
+  **포토는 아예 지우고** `photos.google.com/` 로 튕깁니다. 거기서 세션이 없거나 기본
+  계정(u/0)이 다른 사람이면 `www.google.com/photos/about/` — **소개 페이지**가 뜹니다.
+  `services.js` 의 `googleAs()` 가 넷을 모두 감싸 이 문제를 없앴습니다.
 - **구글 포토는 2025년 3월부터** `photoslibrary.readonly` 로 보관함 전체를 읽을 수 없습니다.
   이 앱이 올린 사진만 보입니다 — 그래서 포토 카드는 동의가 끝나도 비어 있을 수 있고,
   그것이 정상입니다(메일·캘린더는 영향 없음).

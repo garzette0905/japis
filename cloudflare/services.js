@@ -39,6 +39,26 @@
 //            쓴다. 공개 사이트 주소라 숨길 것이 없어 목록 API에 그대로 실어 보낸다
 //            (감추는 것은 개인 서비스의 주소다 — 그건 /go/<key> 만 안다).
 
+/**
+ * 구글 화면을 **이 계정으로** 여는 주소.
+ *
+ * 왜 `?authuser=<이메일>` 로는 안 되는가 — 구글 서비스마다 다르게 군다.
+ *   · 캘린더  : 지킨다
+ *   · 메일    : 로그인 화면으로 넘어가면서 조용히 **버린다**
+ *   · 포토    : 아예 **지우고** photos.google.com/ 로 튕긴다. 거기서 세션이 없거나
+ *               기본 계정(u/0)이 다른 사람이면 www.google.com/photos/about/ —
+ *               즉 **소개 페이지**가 뜬다. "구글 포토가 안 열린다"의 정체가 이것이다.
+ *
+ * AccountChooser 는 계정을 먼저 고르게 한 뒤 continue 로 넘긴다. 이미 그 계정으로
+ * 로그인해 있으면 그대로 통과하고, 여러 계정이 물려 있으면 **이 계정으로 바꿔 준다**.
+ * 로그인 전이면 이메일이 채워진 로그인 화면이 뜬다. 어느 쪽이든 엉뚱한 곳에 닿지 않는다.
+ *
+ * ⚠️ 프레임에 넣는 주소(frameUrl)에는 쓰지 않는다 — accounts.google.com 은 프레임을 막는다.
+ */
+const googleAs = (email, target) =>
+  `https://accounts.google.com/AccountChooser?Email=${encodeURIComponent(email)}` +
+  `&continue=${encodeURIComponent(target)}`;
+
 export const GROUPS = [
   { key: 'home', label: '대시보드' },
   { key: 'personal', label: '개인서비스' },
@@ -185,21 +205,18 @@ export const SERVICES = [
   },
 
   // ── 협업 ──────────────────────────────────────────────────────────────
-  // 지금은 **계정을 지정한 바로가기**다. 주소에 계정을 박아 두었으므로 구글 세 개는
-  // 한 번 로그인해 두면 그대로 이어진다.
+  // 계정을 지정한 바로가기 + 카드 앞면의 최근 항목(/api/feed).
   //
-  // ⚠️ 구글 주소에 계정을 박는 법은 `?authuser=<이메일>` 하나뿐이다.
-  //    /mail/u/<이메일>/ · /calendar/u/<이메일>/r 처럼 경로에 이메일을 넣으면
-  //    구글이 그 자리를 **계정 번호(0·1·2…)** 로 읽어 "요청한 URL을 찾을 수 없습니다"를
-  //    띄운다. 번호는 로그인 순서에 따라 바뀌므로 번호로 박아 두어서도 안 된다. "최근 데이터를 대시보드에 얹는 것"(위젯)은
-  // 제공자별 OAuth 클라이언트와 Refresh Token 자리가 필요해 아직 하지 않았다 —
-  // roadmap.md 참고.
+  // 구글 넷은 주소를 전부 googleAs() 로 감쌌다. 경로에 이메일을 넣는 법
+  // (/mail/u/<이메일>/)은 구글이 그 자리를 계정 번호로 읽어 "요청한 URL을 찾을 수
+  // 없습니다"가 되고, `?authuser=<이메일>` 은 서비스마다 지키기도 하고 버리기도 한다
+  // (포토는 아예 지우고 소개 페이지로 튕긴다). 자세한 것은 googleAs() 주석 참고.
   {
     key: 'gphotos',
     label: '구글 포토',
     group: 'collab',
     desc: '사진과 앨범을 연다',
-    url: 'https://photos.google.com/?authuser=garzette@gmail.com',
+    url: googleAs('garzette@gmail.com', 'https://photos.google.com/'),
     account: 'garzette@gmail.com',
     accent: 'sky',
     icon: '📷',
@@ -212,7 +229,7 @@ export const SERVICES = [
     label: '구글 메일',
     group: 'collab',
     desc: '받은 편지함을 연다',
-    url: 'https://mail.google.com/mail/u/?authuser=garzette@gmail.com',
+    url: googleAs('garzette@gmail.com', 'https://mail.google.com/mail/u/0/'),
     account: 'garzette@gmail.com',
     accent: 'orange',
     icon: '✉️',
@@ -225,7 +242,7 @@ export const SERVICES = [
     label: '구글 캘린더',
     group: 'collab',
     desc: '일정을 연다',
-    url: 'https://calendar.google.com/calendar/r?authuser=garzette@gmail.com',
+    url: googleAs('garzette@gmail.com', 'https://calendar.google.com/calendar/r'),
     // 캘린더 본 화면은 X-Frame-Options: SAMEORIGIN 이라 프레임에 담기지 않는다. 다만
     // **임베드 주소**는 애초에 남의 사이트에 붙이라고 만든 것이라 그 헤더가 없다 —
     // 오른쪽 프레임에서는 이쪽을 쓴다(↗ 로 새 탭을 열면 위의 본 화면으로 나간다).
@@ -244,7 +261,7 @@ export const SERVICES = [
     label: '구글 할일',
     group: 'collab',
     desc: '할 일 목록을 연다',
-    url: 'https://tasks.google.com/u/0/?authuser=garzette@gmail.com',
+    url: googleAs('garzette@gmail.com', 'https://tasks.google.com/'),
     // 캘린더와 같은 얼개다 — 프레임에서는 '붙여 쓰라고' 내주는 임베드 주소를 쓰고,
     // ↗(새 탭)는 위의 본 화면으로 나간다.
     frameUrl: 'https://tasks.google.com/embed/list/~default?fullWidth=1',
