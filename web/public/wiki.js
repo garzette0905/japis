@@ -38,6 +38,7 @@ const wiki = {
 
 let saveTimer = null;
 let searchTimer = null;
+let importing = false;
 
 const FOLDER_COLORS = ['sky', 'green', 'orange', 'purple', 'pink', 'teal', 'brown'];
 
@@ -440,8 +441,46 @@ async function emptyTrash() {
 
 // ---------- 폴더 ----------
 
+// window.prompt/confirm을 지원하지 않는 앱 내 브라우저에서도 같은 UI를 쓴다.
+function folderDialog({ title, value = '', message = '', input = true, submit = '확인' }) {
+  if (document.getElementById('wiki-folder-dialog')) return Promise.resolve(null);
+  const previous = document.activeElement;
+  const dialog = document.createElement('dialog');
+  dialog.id = 'wiki-folder-dialog';
+  dialog.className = 'wiki-folder-dialog';
+  dialog.setAttribute('aria-labelledby', 'wiki-folder-dialog-title');
+  dialog.innerHTML = `<form method="dialog">
+    <h2 id="wiki-folder-dialog-title">${esc(title)}</h2>
+    ${message ? `<p>${esc(message)}</p>` : ''}
+    ${input ? `<label for="wiki-folder-name">폴더 이름</label><input id="wiki-folder-name" name="name" maxlength="80" autocomplete="off" value="${esc(value)}">` : ''}
+    <div class="wiki-folder-dialog-actions">
+      <button type="button" data-cancel>취소</button>
+      <button type="submit" value="save">${esc(submit)}</button>
+    </div>
+  </form>`;
+  document.body.appendChild(dialog);
+  return new Promise((resolve) => {
+    const leave = () => dialog.close('cancel');
+    dialog.querySelector('[data-cancel]').addEventListener('click', leave);
+    dialog.querySelector('form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      dialog.close('save');
+    });
+    dialog.addEventListener('close', () => {
+      const result = dialog.returnValue === 'save' ? (input ? dialog.querySelector('input').value : true) : null;
+      window.removeEventListener('hashchange', leave);
+      dialog.remove();
+      if (previous?.isConnected) previous.focus();
+      resolve(result);
+    }, { once: true });
+    window.addEventListener('hashchange', leave);
+    dialog.showModal();
+    if (input) { dialog.querySelector('input').focus(); dialog.querySelector('input').select(); }
+  });
+}
+
 async function addFolder() {
-  const name = prompt('폴더 이름');
+  const name = await folderDialog({ title: '폴더 만들기', submit: '만들기' });
   if (!name || !name.trim()) return;
   try {
     await api('/api/wiki/folders', {
@@ -458,12 +497,12 @@ async function addFolder() {
 async function editFolder(id) {
   const f = wiki.folders.find((x) => x.id === id);
   if (!f) return;
-  const name = prompt(`폴더 이름 (지우려면 비워 두고 확인)`, f.name);
+  const name = await folderDialog({ title: '폴더 고치기', value: f.name, message: '폴더를 삭제하려면 이름을 비워 두세요.', submit: '저장' });
   if (name === null) return;
 
   try {
     if (!name.trim()) {
-      if (!confirm(`'${f.name}' 폴더를 지울까요? 안의 메모는 '내 메모'로 옮겨집니다.`)) return;
+      if (!await folderDialog({ title: '폴더 삭제', message: `'${f.name}' 폴더를 지울까요? 안의 메모는 '내 메모'로 옮겨집니다.`, input: false, submit: '폴더 삭제' })) return;
       await api('/api/wiki/folders/' + id, { method: 'DELETE' });
       if (wiki.view.folder === String(id)) wiki.view.folder = '';
       toast('폴더를 지웠습니다.');
@@ -482,18 +521,37 @@ async function editFolder(id) {
 // ---------- html 불러오기 ----------
 
 async function importHtml(files) {
-  if (!files || !files.length) return;
-  const form = new FormData();
-  for (const f of files) form.append('file', f);
-  if (wiki.view.folder && wiki.view.folder !== 'none') form.append('folderId', wiki.view.folder);
-
-  toast('불러오는 중…');
+  if (!files || !files.length || importing) return;
+  importing = true;
+  const list = [...files];
+  const folder = wiki.view.folder;
+  const input = el('wiki-import');
+  if (input) input.disabled = true;
+  let imported = 0;
+  let skipped = 0;
+  let completed = 0;
   try {
-    const r = await api('/api/wiki/import', { method: 'POST', form });
-    toast(`${r.notes.length}개를 불러왔습니다.`);
-    await Promise.all([loadOverview(), loadNotes()]);
+    // 서버의 요청당 20개 제한을 지키면서 폴더 전체를 가져온다.
+    // 사용자가 중간에 다른 폴더를 열어도 시작할 때 고른 폴더에 저장한다.
+    for (let i = 0; i < list.length; i += 20) {
+      const batch = list.slice(i, i + 20);
+      const form = new FormData();
+      for (const file of batch) form.append('file', file);
+      if (folder && folder !== 'none') form.append('folderId', folder);
+      toast(`불러오는 중… ${completed}/${list.length}개 처리`);
+      const r = await api('/api/wiki/import', { method: 'POST', form });
+      imported += r.notes.length;
+      skipped += r.skipped || 0;
+      completed += batch.length;
+    }
+    toast(`${imported}개를 불러왔습니다.${skipped ? ` ${skipped}개는 크기 제한으로 건너뛰었습니다.` : ''}`);
   } catch (e) {
-    toast(e.message);
+    // 응답 유실 때 이미 저장됐을 수도 있으므로 실패 요청은 자동 재시도하지 않는다.
+    toast(`${e.message} · 저장 확인 ${imported}개. ${completed + 1}번째 파일부터는 목록을 확인한 뒤 다시 불러오세요.`);
+  } finally {
+    importing = false;
+    if (input) { input.disabled = false; input.value = ''; }
+    await Promise.all([loadOverview(), loadNotes()]);
   }
 }
 

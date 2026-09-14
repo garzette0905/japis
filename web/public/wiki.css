@@ -527,6 +527,20 @@ body.wiki-resizing .wiki-ed-body { cursor: nwse-resize; }
   .wiki-ed-body table { display: block; overflow-x: auto; max-width: 100%; }
 }
 
+.wiki-folder-dialog {
+  width: min(420px, calc(100vw - 32px)); box-sizing: border-box;
+  border: 1px solid #d8deea; border-radius: 16px; padding: 24px;
+  color: #253247; background: #fff; box-shadow: 0 16px 60px #14244033;
+}
+.wiki-folder-dialog::backdrop { background: #14244066; }
+.wiki-folder-dialog h2 { margin: 0 0 16px; font-size: 20px; }
+.wiki-folder-dialog p { line-height: 1.6; }
+.wiki-folder-dialog label { display: block; margin-bottom: 8px; }
+.wiki-folder-dialog input { width: 100%; box-sizing: border-box; padding: 12px; border: 1px solid #aab5c8; border-radius: 8px; font: inherit; }
+.wiki-folder-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+.wiki-folder-dialog-actions button { min-height: 42px; padding: 8px 18px; border: 1px solid #bdc7d8; border-radius: 8px; font: inherit; cursor: pointer; background: #fff; }
+.wiki-folder-dialog-actions button[type=submit] { background: #4775d8; color: #fff; border-color: #4775d8; }
+
 /* 아주 좁은 기기(360px 언저리) — 검색칸이 제목과 한 줄에 못 선다 */
 @media (max-width: 420px) {
   .wiki-bar-right { width: 100%; }
