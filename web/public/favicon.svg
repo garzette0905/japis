@@ -1,7 +1,6 @@
+<!-- 탭에 서는 표. 포털과 같은 결로 — 검정 한 장 위에 흰 글씨 하나. -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="14" fill="#213183"/>
-  <circle cx="47" cy="17" r="4" fill="#ff64c8"/>
-  <circle cx="54" cy="30" r="2.5" fill="#62aef0"/>
-  <text x="32" y="45" font-family="'Noto Sans KR',Inter,system-ui,sans-serif" font-size="26"
-        font-weight="700" letter-spacing="-1.4" text-anchor="middle" fill="#ffffff">JA</text>
+  <rect width="64" height="64" rx="12" fill="#111111"/>
+  <text x="32" y="44" font-family="Inter,'Noto Sans KR',system-ui,sans-serif" font-size="30"
+        font-weight="700" letter-spacing="-2" text-anchor="middle" fill="#ffffff">JA</text>
 </svg>

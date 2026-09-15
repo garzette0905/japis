@@ -41,6 +41,7 @@ import {
   shareNote,
   sharedNotePage,
   renderMarkdown,
+  reorderFolders,
 } from './wiki.js';
 
 const enc = new TextEncoder();
@@ -1625,6 +1626,10 @@ export default {
       }
       if (path === '/api/wiki/folders' && method === 'POST') {
         return requireWiki(request, env, (user) => createFolder(request, env, user.id));
+      }
+      // 끌어다 놓은 폴더 차례. /folders/<번호> 보다 **먼저** 본다 — 'order' 는 번호가 아니다.
+      if (path === '/api/wiki/folders/order' && method === 'PUT') {
+        return requireWiki(request, env, (user) => reorderFolders(request, env, user.id));
       }
       const mFolder = path.match(/^\/api\/wiki\/folders\/(\d+)$/);
       if (mFolder && method === 'PATCH') {

@@ -135,6 +135,8 @@ function paintSide() {
   const folders = wiki.folders
     .map(
       (f) => `<li class="wiki-folder${on(plain && v.folder === String(f.id))}" data-folder="${f.id}">
+        <span class="wiki-folder-grip" data-grip="${f.id}" role="button" tabindex="0"
+              title="끌어서 차례 바꾸기" aria-label="${esc(f.name)} 폴더 끌어서 옮기기">${ico('grip')}</span>
         <button class="wiki-folder-go" type="button" data-go="${f.id}">
           <span class="wiki-dot band-${esc(f.color)}" aria-hidden="true"></span>
           <span class="wiki-folder-name">${esc(f.name)}</span>
@@ -202,6 +204,16 @@ function paintSide() {
   side.querySelectorAll('[data-edit]').forEach((b) =>
     b.addEventListener('click', () => editFolder(Number(b.dataset.edit)))
   );
+
+  // 손잡이를 잡으면 그 줄을 끌 수 있다. 키보드로도 옮길 수 있게 ↑↓ 를 함께 받는다 —
+  // 끌어다 놓기는 손이 있어야 하는 동작이라, 그것만 두면 쓸 수 없는 사람이 생긴다.
+  side.querySelectorAll('[data-grip]').forEach((g) => {
+    g.addEventListener('pointerdown', (e) => startFolderDrag(e, g.closest('.wiki-folder')));
+    g.addEventListener('pointermove', moveFolderDrag);
+    g.addEventListener('pointerup', endFolderDrag);
+    g.addEventListener('pointercancel', endFolderDrag);
+    g.addEventListener('keydown', (e) => nudgeFolder(e, g.closest('.wiki-folder')));
+  });
 }
 
 // ---------- 가운데 위: 검색·정렬·보기 ----------
@@ -520,6 +532,111 @@ async function editFolder(id) {
     paintBar();
   } catch (e) {
     toast(e.message);
+  }
+}
+
+// ---------- 폴더 차례 바꾸기 (끌어다 놓기) ----------
+//
+// HTML5 의 `draggable` 을 쓰지 않는다. 그것은 **마우스에만** 있는 기능이라 휴대폰에서
+// 손가락으로는 아무 일도 일어나지 않는다. 이 포털은 휴대폰에서도 그대로 쓰는 것을
+// 지키기로 했으므로, 마우스·손가락·펜을 한 벌로 다루는 Pointer Event 로 직접 만든다.
+//
+// 잡는 곳은 왼쪽의 손잡이(⣿) 하나다. 줄 아무 데나 잡게 하면 "폴더를 열려고 눌렀는데
+// 끌려 나왔다"가 된다 — 여는 것과 옮기는 것은 손이 닿는 자리가 달라야 한다.
+//
+// 옮기는 동안에는 화면만 바꾸고(잡은 줄을 남의 자리에 끼워 넣는다), 손을 떼는
+// 순간에 한 번만 서버에 적는다.
+
+let dragging = null;   // { li, list, startY, moved }
+
+/**
+ * 지금 손가락이 놓인 자리에서, 잡은 줄이 들어가야 할 이웃을 찾는다.
+ *
+ * 폴더는 화면에 따라 두 가지로 선다 — 넓은 화면에서는 **세로로 한 줄씩**, 좁은
+ * 화면에서는 **가로로 흐르는 알약**으로(wiki.css 의 860px 규칙). 세로줄만 생각하고
+ * y 만 보면 휴대폰에서 엉뚱한 자리에 끼워진다. 그래서 어느 쪽인지 먼저 보고 견준다.
+ */
+function rowUnder(list, x, y) {
+  const rows = [...list.querySelectorAll('.wiki-folder:not(.is-dragging)')];
+  // 둘째 줄이 첫째 줄과 같은 높이에 있으면 가로로 흐르는 배치다.
+  const flowing =
+    rows.length > 1 && rows[1].getBoundingClientRect().top < rows[0].getBoundingClientRect().bottom - 2;
+
+  for (const li of rows) {
+    const r = li.getBoundingClientRect();
+    if (flowing) {
+      if (y < r.top) return li;                                  // 윗줄로 올라왔다
+      if (y <= r.bottom && x < r.left + r.width / 2) return li;  // 같은 줄에서 왼쪽
+    } else if (y < r.top + r.height / 2) {
+      return li;
+    }
+  }
+  return null;         // 다 지나쳤으면 맨 뒤다
+}
+
+function startFolderDrag(e, li) {
+  // 왼쪽 단추(또는 손가락) 하나만. 오른쪽 클릭으로 끌지 않는다.
+  if (e.button !== undefined && e.button !== 0) return;
+  const list = li.parentElement;
+  if (!list) return;
+
+  e.preventDefault();
+  dragging = { li, list, moved: false };
+  li.classList.add('is-dragging');
+  document.body.classList.add('is-reordering');
+  // 손가락이 줄 밖으로 나가도 계속 따라오게 잡아 둔다.
+  // (잡지 못하는 경우가 있어도 끄는 것 자체는 굴러가야 하므로 조용히 넘어간다)
+  try {
+    e.currentTarget.setPointerCapture(e.pointerId);
+  } catch {}
+}
+
+function moveFolderDrag(e) {
+  if (!dragging) return;
+  e.preventDefault();
+  dragging.moved = true;
+  const next = rowUnder(dragging.list, e.clientX, e.clientY);
+  // insertBefore(null) 은 '맨 뒤에'라는 뜻이다.
+  if (next !== dragging.li) dragging.list.insertBefore(dragging.li, next);
+}
+
+/** 키보드로 한 칸씩. 손잡이에 손을 얹고 ↑ · ↓ 를 누른다. */
+function nudgeFolder(e, li) {
+  if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+  e.preventDefault();
+  const list = li.parentElement;
+  const sib = e.key === 'ArrowUp' ? li.previousElementSibling : li.nextElementSibling;
+  if (!sib) return;
+  if (e.key === 'ArrowUp') list.insertBefore(li, sib);
+  else list.insertBefore(sib, li);
+  $('[data-grip]', li)?.focus();
+  saveFolderOrder(list);
+}
+
+async function endFolderDrag(e) {
+  if (!dragging) return;
+  const { li, list, moved } = dragging;
+  dragging = null;
+  li.classList.remove('is-dragging');
+  document.body.classList.remove('is-reordering');
+  try {
+    e?.currentTarget?.releasePointerCapture?.(e.pointerId);
+  } catch {}
+  if (!moved) return;
+  saveFolderOrder(list);
+}
+
+/** 화면에 선 그대로를 서버에 적는다. 끌어다 놓기와 ↑↓ 가 함께 쓴다. */
+async function saveFolderOrder(list) {
+  const order = [...list.querySelectorAll('.wiki-folder')].map((n) => Number(n.dataset.folder));
+  // 화면이 이미 새 차례로 서 있다. 기억하는 쪽도 같이 맞춰 둔다 —
+  // 그래야 다시 그릴 때(paintSide) 방금 옮긴 것이 도로 튀지 않는다.
+  wiki.folders.sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
+  try {
+    await api('/api/wiki/folders/order', { method: 'PUT', body: { order } });
+  } catch (err) {
+    toast(err.message);
+    await loadOverview();      // 서버가 받지 않았다면 서버가 아는 차례로 되돌린다
   }
 }
 

@@ -464,7 +464,11 @@ body.wiki-resizing .wiki-ed-body { cursor: nwse-resize; }
 
 @media (max-width: 860px) {
   .wiki { grid-template-columns: minmax(0, 1fr); gap: var(--s-md); }
-  .wiki-side { position: static; }
+  /* 좁은 화면에서는 기둥이 메모 **위에** 얹힌다. 페이지가 통째로 굴러가므로
+     기둥을 화면 높이에 묶어 둘 이유가 없다 — 묶어 두면 폴더 칸만 따로 굴러
+     오히려 답답하다. */
+  .wiki-side { position: static; display: block; max-height: none; }
+  .wiki-folders { overflow: visible; }
   /* 폴더 목록을 세로 기둥에서 **가로로 흐르는 알약**으로. 세로로 세우면 메모가
      화면 밖으로 밀려난다 — 좁은 화면에서 주인공은 메모다. */
   .wiki-nav, .wiki-folders { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -557,7 +561,28 @@ body.wiki-resizing .wiki-ed-body { cursor: nwse-resize; }
    편집·HTML·보기를 오가는 칸과, 공유 창.
    ========================================================================== */
 
-/* ---------- 왼쪽 폴더 목록 ---------- */
+/* ---------- 왼쪽 폴더 목록 ----------
+   **폴더 목록만 굴러간다.** 예전에는 이 기둥이 내용만큼 길어져서, 폴더가 열 개쯤
+   되면 아래의 '휴지통'에 닿으려고 메모 목록 끝까지 페이지를 내려야 했다. 기둥을
+   화면 높이에 묶어 두고, 그 안에서 **가운데(폴더)만** 굴린다 — '메모 쓰기'는 늘
+   위에, '휴지통'은 늘 아래에 붙어 있다. */
+
+.wiki-side {
+  display: flex; flex-direction: column;
+  max-height: calc(100dvh - var(--nav-h) - var(--s-xxl));
+}
+.wiki-side > .wiki-new,
+.wiki-side > .wiki-nav,
+.wiki-side > .wiki-side-head { flex: none; }
+.wiki-folders {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.wiki-folders::-webkit-scrollbar { width: 6px; }
+.wiki-folders::-webkit-scrollbar-thumb { background: var(--hairline); }
+.wiki-nav-foot { flex: none; }
 
 .wiki-navico { width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; }
 .wiki-navico .ico { width: 17px; height: 17px; }
@@ -572,6 +597,40 @@ body.wiki-resizing .wiki-ed-body { cursor: nwse-resize; }
 .wiki-side-add { border-radius: var(--r-full); }
 .wiki-side-add .ico { width: 15px; height: 15px; }
 .wiki-new { border-radius: var(--r-pill); }
+
+/* 폴더 손잡이 — 잡고 끌면 차례가 바뀐다.
+   줄 아무 데나 잡게 하지 않는 이유: '폴더를 열려고 눌렀는데 끌려 나왔다'가 되기
+   때문이다. **여는 자리와 옮기는 자리를 따로 둔다.** 마우스에서는 줄에 손이 닿을
+   때만 보이고, 손가락으로 쓰는 기기에서는 늘 보인다(hover 가 없는 곳에서는 숨겨
+   둔 것이 영영 나오지 않는다). */
+.wiki-folder-grip {
+  flex: none;
+  width: 18px; height: 26px;
+  display: grid; place-items: center;
+  margin-left: -4px;
+  color: var(--ink-faint);
+  cursor: grab;
+  opacity: 0;
+  touch-action: none;          /* 끄는 동안 화면이 같이 굴러가지 않게 */
+  transition: opacity .12s ease;
+}
+.wiki-folder-grip .ico { width: 13px; height: 13px; }
+.wiki-folder:hover .wiki-folder-grip,
+.wiki-folder-grip:focus-visible { opacity: 1; }
+.wiki-folder-grip:hover { color: var(--ink); }
+.wiki-folder-grip:active { cursor: grabbing; }
+@media (hover: none) {
+  .wiki-folder-grip { opacity: 1; }
+}
+
+/* 끌고 있는 줄, 그리고 끄는 동안의 화면 */
+.wiki-folder.is-dragging {
+  opacity: .55;
+  background: var(--canvas-soft);
+  outline: 1px dashed var(--ink-faint);
+}
+body.is-reordering { cursor: grabbing; user-select: none; }
+body.is-reordering .wiki-folder-grip { opacity: 1; }
 
 /* ---------- 위 줄: 검색 · 정렬 · 불러오기 ---------- */
 
@@ -713,9 +772,33 @@ body.wiki-resizing .wiki-ed-body { cursor: nwse-resize; }
 /* ---------- 창(dialog) ---------- */
 
 .wiki-folder-dialog { border-radius: 0; border: 1px solid var(--hairline); box-shadow: var(--sh-2); }
-.wiki-folder-dialog input { border-radius: var(--r-input); }
-.wiki-folder-dialog button[type=submit],
-.wiki-folder-dialog .btn-primary { border-radius: var(--r-pill); }
+.wiki-folder-dialog h2 { font-weight: 700; letter-spacing: -.5px; }
+.wiki-folder-dialog input { border-radius: var(--r-input); border-color: var(--hairline); }
+
+/* ⚠️ 창 안의 단추는 **여기서 다시 칠한다.**
+   위쪽 옛 규칙 `.wiki-folder-dialog-actions button` 이 클래스+태그라 `.btn-primary`
+   (클래스 하나)보다 힘이 세다. 그래서 바탕만 흰색으로 덮이고 글자색은 흰색 그대로
+   남아 — 단추가 통째로 사라진 것처럼 보였다(실제로 '공유 켜기'가 그랬다).
+   같은 힘으로 맞받아 칠하지 않으면 또 같은 일이 생긴다. */
+.wiki-folder-dialog-actions button {
+  min-height: 44px; padding: 10px 22px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--hairline);
+  background: var(--canvas);
+  color: var(--ink);
+  font-weight: 500;
+}
+.wiki-folder-dialog-actions button:hover { background: var(--canvas-soft); border-color: var(--ink); }
+.wiki-folder-dialog-actions button[type=submit],
+.wiki-folder-dialog-actions .btn-primary {
+  background: var(--ink);
+  color: var(--on-primary);
+  border-color: var(--ink);
+}
+.wiki-folder-dialog-actions button[type=submit]:hover,
+.wiki-folder-dialog-actions .btn-primary:hover { background: #000; border-color: #000; }
+.wiki-folder-dialog-actions .wiki-share-off { color: var(--sale); }
+.wiki-folder-dialog-actions .wiki-share-off:hover { border-color: var(--sale); background: var(--canvas); }
 
 .wiki-share-dialog { max-width: 520px; }
 .wiki-share-dialog p { font-size: 14.5px; line-height: 1.55; color: var(--ink-secondary); }
