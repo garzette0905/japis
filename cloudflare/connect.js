@@ -264,7 +264,7 @@ const askJson = async (url, token) => {
 // 미리보기 — 화면별로 '최근 것' 몇 개
 // ──────────────────────────────────────────────────────────────
 
-const FEED_MAX = 5;
+const FEED_MAX = 10;
 
 /** Gmail 은 목록과 내용을 따로 준다. 안 읽은 것 5개의 제목·보낸이만 추린다. */
 async function gmailFeed(token) {
@@ -281,7 +281,14 @@ async function gmailFeed(token) {
       );
       const head = (name) => (m.payload?.headers || []).find((h) => h.name === name)?.value || '';
       const from = head('From').replace(/\s*<[^>]*>$/, '').replace(/^"|"$/g, '');
-      return { title: head('Subject') || '(제목 없음)', sub: from, at: head('Date') || null };
+      // 목록에서 이 줄을 누르면 **그 메일**이 열려야 한다. 받은편지함만 열어 주면
+      // 다시 찾아 들어가야 하므로 대화 번호를 그대로 주소에 박는다.
+      return {
+        title: head('Subject') || '(제목 없음)',
+        sub: from,
+        at: head('Date') || null,
+        link: 'https://mail.google.com/mail/u/0/#inbox/' + encodeURIComponent(m.threadId || id),
+      };
     })
   );
   return { items, note: items.length ? null : '안 읽은 메일이 없습니다.' };
@@ -300,6 +307,7 @@ async function calendarFeed(token) {
     sub: e.location || '',
     at: e.start?.dateTime || e.start?.date || null,
     allDay: !e.start?.dateTime,
+    link: e.htmlLink || null,
   }));
   return { items, note: items.length ? null : '앞으로 잡힌 일정이 없습니다.' };
 }
@@ -311,6 +319,7 @@ async function photosFeed(token) {
     at: m.mediaMetadata?.creationTime || null,
     // baseUrl 은 한 시간쯤 뒤 만료된다 — 그래서 캐시를 짧게 잡는다.
     thumb: m.baseUrl ? `${m.baseUrl}=w320-h320-c` : null,
+    link: m.productUrl || null,
   }));
   return { items, note: items.length ? null : '최근 사진이 없습니다.' };
 }
@@ -321,6 +330,7 @@ async function oneDriveFeed(token) {
     title: f.name || '파일',
     sub: f.remoteItem?.parentReference?.name || f.parentReference?.name || '',
     at: f.lastModifiedDateTime || null,
+    link: f.webUrl || f.remoteItem?.webUrl || null,
   }));
   return { items, note: items.length ? null : '최근에 연 문서가 없습니다.' };
 }
@@ -330,7 +340,7 @@ async function tasksFeed(token) {
   const q = new URLSearchParams({
     showCompleted: 'false',
     showHidden: 'false',
-    maxResults: String(FEED_MAX * 2),   // 완료된 것이 섞여 와도 다섯은 남게 넉넉히
+    maxResults: String(FEED_MAX * 2),   // 완료된 것이 섞여 와도 열 개는 남게 넉넉히
   });
   const data = await askJson(`https://tasks.googleapis.com/tasks/v1/lists/@default/tasks?${q}`, token);
 
@@ -344,6 +354,8 @@ async function tasksFeed(token) {
       sub: t.notes ? String(t.notes).replace(/[\r\n]+/g, ' ').trim().slice(0, 40) : '',
       at: t.due || null,
       allDay: true,                     // 구글 할일의 기한은 날짜까지다(시각이 없다)
+      // 할일 API 는 항목별 주소를 줄 때도 있고 안 줄 때도 있다. 없으면 할일 화면으로.
+      link: t.webViewLink || 'https://tasks.google.com/',
     }));
 
   return { items, note: items.length ? null : '남은 할 일이 없습니다.' };

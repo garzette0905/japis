@@ -7,6 +7,7 @@
 
 import { $, el, esc, api, toast } from './util.js';
 import { renderWiki, wikiLeaving } from './wiki.js';
+import { ico, serviceIco } from './icons.js';
 
 const state = {
   me: null,
@@ -359,7 +360,7 @@ function menuGroups() {
 
 function renderNav() {
   el('nav').innerHTML = `
-    <button class="nav-toggle" id="nav-toggle" type="button" aria-label="메뉴 열기" aria-expanded="false">☰</button>
+    <button class="nav-toggle" id="nav-toggle" type="button" aria-label="메뉴 열기" aria-expanded="false">${ico('menu')}</button>
     <a class="nav-logo" href="#/">JAPIS</a>
     <div class="nav-now" id="nav-now" aria-live="off">
       <span class="now-date" id="now-date"></span>
@@ -398,17 +399,17 @@ function renderSide() {
   // 프레임에서 열리는 줄은 손이 닿을 때만 나온다(기본 동작이 프레임이므로).
   const row = (s) => {
     const tab = opensInTab(s);
-    const hint = tab ? '새 탭에서 열립니다' : '오른쪽에서 열기 · ↗ 는 새 탭';
+    const hint = tab ? '새 탭에서 열립니다' : '이 자리에서 화면을 덮어 열기 · ↗ 는 새 탭';
     return `<li class="side-row${s.ready ? '' : ' is-soon'}${tab ? ' is-tab' : ''}">
       <button class="side-item" type="button" data-key="${esc(s.key)}"
               title="${esc(s.label)} — ${hint}"${s.ready ? '' : ' disabled'}>
-        <span class="side-ico band-${esc(s.accent || 'sky')}" aria-hidden="true">${esc(s.icon || '•')}</span>
+        <span class="side-ico" aria-hidden="true">${serviceIco(s.key)}</span>
         <span class="side-name">${esc(s.label)}</span>
       </button>
       ${
         s.ready && s.external
           ? `<button class="side-pop" type="button" data-pop="${esc(s.key)}"
-               title="새 탭에서 열기" aria-label="${esc(s.label)} 새 탭에서 열기">↗</button>`
+               title="새 탭에서 열기" aria-label="${esc(s.label)} 새 탭에서 열기">${ico('pop')}</button>`
           : ''
       }
     </li>`;
@@ -429,7 +430,7 @@ function renderSide() {
   el('side').innerHTML = `
     <nav class="side-nav" aria-label="화면 목록">
       <a class="side-item side-solo${on('#/')}" href="#/">
-        <span class="side-ico band-sky" aria-hidden="true">🏠</span>
+        <span class="side-ico" aria-hidden="true">${ico('home')}</span>
         <span class="side-name">대시보드</span>
       </a>
       ${groups}
@@ -439,10 +440,10 @@ function renderSide() {
               <a class="side-head${on('#/admin')}" href="#/admin"><span>관리</span></a>
               <ul class="side-list">
                 <li class="side-row"><a class="side-item${on('#/admin')}" href="#/admin">
-                  <span class="side-ico band-purple" aria-hidden="true">👤</span>
+                  <span class="side-ico" aria-hidden="true">${ico('user')}</span>
                   <span class="side-name">사용자</span></a></li>
                 <li class="side-row"><a class="side-item${on('#/admin/logs')}" href="#/admin/logs">
-                  <span class="side-ico band-purple" aria-hidden="true">🧾</span>
+                  <span class="side-ico" aria-hidden="true">${ico('log')}</span>
                   <span class="side-name">접속 기록</span></a></li>
               </ul>
             </div>`
@@ -535,6 +536,9 @@ function renderFoot() {
 window.addEventListener('hashchange', () => {
   if (el('app').hidden) return;
   closeLock();          // 다른 화면으로 넘어가면 열려 있던 잠금 모달은 의미가 없다
+  // 열어 둔 화면은 본문을 덮고 있다. 다른 곳으로 가겠다고 했는데 덮개가 그대로 남으면
+  // 뒤에서 화면만 바뀌고 눈앞은 아무것도 달라지지 않는다 — 넘어갈 때 먼저 걷는다.
+  closeFrame();
   wikiLeaving();        // 메모를 쓰다 말고 나가면 그 자리에서 저장해 둔다
   renderSide();
   route();
@@ -576,16 +580,16 @@ const cardTag = (s) =>
   !s.ready
     ? '<span class="tag">준비중</span>'
     : s.reauth
-      ? '<span class="tag">🔒 재인증</span>'
+      ? '<span class="tag">재인증</span>'
       : !s.external
         ? '<span class="tag open">바로 열기</span>'
         : opensInTab(s)
-          ? '<span class="tag">↗ 새 탭</span>'
-          : '<span class="tag open">▸ 오른쪽에서</span>';
+          ? '<span class="tag">새 탭</span>'
+          : '<span class="tag open">이 자리에서</span>';
 
 const cardMark = (s) => `
   <span class="card-top">
-    <span class="card-icon" aria-hidden="true">${esc(s.icon || '•')}</span>
+    <span class="card-icon" aria-hidden="true">${serviceIco(s.key)}</span>
     <span class="card-title">${esc(s.label)}</span>
   </span>
   <span class="card-desc">${esc(s.desc || '')}</span>`;
@@ -600,7 +604,7 @@ const cardFoot = (s) =>
 const popBtn = (s) =>
   s.ready && s.external
     ? `<button class="card-pop" type="button" data-pop="${esc(s.key)}"
-         title="새 탭에서 열기" aria-label="${esc(s.label)} 새 탭에서 열기">↗</button>`
+         title="새 탭에서 열기" aria-label="${esc(s.label)} 새 탭에서 열기">${ico('pop')}</button>`
     : '';
 
 function cardHtml(s) {
@@ -668,7 +672,7 @@ const feedWhen = (iso, allDay) => {
 function feedHtml(key, f) {
   if (!f) return '<span class="spinner"></span>';
   if (f.state === 'locked') {
-    return `<p class="feed-note">🔒 잠금을 풀면 최근 항목이 보입니다.</p>
+    return `<p class="feed-note">잠금을 풀면 최근 항목이 보입니다.</p>
       <button class="btn-utility" type="button" data-unlock="${esc(key)}">잠금 해제</button>`;
   }
   if (f.state === 'unconfigured') {
@@ -689,16 +693,29 @@ function feedHtml(key, f) {
   if (key === 'gphotos') {
     return `<div class="feed-thumbs">${f.items
       .filter((i) => i.thumb)
-      .map((i) => `<img src="${esc(i.thumb)}" alt="${esc(i.title)}" loading="lazy" referrerpolicy="no-referrer">`)
+      .map((i) => {
+        const img = `<img src="${esc(i.thumb)}" alt="${esc(i.title)}" loading="lazy" referrerpolicy="no-referrer">`;
+        return i.link
+          ? `<a href="${esc(i.link)}" target="_blank" rel="noopener noreferrer" title="${esc(i.title)}">${img}</a>`
+          : img;
+      })
       .join('')}</div>`;
   }
+  // 한 줄 = 그 항목 하나로 가는 문이다. 메일·일정·할 일은 서버가 항목마다 주소를
+  // 실어 보내므로(cloudflare/connect.js) 그 주소로 바로 나간다. 주소가 없는 항목은
+  // 그 화면 자체를 여는 단추가 된다 — 어느 쪽이든 **눌리지 않는 줄은 없다**.
   return `<ul class="feed-list">${f.items
-    .map(
-      (i) => `<li>
-        <span class="feed-title">${esc(i.title)}</span>
-        <span class="feed-sub">${esc(i.sub || '')}${i.sub && i.at ? ' · ' : ''}${esc(feedWhen(i.at, i.allDay))}</span>
-      </li>`
-    )
+    .map((i) => {
+      const inner = `<span class="feed-title">${esc(i.title)}</span>
+        <span class="feed-sub">${esc(i.sub || '')}${i.sub && i.at ? ' · ' : ''}${esc(feedWhen(i.at, i.allDay))}</span>`;
+      return `<li>${
+        i.link
+          ? `<a class="feed-row" href="${esc(i.link)}" target="_blank" rel="noopener noreferrer"
+                title="${esc(i.title)}">${inner}</a>`
+          : `<button class="feed-row" type="button" data-key="${esc(key)}"
+                title="${esc(i.title)}">${inner}</button>`
+      }</li>`;
+    })
     .join('')}</ul>`;
 }
 
@@ -711,6 +728,13 @@ async function loadFeed(key) {
       b.addEventListener('click', () => {
         const s = state.services.find((x) => x.key === b.dataset.unlock);
         if (s) showLock(s);
+      })
+    );
+    // 항목마다의 주소가 없는 줄(사진 등)은 그 화면을 연다.
+    node.querySelectorAll('button.feed-row[data-key]').forEach((b) =>
+      b.addEventListener('click', () => {
+        const s = state.services.find((x) => x.key === b.dataset.key);
+        if (s) openService(s);
       })
     );
   };
@@ -808,7 +832,7 @@ function openFrame(s) {
   document.body.classList.add('frame-open');
   markHere(s.key);
   el('frame').hidden = false;
-  el('frame-icon').textContent = s.icon || '•';
+  el('frame-icon').innerHTML = serviceIco(s.key);
   el('frame-title').textContent = s.label;
   // iframe 을 새로 만든다. src 만 바꾸면 그 사이트의 뒤로가기 기록이 쌓여
   // 포털의 뒤로가기가 엉킨다.
@@ -865,7 +889,7 @@ let lockTarget = null;
 function showLock(s) {
   lockTarget = s;
   const bio = state.credentials.length > 0;
-  el('lock-icon').textContent = s.icon || '🔒';
+  el('lock-icon').innerHTML = serviceIco(s.key);
   el('lock-title').textContent = `${s.label} 열기`;
   el('lock-lead').textContent = bio
     ? '이 화면은 들어갈 때마다 본인 확인을 한 번 더 합니다.'
@@ -963,10 +987,13 @@ const groupLabel = (key) => state.groups.find((g) => g.key === key)?.label || ke
 // 그래서 화면을 빌려 오는 대신 **내용을 받아 와서 우리 글자로 그린다**(/api/feed).
 // 본문은 내려오지 않는다 — 제목·보낸이·시각뿐이다.
 
+// 순서는 **메일 → 할일 → 일정**이다. 아침에 먼저 보는 것부터 왼쪽에 둔다.
+// 셋의 칸 높이는 CSS 가 똑같이 맞춰 주고(.today-panel), 각 칸에는 열 개씩 들어온다
+// (서버의 FEED_MAX — cloudflare/connect.js).
 const TODAY = [
-  { key: 'gcalendar', title: '다가오는 일정' },
-  { key: 'gtasks', title: '남은 할 일' },
   { key: 'gmail', title: '안 읽은 메일' },
+  { key: 'gtasks', title: '남은 할 일' },
+  { key: 'gcalendar', title: '다가오는 일정' },
 ];
 
 function todayHtml() {
@@ -982,7 +1009,7 @@ function todayHtml() {
           <div class="panel-title">
             <button class="today-title" type="button" data-key="${esc(s.key)}"
                     title="${esc(s.label)} 열기"${s.ready ? '' : ' disabled'}>
-              <span aria-hidden="true">${esc(s.icon)}</span><span>${esc(t.title)}</span>
+              <span class="today-ico" aria-hidden="true">${serviceIco(s.key)}</span><span>${esc(t.title)}</span>
             </button>
             ${popBtn(s)}
           </div>
@@ -1008,13 +1035,13 @@ function renderDashboard(page) {
 
   const tile = (s) => `<li class="tile-row${s.ready ? '' : ' is-soon'}${opensInTab(s) ? ' is-tab' : ''}">
       <button class="tile" type="button" data-key="${esc(s.key)}"${s.ready ? '' : ' disabled'}>
-        <span class="tile-ico band-${esc(s.accent || 'sky')}" aria-hidden="true">${esc(s.icon || '•')}</span>
+        <span class="tile-ico" aria-hidden="true">${serviceIco(s.key)}</span>
         <span class="tile-name">${esc(s.label)}</span>
       </button>
       ${
         s.ready && s.external
           ? `<button class="tile-pop" type="button" data-pop="${esc(s.key)}"
-               title="새 탭에서 열기" aria-label="${esc(s.label)} 새 탭에서 열기">↗</button>`
+               title="새 탭에서 열기" aria-label="${esc(s.label)} 새 탭에서 열기">${ico('pop')}</button>`
           : ''
       }
     </li>`;
@@ -1047,7 +1074,7 @@ function renderGroup(page, key) {
   }
   const lead = items.some((s) => s.feed)
     ? '연결해 두면 최근 것 몇 개가 카드 앞면에 그대로 올라옵니다.'
-    : `${items.length}개 화면 — 누르면 오른쪽에서, ↗ 는 새 탭에서 열립니다.`;
+    : `${items.length}개 화면 — 누르면 이 자리에서, ↗ 는 새 탭에서 열립니다.`;
 
   page.innerHTML = `
     <div class="page-head">
@@ -1115,7 +1142,7 @@ function renderLinks(page, key) {
   }
   page.innerHTML = `
     <div class="page-head">
-      <h1 class="page-title">${esc(s.icon)} ${esc(s.label)}</h1>
+      <h1 class="page-title">${esc(s.label)}</h1>
       <p class="page-lead">${esc(s.desc || '')}</p>
     </div>
     <div class="cards">${s.links
@@ -1124,7 +1151,7 @@ function renderLinks(page, key) {
           <span class="card-band band-${esc(s.accent || 'sky')}"></span>
           <span class="card-body">
             <span class="card-top">
-              <span class="card-icon" aria-hidden="true">${esc(l.icon || '🔗')}</span>
+              <span class="card-icon" aria-hidden="true">${ico(l.ico || 'link')}</span>
               <span class="card-title">${esc(l.label)}</span>
             </span>
             <span class="card-foot"><span class="tag open">바로 열기</span></span>
@@ -1135,7 +1162,7 @@ function renderLinks(page, key) {
 }
 
 const emptyHtml = (title, sub) =>
-  `<div class="empty"><div class="empty-icon">🗂️</div><strong>${esc(title)}</strong><p>${esc(sub)}</p></div>`;
+  `<div class="empty"><div class="empty-icon">${ico('empty')}</div><strong>${esc(title)}</strong><p>${esc(sub)}</p></div>`;
 
 // ---------- 내 계정 ----------
 
@@ -1316,7 +1343,7 @@ async function renderAdmin(page) {
   const catalogChecks = data.catalog
     .map(
       (s) => `<label class="perm"><input type="checkbox" name="svc" value="${esc(s.key)}">
-        <span class="perm-main"><span class="perm-name">${esc(s.icon)} ${esc(s.label)}</span>
+        <span class="perm-main"><span class="perm-name">${esc(s.label)}</span>
         <span class="perm-desc">${esc(groupLabel(s.group))}${s.ready ? '' : ' · 준비중'}</span></span></label>`
     )
     .join('');
@@ -1462,7 +1489,7 @@ async function renderPerms(page, id) {
           return `<label class="perm${on ? ' on' : ''}" data-key="${esc(s.key)}">
             <input type="checkbox" class="p-allow"${on ? ' checked' : ''}>
             <span class="perm-main">
-              <span class="perm-name">${esc(s.icon)} ${esc(s.label)}</span>
+              <span class="perm-name">${esc(s.label)}</span>
               <span class="perm-desc">${esc(s.desc || '')}${s.ready ? '' : ' · 준비중'}</span>
               <span class="perm-opt">
                 <input type="checkbox" class="p-reauth"${reauth ? ' checked' : ''}> 재인증

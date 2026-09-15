@@ -1,58 +1,73 @@
 /* ============================================================================
-   JAPIS — 화면 스타일
+   JAPIS — 화면 스타일 (나이키 결)
    ----------------------------------------------------------------------------
-   따뜻한 종이색 바탕(#f6f5f4) 위에 흰 카드를 얹고, 색은 딱 하나(파랑 #0075de)만
-   구조에 쓴다. 나머지 알록달록한 색은 카드 머리띠·아이콘 같은 **장식 전용**이다.
-   그림자는 거의 없는 여러 겹을 쌓아 종이에서 살짝 뜬 느낌만 낸다.
-   글꼴은 Noto Sans KR 하나로 간다(큰 제목일수록 자간을 더 좁힌다).
+   규칙은 하나다: **글자와 여백이 말하고, 장식은 입을 다문다.**
+
+     · 색은 검정(#111) · 흰색 · 회색(#f5f5f5) 셋이 화면의 95%를 덮는다. 빨강은
+       오직 '지운다/위험'에만, 초록은 '연결됨'에만 선다. 그 밖의 색은 폴더 점처럼
+       **구별이 곧 쓸모인 자리**에만 남긴다.
+     · 그림자가 없다. 카드는 종이에서 뜨지 않고 그냥 놓인다. 깊이를 내는 것은
+       1px 실선 하나뿐이다.
+     · 모서리는 둘 중 하나다 — 담는 것(카드·칸·표)은 **각지게 0**, 누르는 것
+       (단추·알약·칩)은 **완전한 알약**. 그 사이의 어정쩡한 8px 은 없다.
+     · 글자 위계는 극단적이다. 큰 제목(40px 이상, 자간 -1px)과 작은 글자(12–16px)
+       사이에 중간이 거의 없다 — 위는 간판, 아래는 목록.
+     · 글꼴은 Inter(라틴) + Noto Sans KR(한글). 간판 글씨만 Bebas Neue 를 쓴다.
    ========================================================================== */
 
 :root {
-  /* 구조색 — 이 파랑 하나만 동작(버튼·링크·활성표시)에 쓴다 */
-  --primary:        #0075de;
-  --primary-active: #005bab;
+  /* 구조색 — 동작(단추·활성표시)은 검정 하나로 간다. 파랑은 더 이상 쓰지 않는다 */
+  --primary:        #111111;
+  --primary-active: #000000;
   --on-primary:     #ffffff;
-  --secondary:      #213183;   /* 로그인 화면의 밤하늘 한 자리에만 */
+  --secondary:      #111111;   /* 로그인 화면의 밤하늘 */
 
   /* 바탕 */
-  --canvas:      #ffffff;
-  --canvas-soft: #f6f5f4;
-  --surface:     #ffffff;
-  --hairline:    #e6e6e6;
+  --canvas:        #ffffff;
+  --canvas-soft:   #f5f5f5;   /* 사진과 칸이 서는 '스튜디오' 회색 */
+  --surface:       #ffffff;
+  --hairline:      #cacacb;
+  --hairline-soft: #e5e5e5;
 
   /* 글자 */
-  --ink:           rgba(0, 0, 0, .95);
-  --ink-secondary: #31302e;
-  --ink-muted:     #615d59;
-  --ink-faint:     #a39e98;
+  --ink:           #111111;
+  --ink-secondary: #39393b;
+  --ink-muted:     #707072;
+  --ink-faint:     #9e9ea0;
 
-  /* 장식 팔레트 — 카드 머리띠·아이콘 배경. 절대 버튼에 쓰지 않는다 */
-  --a-purple: #d6b6f6;
-  --a-pink:   #ff64c8;
+  /* 신호색 — 이 셋만 색으로 말한다. 장식으로는 쓰지 않는다 */
+  --sale:    #d30005;
+  --success: #007d48;
+  --info:    #1151ff;
+
+  /* 구별용 팔레트 — 폴더 점처럼 '색이 곧 이름표'인 자리에만. 단추·띠에는 쓰지 않는다 */
+  --a-purple: #beaffd;
+  --a-pink:   #ed1aa0;
   --a-orange: #dd5b00;
-  --a-teal:   #2a9d99;
+  --a-teal:   #0a7281;
   --a-green:  #1aae39;
-  --a-sky:    #62aef0;
-  --a-brown:  #523410;
+  --a-sky:    #1151ff;
+  --a-brown:  #4c012d;
 
-  /* 모서리 */
-  --r-xs: 4px;  --r-sm: 5px;  --r-md: 8px;
-  --r-lg: 12px; --r-xl: 16px; --r-full: 9999px;
+  /* 모서리 — 담는 것은 0, 누르는 것은 알약. 그 사이는 없다 */
+  --r-xs: 0;  --r-sm: 0;  --r-md: 0;
+  --r-lg: 0;  --r-xl: 0;  --r-full: 9999px;
+  --r-pill: 9999px;
+  --r-input: 24px;            /* 입력칸만 살짝 둥근 알약(나이키 검색칸) */
+
+  /* 그림자 — 없다. 떠 있어야 하는 것(모달·떠 있는 판)만 아주 옅게 */
+  --sh-1: none;
+  --sh-2: rgba(0,0,0,.08) 0 8px 28px;
 
   /* 간격 (8px 기준) */
   --s-xxs: 4px; --s-xs: 8px;  --s-sm: 12px; --s-md: 16px;
-  --s-lg: 24px; --s-xl: 28px; --s-xxl: 32px;
-
-  /* 그림자 — 옅은 층을 여러 겹 (한 번에 진하게 떨구지 않는다) */
-  --sh-1: rgba(0,0,0,.01) 0 .175px 1.041px, rgba(0,0,0,.02) 0 .8px 2.925px,
-          rgba(0,0,0,.027) 0 2.025px 7.847px, rgba(0,0,0,.04) 0 4px 18px;
-  --sh-2: rgba(0,0,0,.01) 0 .3px 1.4px, rgba(0,0,0,.02) 0 1.2px 4px,
-          rgba(0,0,0,.03) 0 3.4px 11px, rgba(0,0,0,.04) 0 8px 24px,
-          rgba(0,0,0,.05) 0 23px 52px;
+  --s-lg: 24px; --s-xl: 30px; --s-xxl: 48px;
 
   --nav-h: 60px;
-  --font: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI',
+  --font: 'Inter', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI',
           Helvetica, Arial, sans-serif;
+  /* 간판 글씨 — 영문 로고·큰 숫자에만. 한글은 여기서 Noto 로 떨어진다 */
+  --font-display: 'Bebas Neue', 'Inter', 'Noto Sans KR', Helvetica, Arial, sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -315,28 +330,16 @@ button { font-family: inherit; }
 
 /* ---------- 왼쪽 기둥 ---------- */
 
+/* 기둥 하나 + 본문 하나. **언제나 두 칸이다.**
+   예전에는 화면을 열면 프레임이 세 번째 칸을 가져가 메뉴·메모·프레임이 나란히 섰다.
+   셋을 한 줄에 세우면 어느 것도 제 폭을 갖지 못한다 — 특히 메모는 글을 읽는 자리라
+   좁아지는 순간 쓸모가 반으로 준다. 그래서 프레임은 자리를 **나눠 갖지 않고 덮는다**:
+   본문과 같은 칸에 들어가 그 위에 깔린다(아래의 .frame 참고). */
 .shell {
   display: grid;
   grid-template-columns: 232px minmax(0, 1fr);
   max-width: 1560px;
   margin: 0 auto;
-}
-/* 프레임을 열면 본문이 자리를 내준다. 프레임은 접히지 않는 폭을 가져간다 */
-body.frame-open .shell { grid-template-columns: 232px minmax(0, 1fr) minmax(380px, 44%); }
-
-/* 셋을 나란히 놓기엔 좁을 때 — 왼쪽 기둥을 **아이콘만 남긴 레일**로 접는다.
-   메뉴를 없애지 않으면서 본문에 170px 을 돌려준다. */
-@media (max-width: 1400px) {
-  body.frame-open .shell { grid-template-columns: 58px minmax(0, 1fr) minmax(380px, 46%); }
-  body.frame-open .side { padding-left: 6px; padding-right: 6px; overflow-x: hidden; }
-  body.frame-open .side-name,
-  body.frame-open .side-count { display: none; }
-  body.frame-open .side-head {
-    height: 1px; margin: var(--s-sm) 6px; padding: 0;
-    overflow: hidden; background: var(--hairline); border-radius: 1px;
-  }
-  body.frame-open .side-item { justify-content: center; padding: 7px 0; }
-  body.frame-open .side-pop { display: none; }
 }
 
 .side {
@@ -450,14 +453,23 @@ body.frame-open .shell { grid-template-columns: 232px minmax(0, 1fr) minmax(380p
 
 /* ---------- 오른쪽 프레임 ---------- */
 
+/* 본문과 **같은 칸**에 들어간다(1행 2열). 본문은 그동안 아예 그리지 않는다 —
+   뒤에서 살아 있으면 스크롤도 두 겹이 되고, 화면 낭독기도 안 보이는 글을 읽는다. */
 .frame {
+  grid-row: 1; grid-column: 2;
   position: sticky; top: var(--nav-h);
   align-self: start;
   height: calc(100dvh - var(--nav-h));
   display: flex; flex-direction: column;
   border-left: 1px solid var(--hairline);
   background: var(--canvas);
+  z-index: 5;
 }
+.page { grid-row: 1; grid-column: 2; }
+body.frame-open .page { display: none; }
+/* 프레임은 화면 높이에 딱 맞는다. 아래에 바닥글이 남아 있으면 그만큼 문서가 길어져
+   페이지가 스크롤되고, 그러면 프레임 머리(닫기 단추가 있는 줄)가 위로 밀려 올라간다. */
+body.frame-open .foot { display: none; }
 .frame-bar {
   flex: none;
   display: flex; align-items: center; gap: var(--s-xs);
@@ -901,7 +913,6 @@ table.data tr:last-child td { border-bottom: none; }
 @media (max-width: 1280px) {
   .shell { grid-template-columns: 208px minmax(0, 1fr); }
   .page { padding: var(--s-xl) var(--s-lg) 64px; }
-  body.frame-open .page { padding: var(--s-lg) var(--s-md) 48px; }
 }
 
 /* 좁은 화면에서는 기둥을 접어 두고, ☰ 를 누를 때만 왼쪽에서 밀어 넣는다.
@@ -956,4 +967,277 @@ table.data tr:last-child td { border-bottom: none; }
 
 @media (prefers-reduced-motion: reduce) {
   * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
+
+/* ============================================================================
+   나이키 결 — 마무리 손질
+   ----------------------------------------------------------------------------
+   위의 규칙들은 '따뜻한 종이 위의 카드'를 전제로 쓰였다. 여기서 그 결을 바꾼다.
+   토큰(색·모서리·그림자)은 이미 바뀌었으므로, 이 아래에는 **토큰만으로는 안 되는
+   것**만 적는다 — 알약이어야 하는 단추, 각져야 하는 카드, 대문자로 서는 이름표.
+   ========================================================================== */
+
+/* ---------- 픽토그램 ----------
+   그림은 색을 품지 않는다. 글자색을 그대로 따라오므로 검은 알약 안에서도 뒤집힌다. */
+
+.ico { width: 20px; height: 20px; display: block; flex: none; }
+.ico-sm { width: 16px; height: 16px; }
+
+/* ---------- 상단 띠 ---------- */
+
+.nav { border-bottom: 1px solid var(--hairline); }
+.nav-logo {
+  font-family: var(--font-display);
+  font-size: 26px; font-weight: 400; letter-spacing: .5px;
+  text-transform: uppercase;
+}
+.nav-toggle { color: var(--ink); }
+.nav-toggle .ico { width: 22px; height: 22px; }
+.now-date { font-weight: 500; }
+.now-time { font-weight: 700; }
+
+/* 오른쪽 위 작은 글자들 — 나이키 유틸리티 줄처럼 조용하게 */
+.nav-right .btn-utility {
+  border-color: transparent; background: none;
+  font-size: 13px; color: var(--ink-secondary);
+}
+.nav-right .btn-utility:hover { background: var(--canvas-soft); }
+
+/* ---------- 단추 — 알약 아니면 동그라미. 그 밖의 모양은 없다 ---------- */
+
+.btn-primary, .btn-secondary {
+  border-radius: var(--r-pill);
+  font-weight: 500;
+  letter-spacing: -.1px;
+}
+.btn-primary { background: var(--ink); color: var(--on-primary); border-color: var(--ink); }
+.btn-primary:hover { background: #000; }
+/* 눌린 순간 살짝 주저앉는다 — 나이키의 '탭 붕괴' */
+.btn-primary:active, .btn-secondary:active, .btn-utility:active { transform: scale(.97); }
+.btn-secondary {
+  background: var(--canvas-soft); color: var(--ink);
+  border-color: transparent; box-shadow: none;
+}
+.btn-secondary:hover { background: #ebebeb; }
+
+.btn-utility {
+  border-radius: var(--r-pill);
+  padding: 7px 16px;
+  border-color: var(--hairline);
+  font-weight: 500;
+}
+.btn-utility:hover { background: var(--canvas-soft); border-color: var(--ink); }
+.btn-utility.danger { color: var(--sale); }
+.btn-utility.danger:hover { border-color: var(--sale); }
+.btn-utility .ico { width: 15px; height: 15px; }
+
+.btn-text:hover { color: var(--ink); }
+
+/* 동그란 아이콘 단추 — 프레임 머리·카드 모서리의 화살표 */
+.frame-btn, .card-pop, .tile-pop, .side-pop { border-radius: var(--r-full); }
+.frame-btn { width: 32px; height: 32px; }
+.frame-btn .ico { width: 17px; height: 17px; }
+.frame-btn:hover { background: var(--canvas); color: var(--ink); }
+#frame-close:hover { color: var(--sale); }
+
+.card-pop .ico, .tile-pop .ico, .side-pop .ico { width: 14px; height: 14px; }
+.card-pop:hover, .tile-pop:hover, .side-pop:hover {
+  color: var(--on-primary); background: var(--ink); border-color: var(--ink);
+}
+
+/* ---------- 입력칸 — 나이키 검색 알약 ---------- */
+
+.field input, .field select, .field textarea {
+  padding: 11px 18px;
+  background: var(--canvas-soft);
+  border-color: transparent;
+  border-radius: var(--r-input);
+}
+.field input:focus, .field select:focus, .field textarea:focus {
+  background: var(--canvas);
+  border-color: var(--ink);
+  box-shadow: 0 0 0 4px var(--canvas-soft);
+}
+.field-label {
+  font-size: 12px; font-weight: 500; letter-spacing: .4px; text-transform: uppercase;
+  color: var(--ink-muted);
+}
+.form-error { border-left-color: var(--sale); border-radius: 0; }
+
+/* ---------- 왼쪽 기둥 ---------- */
+
+.side { border-right: 1px solid var(--hairline); }
+.side-head {
+  font-size: 11px; font-weight: 500; letter-spacing: .8px; text-transform: uppercase;
+  color: var(--ink-muted);
+  padding-bottom: var(--s-xxs);
+  border-bottom: 1px solid var(--hairline-soft);
+}
+.side-head.is-active { color: var(--ink); border-bottom-color: var(--ink); }
+.side-count { background: none; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+
+/* 아이콘 뒤의 색 타일을 걷어낸다 — 선 그림 하나면 충분하다 */
+.side-ico, .tile-ico {
+  background: none;
+  width: 22px; height: 22px;
+  color: var(--ink-muted);
+  filter: none;
+}
+.side-item { border-radius: 0; font-weight: 500; }
+.side-item:hover { background: var(--canvas-soft); }
+.side-item:hover .side-ico { color: var(--ink); }
+.side-item.is-active, .side-row.is-here .side-item {
+  background: var(--ink); color: var(--on-primary);
+}
+.side-item.is-active .side-ico, .side-row.is-here .side-item .side-ico { color: var(--on-primary); }
+/* 검정 줄이 곧 표시다. 왼쪽의 세로 막대는 두 번 말하는 것이라 걷어낸다 */
+.side-item.is-active::before, .side-row.is-here .side-item::before { display: none; }
+.side-row.is-soon .side-ico { opacity: .4; }
+
+/* ---------- 본문 머리 ---------- */
+
+.page-title { font-weight: 700; letter-spacing: -1.2px; }
+.page-head.tight .page-title { letter-spacing: -1px; }
+.section-title { font-weight: 700; letter-spacing: -.4px; text-transform: uppercase; }
+.section-title.sm {
+  font-size: 11px; font-weight: 500; letter-spacing: .9px;
+  color: var(--ink-muted);
+  padding-bottom: var(--s-xxs);
+  border-bottom: 1px solid var(--hairline);
+  margin-bottom: var(--s-sm);
+}
+
+/* ---------- 타일 · 카드 — 그림자 없이, 각지게 ---------- */
+
+.tile { border-radius: 0; border-color: var(--hairline-soft); font-weight: 500; }
+.tile:hover { border-color: var(--ink); color: var(--ink); box-shadow: none; }
+.tiles { gap: 8px; }
+
+.card { border-radius: 0; border-color: var(--hairline-soft); }
+.card:hover { box-shadow: none; border-color: var(--ink); }
+/* 머리띠는 장식이다 — 나이키에는 그런 자리가 없다 */
+.card-band { display: none; }
+.card-icon {
+  width: 40px; height: 40px;
+  background: var(--canvas-soft);
+  border-radius: 0;
+  color: var(--ink);
+}
+.card-icon .ico { width: 21px; height: 21px; }
+.card-title { font-weight: 700; letter-spacing: -.4px; }
+
+.tag {
+  border-radius: var(--r-pill);
+  background: var(--canvas);
+  border-color: var(--hairline);
+  font-weight: 500; letter-spacing: .2px;
+}
+.tag.open { color: var(--ink); border-color: var(--ink); background: var(--canvas); }
+.pill-role { font-weight: 500; }
+
+/* ---------- '오늘' — 메일 · 할일 · 일정 ----------
+   셋은 **같은 키로 선다.** 안에 든 항목 수가 달라도 칸의 높이는 같아야 한다 —
+   높이가 제각각이면 눈이 세 번 다시 자리를 잡는다. 그래서 칸을 늘리지 않고
+   안쪽을 굴린다(각 칸에 열 개가 들어온다). */
+
+.today {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s-sm);
+  align-items: stretch;
+  /* 한 칸에 몇 줄을 보여줄 것인가. 서버도 열 개를 실어 보낸다(connect.js 의 FEED_MAX) */
+  --today-rows: 10;
+  --today-row: 51px;
+}
+.today-panel {
+  display: flex; flex-direction: column;
+  padding: var(--s-md) var(--s-md) var(--s-xs);
+}
+.today-panel .panel-title { padding-bottom: var(--s-xs); border-bottom: 1px solid var(--hairline); }
+.today-panel .card-feed {
+  /* **열 줄이 굴리지 않고 그대로 보이는** 높이. 한 줄(제목 + 보낸이·시각 + 칸막이)이
+     --today-row 이고, 열 줄이면 그 열 배다.
+     높이를 min 으로 못박지 않는 이유 — 격자가 이미 셋을 같은 키로 늘려 준다
+     (align-items: stretch). 못박아 두면 셋 다 비어 있을 때도 빈 칸 세 개가 남는다. */
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: calc(var(--today-rows) * var(--today-row));
+  overflow-y: auto;
+  padding-top: var(--s-xs);
+}
+.today-panel .card-feed::-webkit-scrollbar { width: 6px; }
+.today-panel .card-feed::-webkit-scrollbar-thumb { background: var(--hairline); }
+.today-panel .feed-list { gap: 0; }
+.today-title { font-weight: 700; letter-spacing: -.3px; }
+.today-ico { display: flex; color: var(--ink); }
+.today-ico .ico { width: 18px; height: 18px; }
+
+/* 목록의 한 줄 — 통째로 누르는 자리다 */
+.feed-row {
+  display: grid; gap: 1px;
+  width: 100%; min-width: 0;
+  padding: 6px 6px 6px 0;
+  font: inherit; text-align: left;
+  color: inherit; background: none;
+  border: none; border-bottom: 1px solid var(--hairline-soft);
+  cursor: pointer;
+}
+.feed-list li:last-child .feed-row { border-bottom: none; }
+.feed-row:hover { background: var(--canvas-soft); text-decoration: none; }
+.feed-row:hover .feed-title { text-decoration: underline; text-underline-offset: 2px; }
+.feed-title { font-weight: 500; color: var(--ink); }
+.feed-thumbs img { border-radius: 0; }
+
+/* ---------- 판(panel) · 표 ---------- */
+
+.panel { border-radius: 0; border-color: var(--hairline-soft); box-shadow: none; }
+.panel-title { font-weight: 700; letter-spacing: -.3px; }
+.connect-dot { border-radius: var(--r-full); }
+.connect-dot.on { background: var(--success); border-color: var(--success); }
+.perm { border-radius: 0; }
+.perm input[type=checkbox] { accent-color: var(--ink); }
+.empty { border-radius: 0; }
+.empty-icon { color: var(--ink-faint); }
+.empty-icon .ico { width: 34px; height: 34px; margin: 0 auto; }
+
+/* ---------- 모달 ---------- */
+
+.modal-card { border-radius: 0; border: 1px solid var(--hairline); }
+.modal-title { font-weight: 700; letter-spacing: -.5px; }
+.modal-icon { border-radius: 0; background: var(--canvas-soft); color: var(--ink); }
+.modal-icon .ico { width: 24px; height: 24px; }
+
+/* ---------- 바닥 ---------- */
+
+.foot { border-top: 1px solid var(--hairline); }
+.foot-inner { font-size: 12px; letter-spacing: .2px; }
+
+/* ---------- 로그인 화면 ----------
+   왼쪽은 검정 한 장. 그 위에 간판 글씨 하나만 올린다. */
+
+.gate-night { background: var(--ink); color: #fff; }
+/* 알록달록한 점은 검정 위에서 장난감처럼 보인다 — 흐린 흰 점으로 통일한다 */
+.gate-night .star { background: rgba(255,255,255,.28) !important; box-shadow: none !important; }
+.gate-logo {
+  font-family: var(--font-display);
+  font-weight: 400; letter-spacing: 1px; text-transform: uppercase;
+}
+.gate-tag { text-transform: uppercase; letter-spacing: .5px; }
+.badge-pill {
+  border-radius: var(--r-pill);
+  text-transform: uppercase; letter-spacing: .8px;
+  background: var(--canvas-soft); color: var(--ink); border: none;
+}
+.auth-title { font-weight: 700; letter-spacing: -1px; }
+.toast { border-radius: var(--r-pill); }
+
+/* ---------- 좁은 화면 ---------- */
+
+@media (max-width: 1100px) {
+  .today { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  /* 좁은 화면에서는 셋이 위아래로 선다 — 한 칸이 화면을 다 먹지 않게 여섯 줄만 */
+  .today { grid-template-columns: minmax(0, 1fr); --today-rows: 6; }
+  .nav-logo { font-size: 22px; }
 }

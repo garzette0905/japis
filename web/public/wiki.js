@@ -12,7 +12,8 @@
 // **저장하는 본문은 서버가 한 번 더 씻는다**(cloudflare/wiki.js). 여기서 만든 것이든
 // 붙여넣은 남의 조각이든 마찬가지다. 그래서 이 파일은 '무엇을 만들까'만 생각하면 된다.
 
-import { el, esc, api, toast, when } from './util.js';
+import { $, el, esc, api, toast, when } from './util.js';
+import { ico } from './icons.js';
 
 // ──────────────────────────────────────────────────────────────
 // 화면이 기억하는 것
@@ -31,7 +32,9 @@ const wiki = {
     sort: 'updated',
     layout: localStorage.getItem('wiki.layout') || 'grid',
   },
-  editing: null,         // 편집기가 들고 있는 메모 { id, folderId, starred, ... }
+  editing: null,         // 편집기가 들고 있는 메모 { id, folderId, starred, shareToken, ... }
+  // 편집기의 얼굴 — 'rich'(서식 편집) · 'html'(태그를 직접) · 'view'(저장된 모습 그대로)
+  mode: 'rich',
   dirty: false,          // 저장하지 않은 것이 있는가
   saving: false,
 };
@@ -91,7 +94,7 @@ async function loadOverview() {
       const side = el('wiki-side');
       if (side) side.innerHTML = '';
       const list = el('wiki-list');
-      if (list) list.innerHTML = emptyHtml('🔒', '이 화면을 볼 권한이 없습니다.', '관리자에게 요청해주세요.');
+      if (list) list.innerHTML = emptyHtml(ico('lock'), '이 화면을 볼 권한이 없습니다.', '관리자에게 요청해주세요.');
       return;
     }
     toast(e.message);
@@ -148,25 +151,25 @@ function paintSide() {
 
     <ul class="wiki-nav">
       <li><button class="wiki-navitem${on(plain && v.folder === '')}" type="button" data-nav="all">
-        <span class="wiki-navico" aria-hidden="true">🗂️</span><span>전체</span>
+        <span class="wiki-navico" aria-hidden="true">${ico('note')}</span><span>전체</span>
         <span class="wiki-count">${wiki.counts.total}</span></button></li>
       <li><button class="wiki-navitem${on(v.starred && !v.trash)}" type="button" data-nav="starred">
-        <span class="wiki-navico" aria-hidden="true">⭐</span><span>중요</span>
+        <span class="wiki-navico" aria-hidden="true">${ico('star')}</span><span>중요</span>
         <span class="wiki-count">${wiki.counts.starred}</span></button></li>
       <li><button class="wiki-navitem${on(plain && v.folder === 'none')}" type="button" data-nav="loose">
-        <span class="wiki-navico" aria-hidden="true">📄</span><span>내 메모</span>
+        <span class="wiki-navico" aria-hidden="true">${ico('folder')}</span><span>내 메모</span>
         <span class="wiki-count">${wiki.counts.loose}</span></button></li>
     </ul>
 
     <div class="wiki-side-head">
       <span>폴더</span>
-      <button class="wiki-side-add" type="button" id="wiki-folder-add" title="폴더 만들기" aria-label="폴더 만들기">＋</button>
+      <button class="wiki-side-add" type="button" id="wiki-folder-add" title="폴더 만들기" aria-label="폴더 만들기">${ico('plus')}</button>
     </div>
     <ul class="wiki-folders">${folders || '<li class="wiki-side-empty">폴더가 없습니다</li>'}</ul>
 
     <ul class="wiki-nav wiki-nav-foot">
       <li><button class="wiki-navitem${on(v.trash)}" type="button" data-nav="trash">
-        <span class="wiki-navico" aria-hidden="true">🗑️</span><span>휴지통</span>
+        <span class="wiki-navico" aria-hidden="true">${ico('trash')}</span><span>휴지통</span>
         <span class="wiki-count">${wiki.counts.trashed}</span></button></li>
     </ul>`;
 
@@ -219,10 +222,10 @@ function paintBar() {
     </div>
     <div class="wiki-bar-right">
       <div class="wiki-search">
-        <span class="wiki-search-ico" aria-hidden="true">🔍</span>
+        <span class="wiki-search-ico" aria-hidden="true">${ico('search')}</span>
         <input id="wiki-q" type="search" placeholder="메모 검색" value="${esc(v.q)}"
                autocomplete="off" aria-label="메모 검색">
-        ${v.q ? '<button class="wiki-search-x" type="button" id="wiki-q-clear" aria-label="검색어 지우기">✕</button>' : ''}
+        ${v.q ? `<button class="wiki-search-x" type="button" id="wiki-q-clear" aria-label="검색어 지우기">${ico('close')}</button>` : ''}
       </div>
       <select id="wiki-sort" class="wiki-select" aria-label="정렬">
         <option value="updated"${v.sort === 'updated' ? ' selected' : ''}>수정일 최신순</option>
@@ -236,9 +239,10 @@ function paintBar() {
         <button type="button" class="wiki-lay${v.layout === 'list' ? ' is-on' : ''}" data-lay="list"
                 title="목록으로 보기" aria-label="목록으로 보기">☰</button>
       </div>
-      <label class="btn-utility wiki-import" title="html 파일을 메모로 불러옵니다">
-        <span aria-hidden="true">📥</span> <span class="wiki-lbl">불러오기</span>
-        <input type="file" id="wiki-import" accept=".html,.htm,text/html" multiple hidden>
+      <label class="btn-utility wiki-import" title="html · md 파일을 메모로 불러옵니다 (표·그림은 모양 그대로)">
+        ${ico('upload')} <span class="wiki-lbl">불러오기</span>
+        <input type="file" id="wiki-import" multiple hidden
+               accept=".html,.htm,.md,.markdown,.mdown,.mkd,text/html,text/markdown">
       </label>
     </div>`;
 
@@ -308,10 +312,10 @@ function paintList() {
 
   if (!wiki.notes.length) {
     list.innerHTML = v.q
-      ? emptyHtml('🔍', `'${v.q}' 로 찾은 메모가 없습니다.`, '다른 낱말로 찾아보세요.')
+      ? emptyHtml(ico('search'), `'${v.q}' 로 찾은 메모가 없습니다.`, '다른 낱말로 찾아보세요.')
       : v.trash
-        ? emptyHtml('🗑️', '휴지통이 비어 있습니다.', '지운 메모가 여기로 옵니다.')
-        : emptyHtml('📝', '아직 메모가 없습니다.', '왼쪽 위 ‘메모 쓰기’로 첫 메모를 남겨보세요.');
+        ? emptyHtml(ico('trash'), '휴지통이 비어 있습니다.', '지운 메모가 여기로 옵니다.')
+        : emptyHtml(ico('note'), '아직 메모가 없습니다.', '왼쪽 위 ‘메모 쓰기’로 첫 메모를 남겨보세요.');
     return;
   }
 
@@ -334,10 +338,10 @@ function paintList() {
         ${
           v.trash
             ? `<button class="wiki-act" type="button" data-restore="${n.id}" title="되살리기" aria-label="되살리기">↩</button>
-               <button class="wiki-act" type="button" data-purge="${n.id}" title="완전히 지우기" aria-label="완전히 지우기">🗑️</button>`
+               <button class="wiki-act" type="button" data-purge="${n.id}" title="완전히 지우기" aria-label="완전히 지우기">${ico('trash')}</button>`
             : `<button class="wiki-act${n.starred ? ' is-on' : ''}" type="button" data-star="${n.id}"
                   title="${n.starred ? '중요 해제' : '중요 표시'}" aria-label="중요 표시">${n.starred ? '★' : '☆'}</button>
-               <button class="wiki-act" type="button" data-del="${n.id}" title="휴지통으로" aria-label="휴지통으로">🗑️</button>`
+               <button class="wiki-act" type="button" data-del="${n.id}" title="휴지통으로" aria-label="휴지통으로">${ico('trash')}</button>`
         }
       </div>
     </article>`;
@@ -377,6 +381,7 @@ function paintList() {
   );
 }
 
+/** 빈 화면. icon 자리에는 icons.js 가 만든 선 그림(HTML)이 들어온다. */
 const emptyHtml = (icon, title, sub) =>
   `<div class="empty"><div class="empty-icon">${icon}</div><strong>${esc(title)}</strong><p>${esc(sub)}</p></div>`;
 
@@ -598,8 +603,8 @@ const TOOLS = [
     { act: 'table', icon: '▦', title: '표 넣기' },
   ] },
   { group: 'insert', items: [
-    { act: 'link', icon: '🔗', title: '링크 (Ctrl+K)' },
-    { act: 'image', icon: '🖼', title: '사진 넣기' },
+    { act: 'link', icon: ico('link'), title: '링크 (Ctrl+K)' },
+    { act: 'image', icon: ico('image'), title: '사진 넣기' },
   ] },
   { group: 'clear', items: [{ act: 'clear', icon: '⌫', title: '서식 지우기' }] },
 ];
@@ -623,7 +628,7 @@ async function openEditor(page, id) {
       wiki.counts = r.counts || wiki.counts;
     } catch (e) {
       if (e.code === 'forbidden') {
-        page.innerHTML = emptyHtml('🔒', '이 화면을 볼 권한이 없습니다.', '관리자에게 요청해주세요.');
+        page.innerHTML = emptyHtml(ico('lock'), '이 화면을 볼 권한이 없습니다.', '관리자에게 요청해주세요.');
         return;
       }
     }
@@ -663,18 +668,30 @@ async function openEditor(page, id) {
             .join('')}
         </select>
         <span class="wiki-ed-state" id="ed-state"></span>
+
+        <!-- 한 메모의 세 얼굴. '보기'는 저장했을 때 남들이 보게 될 그 모습이다 -->
+        <div class="wiki-modes" role="group" aria-label="보는 방법">
+          <button type="button" class="wiki-mode is-on" data-mode="rich" title="서식 단추로 씁니다">편집</button>
+          <button type="button" class="wiki-mode" data-mode="html" title="HTML 태그를 직접 적습니다">HTML</button>
+          <button type="button" class="wiki-mode" data-mode="view" title="저장된 모습 그대로 봅니다">보기</button>
+        </div>
+
         <div class="wiki-ed-acts">
           <button class="wiki-act${note.starred ? ' is-on' : ''}" type="button" id="ed-star"
                   title="중요 표시" aria-label="중요 표시">${note.starred ? '★' : '☆'}</button>
+          <button class="btn-utility wiki-share-btn" type="button" id="ed-share" aria-label="공유">
+            ${ico('share')} <span class="wiki-lbl">공유</span>
+          </button>
           <button class="btn-utility" type="button" id="ed-export" title="이 메모를 html 파일로 내려받습니다"
                   aria-label="html 파일로 저장">
-            <span aria-hidden="true">📤</span> <span class="wiki-lbl">html 저장</span>
+            ${ico('download')} <span class="wiki-lbl">html 저장</span>
           </button>
-          <label class="btn-utility" title="html 파일의 내용을 이 메모에 덧붙입니다">
-            <span aria-hidden="true">📥</span> <span class="wiki-lbl">html 열기</span>
-            <input type="file" id="ed-import" accept=".html,.htm,text/html" hidden>
+          <label class="btn-utility" title="html · md 파일의 내용을 이 메모에 덧붙입니다">
+            ${ico('upload')} <span class="wiki-lbl">html · md 열기</span>
+            <input type="file" id="ed-import" accept=".html,.htm,.md,.markdown,text/html,text/markdown" hidden>
           </label>
-          <button class="btn-utility" type="button" id="ed-del" title="휴지통으로">🗑️</button>
+          <button class="btn-utility danger" type="button" id="ed-del" title="휴지통으로"
+                  aria-label="휴지통으로">${ico('trash')}</button>
           <button class="btn-primary wiki-save" type="button" id="ed-save">저장</button>
         </div>
       </div>
@@ -687,14 +704,20 @@ async function openEditor(page, id) {
         <div id="ed-body" class="wiki-ed-body" contenteditable="true" spellcheck="true"
              role="textbox" aria-multiline="true" aria-label="본문"
              data-placeholder="메모를 입력하세요. #태그를 추가하면 태그별로 메모를 모아볼 수 있어요."></div>
+        <textarea id="ed-source" class="wiki-ed-source" spellcheck="false" hidden
+                  aria-label="HTML 로 직접 쓰기"
+                  placeholder="&lt;h2&gt;제목&lt;/h2&gt;&#10;&lt;p&gt;태그를 직접 적을 수 있습니다.&lt;/p&gt;"></textarea>
+        <div id="ed-view" class="wiki-ed-view wiki-view" hidden aria-label="보기"></div>
       </div>
 
       <input type="file" id="ed-image" accept="image/png,image/jpeg,image/gif,image/webp" hidden multiple>
     </div>`;
 
   el('ed-body').innerHTML = note.html || '';
+  wiki.mode = 'rich';
   paintTools();
   wireEditor();
+  paintShareButton();
   markSaved(note.updatedAt ? '저장됨 · ' + when(note.updatedAt) : '');
   el(id ? 'ed-body' : 'ed-title').focus();
 }
@@ -897,8 +920,15 @@ function wireEditor() {
   el('ed-save').addEventListener('click', () => saveNote());
   el('ed-del').addEventListener('click', deleteFromEditor);
   el('ed-export').addEventListener('click', exportNote);
+  el('ed-share').addEventListener('click', openShare);
   el('ed-import').addEventListener('change', (e) => importIntoEditor(e.target.files?.[0]));
   el('ed-image').addEventListener('change', (e) => uploadImages(e.target.files));
+
+  // 편집 · HTML · 보기
+  $('.wiki-modes').querySelectorAll('[data-mode]').forEach((b) =>
+    b.addEventListener('click', () => setMode(b.dataset.mode))
+  );
+  el('ed-source').addEventListener('input', touched);
 
   el('ed-folder').addEventListener('change', (e) => {
     wiki.editing.folderId = e.target.value ? Number(e.target.value) : null;
@@ -1024,7 +1054,8 @@ async function saveNote({ silent = false } = {}) {
 
   const payload = {
     title: title.value,
-    html: body.innerHTML,
+    // HTML 칸에 있을 때는 그 칸이 원본이다(편집칸은 아직 옛 내용을 들고 있다).
+    html: currentHtml(),
     starred: wiki.editing.starred,
     folderId: wiki.editing.folderId,
   };
@@ -1065,6 +1096,282 @@ async function deleteFromEditor() {
   } catch (e) {
     toast(e.message);
   }
+}
+
+// ---------- 본문 씻기 (화면 쪽) ----------
+//
+// 저장할 때 씻는 것은 언제나 서버다(cloudflare/wiki.js). 여기서 한 번 더 씻는 이유는
+// **저장하기 전에 이 페이지에서 살아 움직이는 것을 만들지 않기 위해서**다.
+// HTML 로 직접 적는 칸이 생겼으니 그렇다 — 적자마자 보기 화면에 그려 주는데,
+// 그 사이에 `<img onerror=…>` 한 줄이 이 창에서 돌아 버리면 늦다.
+//
+// 흰 목록은 서버의 것과 같은 것을 적어 둔다. 브라우저에는 진짜 파서(DOMParser)가
+// 있으므로 정규식 대신 문서를 만들어 걸러낸다 — DOMParser 로 만든 문서는 화면에
+// 붙지 않으므로 그 자리에서는 아무것도 실행되지 않는다.
+
+const OK_TAGS = new Set([
+  'p', 'br', 'div', 'span', 'b', 'strong', 'i', 'em', 'u', 's', 'strike', 'del', 'mark',
+  'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+  'ul', 'ol', 'li', 'blockquote', 'pre', 'code', 'hr',
+  'a', 'img', 'sub', 'sup', 'small',
+  'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td', 'caption', 'colgroup', 'col',
+  'input', 'figure', 'figcaption',
+]);
+
+const OK_ATTR = {
+  '*': new Set(['style', 'class', 'dir', 'title']),
+  a: new Set(['href', 'target', 'rel']),
+  img: new Set(['src', 'alt', 'width', 'height']),
+  td: new Set(['colspan', 'rowspan']),
+  th: new Set(['colspan', 'rowspan', 'scope']),
+  col: new Set(['span', 'width']),
+  input: new Set(['type', 'checked', 'disabled']),
+  ol: new Set(['start', 'type']),
+};
+
+const OK_CSS = new Set([
+  'color', 'background-color', 'font-size', 'font-weight', 'font-style', 'font-family',
+  'text-decoration', 'text-decoration-line', 'text-align', 'line-height',
+  'margin', 'margin-left', 'padding', 'padding-left', 'text-indent',
+  'list-style-type', 'width', 'height',
+  'border', 'border-collapse', 'vertical-align', 'white-space',
+]);
+
+const okUrl = (raw, image = false) => {
+  const v = String(raw || '').replace(/[\s -]/g, '').toLowerCase();
+  if (image && v.startsWith('data:image/') && !v.startsWith('data:image/svg')) return String(raw);
+  if (/^(https?:|mailto:|tel:)/.test(v)) return String(raw);
+  if (v.startsWith('/') && !v.startsWith('//')) return String(raw);
+  if (v.startsWith('#')) return String(raw);
+  return null;
+};
+
+const okStyle = (raw) =>
+  String(raw || '')
+    .split(';')
+    .map((part) => {
+      const i = part.indexOf(':');
+      if (i < 0) return '';
+      const name = part.slice(0, i).trim().toLowerCase();
+      const value = part.slice(i + 1).trim();
+      if (!OK_CSS.has(name) || !value || value.length > 120) return '';
+      if (/url\s*\(|expression|javascript:|@import/i.test(value)) return '';
+      return name + ':' + value;
+    })
+    .filter(Boolean)
+    .join(';');
+
+function scrubNode(node, tag) {
+  for (const attr of [...node.attributes]) {
+    const name = attr.name.toLowerCase();
+    const allowed = (OK_ATTR[tag] && OK_ATTR[tag].has(name)) || OK_ATTR['*'].has(name);
+    if (!allowed) {
+      node.removeAttribute(attr.name);
+      continue;
+    }
+    if (name === 'style') {
+      const v = okStyle(attr.value);
+      if (v) node.setAttribute('style', v);
+      else node.removeAttribute('style');
+    } else if (name === 'href' || name === 'src') {
+      const v = okUrl(attr.value, name === 'src');
+      if (v) node.setAttribute(name, v);
+      else node.removeAttribute(name);
+    } else if (name === 'type' && tag === 'input') {
+      if (attr.value.toLowerCase() !== 'checkbox') node.setAttribute('type', 'checkbox');
+    } else if (name === 'class') {
+      const v = attr.value
+        .split(/\s+/)
+        .filter((c) => /^(wiki-[a-z0-9-]+|todo|todo-done|hl-[a-z]+)$/i.test(c))
+        .join(' ');
+      if (v) node.setAttribute('class', v);
+      else node.removeAttribute('class');
+    }
+  }
+  if (tag === 'a') {
+    node.setAttribute('target', '_blank');
+    node.setAttribute('rel', 'noopener noreferrer');
+  }
+}
+
+/** 흰 목록에 없는 태그는 **꺾쇠만 벗기고 안의 글은 남긴다**(서버와 같은 규칙). */
+export function safeHtml(input) {
+  const doc = new DOMParser().parseFromString('<body>' + String(input || '') + '</body>', 'text/html');
+  doc.body
+    .querySelectorAll('script,style,iframe,object,embed,noscript,template,svg,math,form,link,meta,base,title')
+    .forEach((n) => n.remove());
+
+  const walk = (parent) => {
+    for (const child of [...parent.children]) {
+      const tag = child.tagName.toLowerCase();
+      walk(child);
+      if (!OK_TAGS.has(tag)) child.replaceWith(...child.childNodes);
+      else {
+        scrubNode(child, tag);
+        // 주소를 잃은 그림은 깨진 네모 하나로 남는다 — 아예 치운다(서버도 같이 치운다).
+        if (tag === 'img' && !child.getAttribute('src')) child.remove();
+      }
+    }
+  };
+  walk(doc.body);
+  return doc.body.innerHTML;
+}
+
+// ---------- 편집 · HTML · 보기 ----------
+//
+// 한 메모를 세 가지 얼굴로 본다.
+//
+//   편집  서식 단추가 달린 평소의 편집칸(contenteditable)
+//   HTML  태그를 **직접 적는 칸.** 다른 데서 만든 조각을 그대로 붙여 넣거나,
+//         편집칸이 만들어 준 것을 손보고 싶을 때 쓴다
+//   보기   저장했을 때 남들이 보게 될 **그 모습.** 단추도 손잡이도 없다
+//
+// HTML 칸에서 나올 때는 적은 것을 한 번 씻어서 편집칸에 옮긴다. 씻지 않은 것이
+// 편집칸에 들어가면 그 순간부터 이 페이지 안에서 살아 있는 것이 된다.
+
+const BLOCK_TAGS = 'p|div|h[1-6]|ul|ol|li|blockquote|pre|hr|table|thead|tbody|tfoot|tr|td|th|figure|figcaption';
+
+/** HTML 칸에 넣기 전에 줄을 나눈다. 덩어리 태그의 앞뒤에서만 끊으므로 화면은 그대로다. */
+const prettyHtml = (html) =>
+  String(html || '')
+    .replace(new RegExp('<(' + BLOCK_TAGS + ')\\b', 'gi'), '\n<$1')
+    .replace(new RegExp('</(' + BLOCK_TAGS + ')>', 'gi'), '</$1>\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+/** 지금 이 메모의 본문. HTML 칸에 있을 때는 그 칸이 원본이다. */
+function currentHtml() {
+  if (wiki.mode === 'html') return safeHtml(el('ed-source')?.value || '');
+  return el('ed-body')?.innerHTML || '';
+}
+
+function setMode(next) {
+  const body = el('ed-body');
+  const source = el('ed-source');
+  const view = el('ed-view');
+  if (!body || !source || !view) return;
+
+  // HTML 칸에서 나온다 — 적은 것을 씻어서 편집칸으로 옮긴다.
+  if (wiki.mode === 'html' && next !== 'html') {
+    const cleaned = safeHtml(source.value);
+    if (cleaned !== body.innerHTML) {
+      body.innerHTML = cleaned;
+      touched();
+    }
+  }
+  dropImage();
+  wiki.mode = next;
+
+  if (next === 'html') source.value = prettyHtml(body.innerHTML);
+  if (next === 'view') view.innerHTML = safeHtml(body.innerHTML) || '<p class="wiki-view-empty">아직 아무것도 없습니다.</p>';
+
+  body.hidden = next !== 'rich';
+  source.hidden = next !== 'html';
+  view.hidden = next !== 'view';
+  el('ed-tools').hidden = next !== 'rich';
+
+  document.querySelectorAll('[data-mode]').forEach((b) => b.classList.toggle('is-on', b.dataset.mode === next));
+  if (next === 'rich') body.focus();
+  if (next === 'html') source.focus();
+}
+
+// ---------- 공유 ----------
+//
+// 메모 하나를 **주소 하나**로 내놓는다. 주소에는 메모 번호가 들어가지 않는다 —
+// 32자 무작위 이름표뿐이라 옆 번호를 눌러 남의 메모로 건너갈 수 없다(서버의
+// /s/<이름표>). 끄면 그 주소는 그 자리에서 죽고, 다시 켜면 새 주소가 나온다.
+
+const shareUrlOf = (token) => location.origin + '/s/' + token;
+
+async function openShare() {
+  if (wiki.dirty) await saveNote({ silent: true });
+  if (!wiki.editing?.id) return toast('먼저 내용을 적어주세요.');
+  shareDialog();
+}
+
+function shareDialog() {
+  const token = wiki.editing?.shareToken || null;
+  if (document.getElementById('wiki-share-dialog')) return;
+  const previous = document.activeElement;
+  const dialog = document.createElement('dialog');
+  dialog.id = 'wiki-share-dialog';
+  dialog.className = 'wiki-folder-dialog wiki-share-dialog';
+  dialog.setAttribute('aria-labelledby', 'wiki-share-title');
+
+  const paint = () => {
+    const on = !!wiki.editing.shareToken;
+    dialog.innerHTML = `<form method="dialog">
+      <h2 id="wiki-share-title">메모 공유</h2>
+      ${
+        on
+          ? `<p>이 주소를 아는 사람은 로그인하지 않아도 이 메모 하나를 볼 수 있습니다.</p>
+             <div class="wiki-share-row">
+               <input id="wiki-share-url" type="text" readonly value="${esc(shareUrlOf(wiki.editing.shareToken))}">
+               <button type="button" class="btn-primary" data-copy>복사</button>
+             </div>
+             <p class="wiki-share-note">주소는 32자리 무작위 글자라 찍어서 맞힐 수 없습니다.
+                공유를 끄면 이 주소는 바로 열리지 않고, 다시 켜면 <strong>새 주소</strong>가 나옵니다.</p>
+             <div class="wiki-folder-dialog-actions">
+               <button type="button" data-cancel>닫기</button>
+               <button type="button" class="wiki-share-off" data-off>공유 끄기</button>
+             </div>`
+          : `<p>공유를 켜면 이 메모만 담긴 주소가 하나 생깁니다. 포털의 다른 화면은 열리지 않습니다.</p>
+             <p class="wiki-share-note">주소를 아는 사람은 누구나 볼 수 있으니, 나눠 줄 사람에게만 보내세요.</p>
+             <div class="wiki-folder-dialog-actions">
+               <button type="button" data-cancel>취소</button>
+               <button type="button" class="btn-primary" data-on>공유 켜기</button>
+             </div>`
+      }
+    </form>`;
+
+    dialog.querySelector('[data-cancel]').addEventListener('click', () => dialog.close());
+    dialog.querySelector('[data-on]')?.addEventListener('click', () => toggleShare(true, paint));
+    dialog.querySelector('[data-off]')?.addEventListener('click', () => toggleShare(false, paint));
+    dialog.querySelector('[data-copy]')?.addEventListener('click', async () => {
+      const box = dialog.querySelector('#wiki-share-url');
+      box.select();
+      try {
+        await navigator.clipboard.writeText(box.value);
+        toast('주소를 복사했습니다.');
+      } catch {
+        // 클립보드를 막아 둔 브라우저도 있다. 그럴 때는 골라 둔 채로 두면 사람이 직접 복사한다.
+        toast('주소를 길게 눌러 복사해주세요.');
+      }
+    });
+  };
+
+  paint();
+  document.body.appendChild(dialog);
+  const leave = () => dialog.close();
+  window.addEventListener('hashchange', leave);
+  dialog.addEventListener('close', () => {
+    window.removeEventListener('hashchange', leave);
+    dialog.remove();
+    if (previous?.isConnected) previous.focus();
+    paintShareButton();
+  }, { once: true });
+  dialog.showModal();
+}
+
+async function toggleShare(on, paint) {
+  try {
+    const r = await api('/api/wiki/notes/' + wiki.editing.id + '/share', { method: on ? 'POST' : 'DELETE' });
+    wiki.editing.shareToken = r.shareToken || null;
+    toast(on ? '공유를 켰습니다.' : '공유를 껐습니다.');
+    paint();
+    paintShareButton();
+  } catch (e) {
+    toast(e.message);
+  }
+}
+
+/** 공유가 켜져 있으면 단추가 그것을 말한다 — 창을 열어 봐야 아는 일이 없게. */
+function paintShareButton() {
+  const b = el('ed-share');
+  if (!b) return;
+  const on = !!wiki.editing?.shareToken;
+  b.classList.toggle('is-on', on);
+  b.title = on ? '공유 중입니다 — 주소 보기' : '이 메모를 주소 하나로 공유합니다';
 }
 
 // ---------- 사진 고르기 · 크기 바꾸기 ----------
@@ -1265,37 +1572,46 @@ async function exportNote() {
 }
 
 /**
- * html 파일을 지금 보고 있는 메모에 **덧붙인다**.
+ * html · md 파일을 지금 보고 있는 메모에 **덧붙인다**.
  * (목록 화면의 '불러오기'는 파일마다 새 메모를 만든다 — 그쪽이 여러 개를 한 번에 받는 자리다.)
+ *
+ * .md 는 서버에 한 번 보내 html 로 바꿔 받는다. 변환기를 브라우저에 한 벌 더 두면
+ * 둘이 곧 어긋나므로, 마크다운을 읽는 곳은 언제나 서버 한 곳이다.
  */
 async function importIntoEditor(file) {
   if (!file) return;
-  if (file.size > 5 * 1024 * 1024) return toast('html 파일은 5MB 까지 열 수 있습니다.');
+  if (file.size > 5 * 1024 * 1024) return toast('파일은 5MB 까지 열 수 있습니다.');
 
+  const markdown = /\.(md|markdown|mdown|mkd)$/i.test(file.name) || /^text\/markdown/i.test(file.type || '');
   const raw = await file.text();
-  const bodyTag = raw.match(/<body[^>]*>([\s\S]*)<\/body>/i);
-  const source = bodyTag ? bodyTag[1] : raw;
+
+  let source;
+  if (markdown) {
+    try {
+      source = (await api('/api/wiki/render', { method: 'POST', body: { markdown: raw } })).html;
+    } catch (e) {
+      return toast(e.message);
+    }
+  } else {
+    const bodyTag = raw.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+    source = bodyTag ? bodyTag[1] : raw;
+  }
 
   // 화면에 넣기 전에 여기서도 한 번 씻는다. 저장할 때 서버가 다시 씻지만, 그 사이에
   // 이 페이지에서 살아 있는 것을 만들지 않기 위해서다.
-  const safe = document.createElement('div');
-  safe.innerHTML = source;
-  safe.querySelectorAll('script,style,iframe,object,embed,link,meta,form,svg').forEach((n) => n.remove());
-  safe.querySelectorAll('*').forEach((n) => {
-    for (const a of [...n.attributes]) {
-      if (/^on/i.test(a.name) || (/^(href|src)$/i.test(a.name) && /^\s*javascript:/i.test(a.value))) {
-        n.removeAttribute(a.name);
-      }
-    }
-  });
+  const clean = safeHtml(source);
 
   const body = el('ed-body');
+  if (wiki.mode !== 'rich') setMode('rich');
   body.focus();
-  body.innerHTML += (body.innerHTML.trim() ? '<p><br></p>' : '') + safe.innerHTML;
+  body.innerHTML += (body.innerHTML.trim() ? '<p><br></p>' : '') + clean;
 
   if (!el('ed-title').value.trim()) {
-    const t = raw.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-    el('ed-title').value = (t ? t[1] : String(file.name || '')).replace(/\.html?$/i, '').trim().slice(0, 200);
+    const t = markdown ? raw.match(/^\s*#\s+(.+)$/m) : raw.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+    el('ed-title').value = (t ? t[1] : String(file.name || ''))
+      .replace(/\.(html?|md|markdown|mdown|mkd)$/i, '')
+      .trim()
+      .slice(0, 200);
   }
   touched();
   toast('불러왔습니다.');

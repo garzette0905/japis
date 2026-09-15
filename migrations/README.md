@@ -20,3 +20,4 @@ npx wrangler d1 execute japis-db --remote --file=./migrations/00X_....sql
 | `002_admin_display_name.sql` | 관리자 표시 이름 '관리자' → 'Jaden' (대시보드 인사말이 읽는 값) |
 | `003_drop_reauth.sql` | 화면 열 때의 재인증(비밀번호 재확인) 끄기 — 남아 있는 권한 행이 코드 기본값을 덮어쓰므로 |
 | `004_wiki.sql` | Jaden wiki(포털 안 메모) — 메모·폴더·첨부파일 이름표 세 표 |
+| `005_wiki_share.sql` | 메모 공유 — `wiki_notes.share_token` · `shared_at` (주소 하나로 남에게 보여주기) |

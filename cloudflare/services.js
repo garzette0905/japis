@@ -14,7 +14,11 @@
 //   url      들어갈 주소. null 이면 '준비중'으로 뜨고 눌리지 않는다
 //   repo     GitHub 저장소 (선택) — 아직 배포 전인 것을 어디서 보는지 알려준다
 //   accent   카드 머리띠 색. 노션 스티커 팔레트에서 고른다(장식 전용)
-//   icon     카드에 얹는 이모지 하나
+//   icon     예전에 카드에 얹던 이모지 하나. **화면에는 더 이상 쓰지 않는다** —
+//            그림은 web/public/icons.js 가 key 로 찾아 그리는 선 그림이다(이모지는
+//            기기마다 다른 그림이 떠서 나란히 세우면 줄이 서지 않았다).
+//            화면을 하나 더 붙였다면 icons.js 의 SERVICE_ICONS 에 같은 key 로 그림을
+//            하나 더한다. 없으면 점 하나로 뜬다.
 //   reauth   들어갈 때 비밀번호를 한 번 더 받을지. **지금은 모두 false 다** —
 //            이미 로그인한 사람에게 링크 하나 누를 때마다 비밀번호를 또 묻는 것은
 //            보태는 안전보다 깎아먹는 쓸모가 컸다. 장치 자체는 남겨 두었으니,
@@ -198,11 +202,12 @@ export const SERVICES = [
     reauth: false,
     external: false,
     // 본인 계정 주소(프로필·채널)가 정해지면 여기만 고친다.
+    // ico 는 icons.js 의 그림 이름이다(이모지가 아니다).
     links: [
-      { label: '인스타그램', icon: '📷', url: 'https://www.instagram.com' },
-      { label: 'Thread', icon: '🧵', url: 'https://www.threads.net' },
-      { label: 'Facebook', icon: '👥', url: 'https://www.facebook.com' },
-      { label: 'Telegram', icon: '✈️', url: 'https://web.telegram.org' },
+      { label: '인스타그램', ico: 'camera', url: 'https://www.instagram.com' },
+      { label: 'Thread', ico: 'thread', url: 'https://www.threads.net' },
+      { label: 'Facebook', ico: 'people', url: 'https://www.facebook.com' },
+      { label: 'Telegram', ico: 'send', url: 'https://web.telegram.org' },
     ],
   },
 

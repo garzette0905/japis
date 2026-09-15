@@ -38,6 +38,9 @@ import {
   serveFile,
   exportNote,
   importFiles,
+  shareNote,
+  sharedNotePage,
+  renderMarkdown,
 } from './wiki.js';
 
 const enc = new TextEncoder();
@@ -1582,6 +1585,10 @@ export default {
       if (path === '/api/wiki/trash' && method === 'DELETE') {
         return requireWiki(request, env, (user) => emptyTrash(env, user.id));
       }
+      // .md 한 덩어리를 html 로만 바꿔 받는다(저장하지 않는다 — 편집기가 덧붙일 때 쓴다).
+      if (path === '/api/wiki/render' && method === 'POST') {
+        return requireWiki(request, env, () => renderMarkdown(request, env));
+      }
       if (path === '/api/wiki/import' && method === 'POST') {
         return requireWiki(request, env, (user) => importFiles(request, env, user.id));
       }
@@ -1608,6 +1615,13 @@ export default {
       const mExport = path.match(/^\/api\/wiki\/notes\/(\d+)\/export$/);
       if (mExport && method === 'GET') {
         return requireWiki(request, env, (user) => exportNote(env, user.id, Number(mExport[1])));
+      }
+      // 공유 켜기(POST) · 끄기(DELETE). 켠 뒤의 주소는 아래 /s/<이름표> 다.
+      const mShare = path.match(/^\/api\/wiki\/notes\/(\d+)\/share$/);
+      if (mShare && (method === 'POST' || method === 'DELETE')) {
+        return requireWiki(request, env, (user) =>
+          shareNote(env, user.id, Number(mShare[1]), method === 'POST')
+        );
       }
       if (path === '/api/wiki/folders' && method === 'POST') {
         return requireWiki(request, env, (user) => createFolder(request, env, user.id));
@@ -1638,6 +1652,14 @@ export default {
         return requireAdmin(request, env, (admin) => adminPutPerms(request, env, ctx, admin, Number(mPerms[1])));
       }
       if (path === '/api/admin/logs' && method === 'GET') return requireAdmin(request, env, () => adminLogs(env, url));
+
+      // ---- 공유된 메모 한 장 (로그인 없이 열리는 **유일한** 화면) ----
+      // 주소에 메모 번호가 없다 — 32자 무작위 이름표 하나뿐이라 옆 것을 눌러 볼 수 없다.
+      // 포털 껍데기를 주지 않고 그 메모만 담은 html 한 장을 그 자리에서 만들어 보낸다.
+      const mShared = path.match(/^\/s\/([a-f0-9]{32})$/);
+      if (mShared && (method === 'GET' || method === 'HEAD')) {
+        return sharedNotePage(env, mShared[1]);
+      }
 
       // 여기까지 오지 못한 /api/* 는 없는 주소다(껍데기 HTML을 돌려주면 화면이 헷갈린다).
       if (path.startsWith('/api/')) return fail('없는 주소입니다.', 404);

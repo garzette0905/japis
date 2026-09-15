@@ -1,8 +1,9 @@
 /* ============================================================================
    Jaden wiki — 포털 안 메모 화면
    ----------------------------------------------------------------------------
-   styles.css 의 규칙을 그대로 따른다. 색은 파랑(--primary) 하나만 동작에 쓰고,
-   폴더 점 같은 알록달록한 것은 장식 전용이다. 새 낱말(변수)을 만들지 않는다.
+   styles.css 의 규칙을 그대로 따른다. 동작에 쓰는 색은 검정(--primary) 하나이고,
+   폴더 점 같은 알록달록한 것은 '색이 곧 이름표'인 자리에만 남는다. 새 낱말(변수)을
+   만들지 않는다. (파일 끝의 '나이키 결' 묶음이 이 파일의 결을 마지막으로 맞춘다.)
 
    화면은 두 칸이다 — 왼쪽에 폴더, 오른쪽에 메모. 포털의 왼쪽 기둥이 이미 하나
    있으므로 여기 것은 그보다 한 단 조용하게(배경 없이 글자만) 둔다.
@@ -546,4 +547,195 @@ body.wiki-resizing .wiki-ed-body { cursor: nwse-resize; }
   .wiki-bar-right { width: 100%; }
   .wiki-search { flex: 1 1 100%; order: -1; }
   .wiki-where { font-size: 20px; }
+}
+
+/* ============================================================================
+   나이키 결 — 메모 화면의 마무리
+   ----------------------------------------------------------------------------
+   styles.css 의 규칙을 그대로 따른다: 담는 것은 각지게, 누르는 것은 알약,
+   그림자는 없다. 여기에는 **메모 화면에만 있는 것**만 적는다 —
+   편집·HTML·보기를 오가는 칸과, 공유 창.
+   ========================================================================== */
+
+/* ---------- 왼쪽 폴더 목록 ---------- */
+
+.wiki-navico { width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; }
+.wiki-navico .ico { width: 17px; height: 17px; }
+.wiki-navitem, .wiki-folder-go { border-radius: 0; font-weight: 500; }
+.wiki-navitem.is-on, .wiki-folder-go.is-on { background: var(--ink); color: var(--on-primary); }
+.wiki-navitem.is-on .wiki-count, .wiki-folder-go.is-on .wiki-count { color: rgba(255,255,255,.7); }
+.wiki-side-head {
+  font-size: 11px; font-weight: 500; letter-spacing: .8px; text-transform: uppercase;
+  color: var(--ink-muted);
+  border-bottom: 1px solid var(--hairline);
+}
+.wiki-side-add { border-radius: var(--r-full); }
+.wiki-side-add .ico { width: 15px; height: 15px; }
+.wiki-new { border-radius: var(--r-pill); }
+
+/* ---------- 위 줄: 검색 · 정렬 · 불러오기 ---------- */
+
+.wiki-where { font-weight: 700; letter-spacing: -.8px; text-transform: uppercase; }
+.wiki-search input {
+  border-radius: var(--r-input);
+  background: var(--canvas-soft);
+  border-color: transparent;
+}
+.wiki-search input:focus {
+  background: var(--canvas);
+  border-color: var(--ink);
+  box-shadow: 0 0 0 4px var(--canvas-soft);
+}
+.wiki-search-ico { display: flex; color: var(--ink-muted); }
+.wiki-search-ico .ico { width: 16px; height: 16px; }
+.wiki-search-x { border-radius: var(--r-full); }
+.wiki-search-x .ico { width: 14px; height: 14px; }
+.wiki-select { border-radius: var(--r-pill); padding-left: 14px; }
+.wiki-layout { border-radius: var(--r-pill); border: 1px solid var(--hairline); }
+.wiki-lay { border-radius: var(--r-pill); }
+.wiki-lay.is-on { background: var(--ink); color: var(--on-primary); }
+.wiki-import .ico { width: 15px; height: 15px; }
+
+/* ---------- 메모 카드 ---------- */
+
+.wiki-card { border-radius: 0; border-color: var(--hairline-soft); box-shadow: none; }
+.wiki-card:hover { box-shadow: none; border-color: var(--ink); }
+.wiki-card-title { font-weight: 700; letter-spacing: -.3px; }
+.wiki-card mark { background: #fff3a3; border-radius: 0; }
+.wiki-act { border-radius: var(--r-full); }
+.wiki-act .ico { width: 15px; height: 15px; }
+.wiki-dot { border-radius: var(--r-full); }
+
+/* ---------- 편집기 머리 ---------- */
+
+.wiki-ed-acts .btn-primary { border-radius: var(--r-pill); }
+.wiki-ed-state { font-size: 12px; letter-spacing: .3px; text-transform: uppercase; }
+
+/* 편집 · HTML · 보기 — 셋 중 하나만 검다 */
+.wiki-modes {
+  display: inline-flex; gap: 2px; flex: none;
+  padding: 2px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-pill);
+}
+.wiki-mode {
+  padding: 5px 14px;
+  font: inherit; font-size: 12px; font-weight: 500; letter-spacing: .4px;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  background: none; border: none; border-radius: var(--r-pill);
+  cursor: pointer;
+}
+.wiki-mode:hover { color: var(--ink); }
+.wiki-mode.is-on { background: var(--ink); color: var(--on-primary); }
+
+/* 공유 중이면 단추가 그것을 말한다 */
+.wiki-share-btn.is-on { background: var(--ink); color: var(--on-primary); border-color: var(--ink); }
+.wiki-share-btn.is-on:hover { background: #000; }
+
+/* ---------- HTML 로 직접 쓰는 칸 ---------- */
+
+.wiki-ed-source {
+  width: 100%;
+  min-height: 460px;
+  padding: var(--s-md);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, 'Noto Sans KR', monospace;
+  font-size: 13px; line-height: 1.65;
+  color: var(--ink);
+  background: var(--canvas-soft);
+  border: 1px solid var(--hairline-soft);
+  border-radius: 0;
+  resize: vertical;
+  tab-size: 2;
+}
+.wiki-ed-source:focus { outline: none; border-color: var(--ink); background: var(--canvas); }
+
+/* ---------- 보기 — 저장했을 때 남들이 보게 될 그 모습 ---------- */
+
+.wiki-ed-view { min-height: 460px; }
+.wiki-view { font-size: 16px; line-height: 1.6; color: var(--ink); word-break: break-word; }
+.wiki-view-empty { color: var(--ink-faint); }
+.wiki-view h1 { font-size: 32px; margin: var(--s-lg) 0 var(--s-xs); letter-spacing: -.8px; line-height: 1.15; }
+.wiki-view h2 { font-size: 24px; margin: var(--s-lg) 0 var(--s-xs); letter-spacing: -.5px; line-height: 1.2; }
+.wiki-view h3 { font-size: 19px; margin: var(--s-md) 0 var(--s-xxs); letter-spacing: -.2px; }
+.wiki-view p { margin: 0 0 var(--s-sm); }
+.wiki-view ul, .wiki-view ol { margin: 0 0 var(--s-sm); padding-left: 26px; }
+.wiki-view li { margin-bottom: 4px; }
+.wiki-view a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
+.wiki-view img { max-width: 100%; height: auto; }
+.wiki-view hr { margin: var(--s-lg) 0; border: none; border-top: 1px solid var(--hairline); }
+.wiki-view blockquote {
+  margin: var(--s-sm) 0;
+  padding: 2px 0 2px var(--s-md);
+  border-left: 2px solid var(--ink);
+  color: var(--ink-secondary);
+}
+.wiki-view pre {
+  padding: var(--s-md);
+  background: var(--canvas-soft);
+  overflow-x: auto;
+  font-size: 13.5px; line-height: 1.6;
+}
+.wiki-view code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .92em;
+}
+.wiki-view :not(pre) > code { padding: 1px 5px; background: var(--canvas-soft); }
+.wiki-view mark { background: #fff3a3; }
+
+/* 표 — .md 에서 들어온 표가 여기서 표답게 선다 */
+.wiki-view table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: var(--s-sm) 0 var(--s-md);
+  display: block; overflow-x: auto;
+  font-size: 15px;
+}
+.wiki-view th, .wiki-view td {
+  border: 1px solid var(--hairline);
+  padding: 8px 12px;
+  text-align: left;
+  vertical-align: top;
+}
+.wiki-view th { background: var(--canvas-soft); font-weight: 500; }
+.wiki-view .todo-done { color: var(--ink-muted); text-decoration: line-through; }
+.wiki-view input[type=checkbox] { accent-color: var(--ink); margin-right: 4px; }
+
+/* 편집칸의 표도 같은 모양으로 — 쓰는 동안과 보는 동안이 달라 보이면 안 된다 */
+.wiki-ed-body th { background: var(--canvas-soft); font-weight: 500; }
+.wiki-ed-body img { border-radius: 0; }
+.wiki-ed-body a { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
+.wiki-ed-title { font-weight: 700; letter-spacing: -1px; }
+.wiki-tool { border-radius: var(--r-full); }
+.wiki-tool .ico { width: 16px; height: 16px; }
+.wiki-swatch { border-radius: var(--r-full); }
+
+/* ---------- 창(dialog) ---------- */
+
+.wiki-folder-dialog { border-radius: 0; border: 1px solid var(--hairline); box-shadow: var(--sh-2); }
+.wiki-folder-dialog input { border-radius: var(--r-input); }
+.wiki-folder-dialog button[type=submit],
+.wiki-folder-dialog .btn-primary { border-radius: var(--r-pill); }
+
+.wiki-share-dialog { max-width: 520px; }
+.wiki-share-dialog p { font-size: 14.5px; line-height: 1.55; color: var(--ink-secondary); }
+.wiki-share-note { font-size: 13px !important; color: var(--ink-muted) !important; }
+.wiki-share-row { display: flex; gap: var(--s-xs); margin: var(--s-sm) 0; }
+.wiki-share-row input {
+  flex: 1 1 auto; min-width: 0;
+  padding: 10px 16px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 13px;
+  color: var(--ink);
+  background: var(--canvas-soft);
+  border: 1px solid transparent;
+  border-radius: var(--r-input);
+}
+.wiki-share-row .btn-primary { flex: none; min-height: 40px; padding: 8px 20px; font-size: 14px; }
+.wiki-share-off { color: var(--sale); }
+
+@media (max-width: 760px) {
+  .wiki-modes { order: 5; }
+  .wiki-ed-source, .wiki-ed-view { min-height: 340px; }
+  .wiki-share-row { flex-direction: column; }
 }
