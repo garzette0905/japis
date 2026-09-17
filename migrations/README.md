@@ -21,3 +21,4 @@ npx wrangler d1 execute japis-db --remote --file=./migrations/00X_....sql
 | `003_drop_reauth.sql` | 화면 열 때의 재인증(비밀번호 재확인) 끄기 — 남아 있는 권한 행이 코드 기본값을 덮어쓰므로 |
 | `004_wiki.sql` | Jaden wiki(포털 안 메모) — 메모·폴더·첨부파일 이름표 세 표 |
 | `005_wiki_share.sql` | 메모 공유 — `wiki_notes.share_token` · `shared_at` (주소 하나로 남에게 보여주기) |
+| `006_bookmarks.sql` | 북마크 — `bookmark_folders` · `bookmarks` 두 표 (사내·사외, 하위 폴더) + 기존 wiki 사용자에게 권한 부여 |

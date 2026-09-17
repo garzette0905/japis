@@ -7,6 +7,7 @@
 
 import { $, el, esc, api, toast } from './util.js';
 import { renderWiki, wikiLeaving } from './wiki.js';
+import { renderBookmarks } from './bookmarks.js';
 import { ico, serviceIco } from './icons.js';
 
 const state = {
@@ -524,7 +525,7 @@ function startNow() {
 function renderFoot() {
   el('foot').innerHTML = `
     <div class="foot-inner">
-      <span>JAPIS — Jaden&rsquo;s Automated Personal Intelligence Service</span>
+      <span>JAPIS — JAden Personal Intelligence Service</span>
       <span class="faint">Cloudflare Workers · D1 · KV</span>
     </div>`;
 }
@@ -560,6 +561,14 @@ function route() {
       return;
     }
     return renderWiki(page, hash.slice(7));
+  }
+  // 북마크 — 포털 안 주소록. 메모와 같은 얼개다(권한 한 줄이 화면과 API를 함께 연다).
+  if (hash === '#/bookmarks') {
+    if (!state.services.some((s) => s.key === 'bookmarks')) {
+      location.hash = '#/';
+      return;
+    }
+    return renderBookmarks(page);
   }
   if (hash === '#/me') return renderMe(page);
   if (state.me.role === 'admin') {
@@ -988,8 +997,9 @@ const groupLabel = (key) => state.groups.find((g) => g.key === key)?.label || ke
 // 본문은 내려오지 않는다 — 제목·보낸이·시각뿐이다.
 
 // 순서는 **메일 → 할일 → 일정**이다. 아침에 먼저 보는 것부터 왼쪽에 둔다.
-// 셋의 칸 높이는 CSS 가 똑같이 맞춰 주고(.today-panel), 각 칸에는 열 개씩 들어온다
-// (서버의 FEED_MAX — cloudflare/connect.js).
+// 셋의 칸 높이는 CSS 가 똑같이 맞춘다(.today-panel — 다섯 줄로 못을 박아 둔다).
+// 서버는 열 개를 실어 보내므로(FEED_MAX — cloudflare/connect.js) 여섯째부터는
+// 그 칸 안에서 굴려 본다.
 const TODAY = [
   { key: 'gmail', title: '안 읽은 메일' },
   { key: 'gtasks', title: '남은 할 일' },
@@ -1018,6 +1028,124 @@ function todayHtml() {
       })
       .join('')}</div>
   </section>`;
+}
+
+// ---------- 한 줄 입력칸 — 말로 넣고, 말로 찾는다 ----------
+//
+// '오늘' 칸은 보여 주기만 했다. 넣으려면 구글 화면까지 나갔다 와야 했는데, 그 사이에
+// 하려던 말이 흐려진다. 그래서 칸 하나를 위에 둔다.
+//
+//   "내일 오후 3시 치과"       → 캘린더에 들어간다
+//   "장보기 할일 추가"          → 할 일에 들어간다
+//   "이번주 일정 뭐 있어?"      → 그 자리에서 목록이 뜬다
+//   "메일 청구서"               → 받은편지함을 그 낱말로 훑는다
+//
+// 읽은 결과는 **반드시 되돌려 말해 준다**("9월 18일(금) 15:00 — 치과"). 잘못 알아
+// 들었으면 그 자리에서 '일정으로 / 할일로'를 눌러 고친다.
+
+let asking = false;
+
+const askHtml = () => `<section class="section ask-section">
+  <form class="ask" id="ask-form" autocomplete="off">
+    <span class="ask-ico" aria-hidden="true">${ico('pen')}</span>
+    <input class="ask-input" id="ask-q" type="text" maxlength="300"
+           placeholder="내일 오후 3시 치과 · 장보기 할일 추가 · 이번주 일정 뭐 있어?"
+           aria-label="일정·할일을 넣거나 찾기">
+    <button class="btn-primary ask-go" id="ask-go" type="submit">보내기</button>
+  </form>
+  <div class="ask-out" id="ask-out" aria-live="polite"></div>
+</section>`;
+
+/** 응답 한 덩어리를 그린다. 목록의 한 줄은 '오늘' 칸과 같은 모양(.feed-row)이다. */
+function askResultHtml(r) {
+  if (r.state === 'disconnected') {
+    return `<div class="ask-card"><p class="feed-note">${esc(r.note || '구글을 먼저 연결해주세요.')}</p>
+      <a class="btn-utility" href="/connect/google/start">구글 연결하기</a></div>`;
+  }
+  if (r.state === 'reconnect') {
+    return `<div class="ask-card"><p class="feed-note">${esc(r.note || '')}</p>
+      <a class="btn-utility" href="/connect/google/start">구글 다시 연결하기</a></div>`;
+  }
+  if (!r.ok) return `<div class="ask-card"><p class="feed-note">${esc(r.note || '알아듣지 못했습니다.')}</p></div>`;
+
+  const groups = (r.groups || [])
+    .map((g) => {
+      const rows = g.items.length
+        ? `<ul class="feed-list">${g.items
+            .map(
+              (i) => `<li><a class="feed-row" href="${esc(i.link || '#')}" target="_blank" rel="noopener noreferrer"
+                  title="${esc(i.title)}">
+                  <span class="feed-title">${esc(i.title)}</span>
+                  <span class="feed-sub">${esc(i.sub || '')}${i.sub && i.at ? ' · ' : ''}${esc(feedWhen(i.at, i.allDay))}</span>
+                </a></li>`
+            )
+            .join('')}</ul>`
+        : '<p class="feed-note">없습니다.</p>';
+      return `<div class="ask-group"><div class="ask-group-title">${esc(g.title)}</div>${rows}</div>`;
+    })
+    .join('');
+
+  // 넣은 것을 잘못 읽었을 수 있다 — 반대쪽으로 다시 넣는 길을 옆에 둔다(먼저 것은 지우지
+  // 않는다. 지우는 일은 사람이 구글 화면에서 하는 편이 안전하다).
+  const fix =
+    r.mode === 'created'
+      ? `<div class="ask-fix">
+           <span class="faint">잘못 읽었나요?</span>
+           <button class="btn-utility" type="button" data-as="${r.kind === 'event' ? 'task' : 'event'}">
+             ${r.kind === 'event' ? '할일로 다시 넣기' : '일정으로 다시 넣기'}
+           </button>
+         </div>`
+      : r.offer
+        ? // 찾았는데 없다. 찾으려던 말이 아니라 넣으려던 말이었을 수 있다.
+          `<div class="ask-fix">
+             <span class="faint">'${esc(r.offer)}' 을(를) 넣을까요?</span>
+             <button class="btn-utility" type="button" data-as="task">할일로 넣기</button>
+             <button class="btn-utility" type="button" data-as="event">일정으로 넣기</button>
+           </div>`
+        : '';
+
+  return `<div class="ask-card${r.mode === 'created' ? ' is-done' : ''}">
+    <p class="ask-said">${r.mode === 'created' ? '넣었습니다 — ' : ''}${esc(r.summary || '')}</p>
+    ${groups}${fix}
+  </div>`;
+}
+
+function wireAsk(page) {
+  const form = page.querySelector('#ask-form');
+  if (!form) return;
+  const out = page.querySelector('#ask-out');
+  const input = page.querySelector('#ask-q');
+
+  const send = async (body) => {
+    if (asking) return;
+    asking = true;
+    out.innerHTML = '<div class="ask-card"><span class="spinner"></span></div>';
+    let r;
+    try {
+      r = await api('/api/ask', { method: 'POST', body });
+    } catch (e) {
+      r = { ok: false, note: e.message };
+    }
+    asking = false;
+    out.innerHTML = askResultHtml(r);
+    // 방금 넣은 것이 '오늘' 칸에도 바로 보여야 한다. 서버의 캐시는 이미 버렸으니
+    // 화면이 들고 있던 것만 버리고 그 칸 하나를 다시 받아 온다.
+    if (r.ok && r.mode === 'created' && r.feedKey) {
+      state.feeds.delete(r.feedKey);
+      loadFeed(r.feedKey);
+    }
+    out.querySelectorAll('[data-as]').forEach((b) =>
+      b.addEventListener('click', () => send({ q: body.q, as: b.dataset.as, intent: 'create' }))
+    );
+  };
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const q = input.value.trim();
+    if (!q) return;
+    send({ q });
+    input.value = '';
+  });
 }
 
 /**
@@ -1061,9 +1189,11 @@ function renderDashboard(page) {
     <div class="page-head tight">
       <h1 class="page-title">${esc(greet)}, ${esc(who)}님</h1>
     </div>
+    ${state.services.some((s) => s.feed) ? askHtml() : ''}
     ${todayHtml()}
     ${sections || emptyHtml('열람할 수 있는 화면이 없습니다.', '관리자에게 화면 권한을 요청해주세요.')}`;
   wireCards(page);
+  wireAsk(page);
 }
 
 function renderGroup(page, key) {

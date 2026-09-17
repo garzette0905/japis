@@ -1,6 +1,24 @@
-<!-- 탭에 서는 표. 포털과 같은 결로 — 검정 한 장 위에 흰 글씨 하나. -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="12" fill="#111111"/>
-  <text x="32" y="44" font-family="Inter,'Noto Sans KR',system-ui,sans-serif" font-size="30"
-        font-weight="700" letter-spacing="-2" text-anchor="middle" fill="#ffffff">JA</text>
+<!-- 탭에 서는 표 — 앱 아이콘과 같은 그림이다.
+     파란 라운드 사각 한 장 위에 흰 J 하나, 고리 안에 구슬 하나.
+     png(icon-192·icon-512·apple-touch-icon·og-japis)도 같은 좌표로 구웠다. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="JAPIS">
+  <defs>
+    <linearGradient id="plate" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2450f2"/>
+      <stop offset=".55" stop-color="#0f31c8"/>
+      <stop offset="1" stop-color="#061a97"/>
+    </linearGradient>
+    <linearGradient id="ink" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#b3cdfa"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="115" fill="url(#plate)"/>
+  <g fill="url(#ink)">
+    <rect x="150" y="54" width="257" height="92" rx="46"/>
+    <rect x="315" y="54" width="92" height="252"/>
+    <path d="M407 306A150 150 0 0 1 107 306L199 306A58 58 0 0 0 315 306Z"/>
+    <circle cx="153" cy="306" r="46"/>
+    <circle cx="257" cy="296" r="40"/>
+  </g>
 </svg>

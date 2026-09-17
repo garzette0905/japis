@@ -164,3 +164,39 @@ CREATE TABLE IF NOT EXISTS wiki_files (
 );
 
 CREATE INDEX IF NOT EXISTS idx_wiki_files_user ON wiki_files (user_id, created_at);
+
+-- ── 북마크 (사내·사외 주소록) ──────────────────────────────────────────
+-- 자세한 설계는 migrations/006_bookmarks.sql 의 머리말 참고.
+--   · scope 로 사내('in')와 사외('out')를 먼저 가른다
+--   · 폴더는 한 겹 더 들어간다(parent_id) — 두 겹부터는 '어디 넣었더라'가 시작된다
+--   · 북마크도 사람마다 따로다(user_id 를 모든 질의의 WHERE 에 붙인다)
+
+CREATE TABLE IF NOT EXISTS bookmark_folders (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id    INTEGER NOT NULL,
+  scope      TEXT    NOT NULL DEFAULT 'out',
+  parent_id  INTEGER,
+  name       TEXT    NOT NULL,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT    NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_bm_folders_user ON bookmark_folders (user_id, scope, sort_order);
+
+CREATE TABLE IF NOT EXISTS bookmarks (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id        INTEGER NOT NULL,
+  scope          TEXT    NOT NULL DEFAULT 'out',
+  folder_id      INTEGER,
+  title          TEXT    NOT NULL,
+  url            TEXT    NOT NULL,
+  memo           TEXT    NOT NULL DEFAULT '',
+  pinned         INTEGER NOT NULL DEFAULT 0,
+  opens          INTEGER NOT NULL DEFAULT 0,
+  created_at     TEXT    NOT NULL,
+  updated_at     TEXT    NOT NULL,
+  last_opened_at TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_bookmarks_user   ON bookmarks (user_id, scope, folder_id);
+CREATE INDEX IF NOT EXISTS idx_bookmarks_opened ON bookmarks (user_id, last_opened_at);

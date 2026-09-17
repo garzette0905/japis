@@ -2,7 +2,7 @@
   "name": "japis",
   "private": true,
   "type": "module",
-  "description": "JAPIS — Jaden's Automated Personal Intelligence Service (Cloudflare Worker 개인 포털)",
+  "description": "JAPIS — JAden Personal Intelligence Service (Cloudflare Worker 개인 포털)",
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",

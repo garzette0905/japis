@@ -1,4 +1,4 @@
-// JAPIS — Jaden's Automated Personal Intelligence Service
+// JAPIS — JAden Personal Intelligence Service
 //
 // Cloudflare Worker 하나가 백엔드 전부다(wepic·가계부와 같은 얼개).
 //   · 정적 화면  : web/public 을 그대로 서빙(빌드 단계 없음)
@@ -23,6 +23,17 @@ import {
   disconnect,
   feedFor,
 } from './connect.js';
+import { apiAsk } from './ask.js';
+import {
+  listBookmarks,
+  createBookmark,
+  updateBookmark,
+  deleteBookmark,
+  touchBookmark,
+  createBmFolder,
+  updateBmFolder,
+  deleteBmFolder,
+} from './bookmarks.js';
 import {
   wikiOverview,
   listNotes,
@@ -471,16 +482,21 @@ const requireAdmin = (request, env, handler) =>
  * 연다 — 관리 → 화면 권한에서 그 줄을 끄면 메뉴에서 사라지는 동시에 API도 닫힌다.
  * (화면에서만 감추고 API를 열어 두면 감춘 것이 아니다.)
  */
-const requireWiki = (request, env, handler) =>
+const requireScreen = (key) => (request, env, handler) =>
   requireLogin(request, env, async (user, sess) => {
-    const s = serviceOf('jadenwiki');
+    const s = serviceOf(key);
     const perm = await permissionFor(env, user, s);
     if (!perm.allowed) return fail('이 화면을 볼 권한이 없습니다.', 403, { code: 'forbidden' });
-    if (perm.reauth && !(await unlockedUntil(env, sess.sid, 'jadenwiki'))) {
+    if (perm.reauth && !(await unlockedUntil(env, sess.sid, key))) {
       return fail('화면 잠금을 먼저 풀어주세요.', 403, { code: 'locked' });
     }
     return handler(user, sess);
   });
+
+const requireWiki = requireScreen('jadenwiki');
+
+/** 북마크도 같은 얼개다 — 'bookmarks' 권한 하나가 화면과 API를 함께 연다. */
+const requireBookmarks = requireScreen('bookmarks');
 
 // ──────────────────────────────────────────────────────────────
 // 인증 API
@@ -1550,6 +1566,10 @@ export default {
           return json({ ok: true, connections: await connectionStatus(env, user.id) });
         });
       }
+      // 대시보드의 한 줄 입력칸 — "내일 오후 3시 치과" · "이번주 일정 뭐 있어?"
+      if (path === '/api/ask' && method === 'POST') {
+        return requireLogin(request, env, (user) => apiAsk(request, env, ctx, user));
+      }
       const mFeed = path.match(/^\/api\/feed\/([a-z0-9_-]{1,40})$/i);
       if (mFeed && method === 'GET') {
         return requireLogin(request, env, (user, sess) => apiFeed(request, env, ctx, user, sess, mFeed[1]));
@@ -1637,6 +1657,37 @@ export default {
       }
       if (mFolder && method === 'DELETE') {
         return requireWiki(request, env, (user) => deleteFolder(env, user.id, Number(mFolder[1])));
+      }
+
+      // ---- 북마크 (사내·사외 주소록) ----
+      // 문은 'bookmarks' 권한 하나다. 메모와 마찬가지로 행마다 user_id 가 붙는다.
+      if (path === '/api/bookmarks' && method === 'GET') {
+        return requireBookmarks(request, env, (user) => listBookmarks(env, user.id, url));
+      }
+      if (path === '/api/bookmarks' && method === 'POST') {
+        return requireBookmarks(request, env, (user) => createBookmark(request, env, user.id));
+      }
+      // 폴더 문은 /bookmarks/<번호> 보다 **먼저** 본다 — 'folders' 는 번호가 아니다.
+      if (path === '/api/bookmarks/folders' && method === 'POST') {
+        return requireBookmarks(request, env, (user) => createBmFolder(request, env, user.id));
+      }
+      const mBmFolder = path.match(/^\/api\/bookmarks\/folders\/(\d+)$/);
+      if (mBmFolder && method === 'PATCH') {
+        return requireBookmarks(request, env, (user) => updateBmFolder(request, env, user.id, Number(mBmFolder[1])));
+      }
+      if (mBmFolder && method === 'DELETE') {
+        return requireBookmarks(request, env, (user) => deleteBmFolder(env, user.id, Number(mBmFolder[1])));
+      }
+      const mBmOpen = path.match(/^\/api\/bookmarks\/(\d+)\/open$/);
+      if (mBmOpen && method === 'POST') {
+        return requireBookmarks(request, env, (user) => touchBookmark(env, user.id, Number(mBmOpen[1])));
+      }
+      const mBm = path.match(/^\/api\/bookmarks\/(\d+)$/);
+      if (mBm && method === 'PATCH') {
+        return requireBookmarks(request, env, (user) => updateBookmark(request, env, user.id, Number(mBm[1])));
+      }
+      if (mBm && method === 'DELETE') {
+        return requireBookmarks(request, env, (user) => deleteBookmark(env, user.id, Number(mBm[1])));
       }
 
       // ---- 관리자 ----

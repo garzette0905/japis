@@ -1,0 +1,165 @@
+/* 북마크 화면 — 포털 안의 주소록.
+   결은 포털과 같다(모서리 0, 머리띠 대신 실선, 누르는 것만 알약).
+   본 화면과 섞이지 않게 파일을 나눠 둔다(wiki.css 와 같은 이유). */
+
+.bm {
+  display: grid;
+  grid-template-columns: 236px minmax(0, 1fr);
+  gap: var(--s-lg, 24px);
+  align-items: start;
+}
+
+/* ---------- 왼쪽 기둥 ---------- */
+
+.bm-side { position: sticky; top: 16px; }
+
+.bm-scope {
+  display: grid; grid-template-columns: 1fr 1fr;
+  border: 1px solid var(--ink);
+  margin-bottom: var(--s-md, 16px);
+}
+.bm-scope-btn {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 9px 4px;
+  font: inherit; font-weight: 700; letter-spacing: -.2px;
+  color: var(--ink); background: var(--canvas);
+  border: none; cursor: pointer;
+}
+.bm-scope-btn + .bm-scope-btn { border-left: 1px solid var(--ink); }
+.bm-scope-btn.is-on { background: var(--ink); color: #fff; }
+.bm-scope-btn.is-on .bm-count { color: rgba(255,255,255,.72); }
+
+.bm-count { font-size: 12px; font-weight: 500; color: var(--ink-faint); }
+
+.bm-folders { list-style: none; margin: 0; padding: 0; }
+.bm-folder {
+  display: flex; align-items: center; gap: 2px;
+  border-bottom: 1px solid var(--hairline-soft);
+}
+.bm-folder.is-kid .bm-folder-open { padding-left: 22px; }
+.bm-folder.is-on { background: var(--canvas-soft); }
+.bm-folder.is-on .bm-folder-name { font-weight: 700; }
+.bm-folder-open {
+  display: flex; align-items: center; gap: 8px;
+  flex: 1 1 auto; min-width: 0;
+  padding: 9px 4px;
+  font: inherit; text-align: left; color: inherit;
+  background: none; border: none; cursor: pointer;
+}
+.bm-folder-open:hover .bm-folder-name { text-decoration: underline; text-underline-offset: 2px; }
+.bm-folder-ico { display: flex; color: var(--ink-faint); flex: none; }
+.bm-folder-ico .ico { width: 15px; height: 15px; }
+.bm-folder-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.bm-folder-acts { display: inline-flex; gap: 0; opacity: 0; flex: none; }
+.bm-folder:hover .bm-folder-acts,
+.bm-folder:focus-within .bm-folder-acts { opacity: 1; }
+
+.bm-mini {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; padding: 0;
+  color: var(--ink-faint); background: none; border: none; cursor: pointer;
+}
+.bm-mini:hover { color: var(--ink); }
+.bm-mini.is-on { color: var(--ink); }
+.bm-mini .ico { width: 14px; height: 14px; }
+
+.bm-newfolder { margin-top: var(--s-md, 16px); width: 100%; justify-content: center; }
+.bm-newfolder .ico { width: 13px; height: 13px; }
+
+/* ---------- 담는 줄 ---------- */
+
+.bm-new {
+  display: grid; gap: 8px;
+  padding: var(--s-md, 16px);
+  background: var(--canvas);
+  border: 1px solid var(--ink);
+  margin-bottom: var(--s-md, 16px);
+}
+.bm-new-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.bm-new-row > * { min-width: 0; }
+.bm-new .bm-url { flex: 2 1 260px; }
+.bm-new .bm-title { flex: 1 1 200px; }
+.bm-new .bm-memo { flex: 2 1 200px; }
+.bm-new .bm-save { flex: none; padding: 8px 20px; }
+
+.bm-url, .bm-title, .bm-memo, .bm-select {
+  font: inherit; color: var(--ink);
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+  padding: 8px 10px;
+}
+.bm-select { flex: 0 1 140px; }
+.bm-url:focus, .bm-title:focus, .bm-memo:focus, .bm-select:focus { outline: none; border-color: var(--ink); }
+
+/* ---------- 검색 ---------- */
+
+.bm-search {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 14px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-input);
+  margin-bottom: var(--s-sm, 12px);
+}
+.bm-search:focus-within { border-color: var(--ink); }
+.bm-search-ico { display: flex; color: var(--ink-faint); }
+.bm-search-ico .ico { width: 16px; height: 16px; }
+.bm-search input { flex: 1 1 auto; min-width: 0; font: inherit; border: none; outline: none; background: none; }
+
+/* ---------- 목록 ---------- */
+
+.bm-loading { padding: 32px 0; color: var(--ink-faint); }
+.bm-items { list-style: none; margin: 0; padding: 0; }
+.bm-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  border-bottom: 1px solid var(--hairline-soft);
+}
+.bm-item:hover { background: var(--canvas-soft); }
+.bm-item.is-pinned { border-left: 2px solid var(--ink); }
+.bm-open {
+  display: grid; gap: 2px;
+  flex: 1 1 auto; min-width: 0;
+  padding: 12px 6px;
+  color: inherit; text-decoration: none;
+}
+.bm-open:hover .bm-item-title { text-decoration: underline; text-underline-offset: 2px; }
+.bm-item-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.bm-item-title { font-weight: 700; letter-spacing: -.3px; }
+.bm-item-url { font-size: 13px; color: var(--ink-muted); word-break: break-all; }
+.bm-item-memo { font-size: 13px; color: var(--ink-faint); }
+
+.bm-pill {
+  font-size: 11px; font-weight: 500; letter-spacing: .3px;
+  padding: 2px 9px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-pill);
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+.bm-pill.scope-in { border-color: var(--ink); color: var(--ink); }
+
+.bm-item-acts { display: flex; align-items: center; gap: 2px; padding: 12px 0; flex: none; }
+.bm-when { font-size: 12px; color: var(--ink-faint); margin-right: 4px; }
+.bm-item .bm-mini { opacity: 0; }
+.bm-item:hover .bm-mini,
+.bm-item:focus-within .bm-mini,
+.bm-item .bm-mini.is-on { opacity: 1; }
+
+/* ---------- 한 줄 고치기 ---------- */
+
+.bm-item.is-editing { background: var(--canvas-soft); }
+.bm-edit { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; padding: 12px 6px; }
+.bm-edit .bm-url { flex: 2 1 240px; }
+.bm-edit .bm-title { flex: 1 1 160px; }
+.bm-edit .bm-memo { flex: 2 1 200px; }
+.bm-edit-acts { display: flex; gap: 8px; margin-left: auto; }
+
+/* ---------- 좁은 화면 ---------- */
+
+@media (max-width: 900px) {
+  .bm { grid-template-columns: minmax(0, 1fr); }
+  .bm-side { position: static; }
+  .bm-tree { max-height: 240px; overflow-y: auto; }
+  /* 손가락에는 '손을 올리면 나오는' 단추가 없다 — 늘 보이게 둔다 */
+  .bm-folder-acts, .bm-item .bm-mini { opacity: 1; }
+}

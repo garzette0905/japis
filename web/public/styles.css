@@ -722,7 +722,7 @@ body.frame-open .foot { display: none; }
 .today { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--s-sm); }
 .today-panel { margin: 0; padding: var(--s-md); }
 /* 할 일이 스무 개여도 이 칸이 화면을 밀어내지 않게 한다 */
-.today-panel .card-feed { max-height: 168px; overflow-y: auto; }
+.today-panel .card-feed { overflow-y: auto; }   /* 높이는 아래 '오늘' 묶음이 정한다 */
 .today-panel .panel-title {
   display: flex; align-items: center; justify-content: space-between; gap: var(--s-xs);
   min-width: 0;
@@ -1135,18 +1135,69 @@ table.data tr:last-child td { border-bottom: none; }
 .tag.open { color: var(--ink); border-color: var(--ink); background: var(--canvas); }
 .pill-role { font-weight: 500; }
 
+/* ---------- 한 줄 입력칸 — 말로 넣고, 말로 찾는다 ----------
+   '오늘' 칸 바로 위에 선다. 대시보드에서 손이 가장 먼저 닿는 자리다. */
+
+.ask-section { margin-bottom: var(--s-md); }
+.ask {
+  display: flex; align-items: center; gap: var(--s-sm);
+  padding: 10px 12px;
+  background: var(--canvas);
+  border: 1px solid var(--ink);
+}
+.ask:focus-within { box-shadow: inset 0 0 0 1px var(--ink); }
+.ask-ico { display: flex; color: var(--ink-faint); flex: none; }
+.ask-ico .ico { width: 18px; height: 18px; }
+.ask-input {
+  flex: 1 1 auto; min-width: 0;
+  border: none; outline: none; background: none;
+  font: inherit; color: var(--ink);
+  padding: 4px 0;
+}
+.ask-input::placeholder { color: var(--ink-faint); }
+.ask-go { flex: none; padding: 8px 18px; }
+.ask-out:empty { display: none; }
+.ask-card {
+  margin-top: var(--s-sm);
+  padding: var(--s-md);
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+}
+.ask-card.is-done { border-color: var(--ink); }
+.ask-said { margin: 0 0 10px; font-weight: 700; letter-spacing: -.3px; }
+.ask-card:not(.is-done) .ask-said { font-weight: 500; color: var(--ink-muted); }
+.ask-group + .ask-group { margin-top: var(--s-md); }
+.ask-group-title {
+  font-size: 12px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase;
+  color: var(--ink-faint);
+  padding-bottom: 6px; margin-bottom: 4px;
+  border-bottom: 1px solid var(--hairline-soft);
+}
+.ask-fix { display: flex; align-items: center; gap: 10px; margin-top: var(--s-md); flex-wrap: wrap; }
+
+@media (max-width: 600px) {
+  .ask { flex-wrap: wrap; }
+  .ask-input { flex: 1 1 100%; order: 3; }
+  .ask-go { margin-left: auto; }
+}
+
 /* ---------- '오늘' — 메일 · 할일 · 일정 ----------
    셋은 **같은 키로 선다.** 안에 든 항목 수가 달라도 칸의 높이는 같아야 한다 —
-   높이가 제각각이면 눈이 세 번 다시 자리를 잡는다. 그래서 칸을 늘리지 않고
-   안쪽을 굴린다(각 칸에 열 개가 들어온다). */
+   높이가 제각각이면 눈이 세 번 다시 자리를 잡는다.
+
+   그래서 안쪽 목록의 높이를 **다섯 줄로 못박는다**(min=max). 서버는 열 개를 실어
+   보내므로(connect.js 의 FEED_MAX) 나머지 다섯은 그 안에서 굴려 본다. 격자의
+   align-items: stretch 에만 맡겨 두었더니 항목이 적은 칸은 제목만 남고 주저앉아
+   PC에서 셋의 키가 어긋났다 — 늘어나는 것은 격자에 맡기고, **줄어들지 않는 것**은
+   여기서 못을 박는다. */
 
 .today {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--s-sm);
   align-items: stretch;
-  /* 한 칸에 몇 줄을 보여줄 것인가. 서버도 열 개를 실어 보낸다(connect.js 의 FEED_MAX) */
-  --today-rows: 10;
+  /* 굴리지 않고 그대로 보이는 줄 수. 그 뒤(열 개까지)는 칸 안에서 굴러간다. */
+  --today-rows: 5;
   --today-row: 51px;
 }
 .today-panel {
@@ -1155,12 +1206,10 @@ table.data tr:last-child td { border-bottom: none; }
 }
 .today-panel .panel-title { padding-bottom: var(--s-xs); border-bottom: 1px solid var(--hairline); }
 .today-panel .card-feed {
-  /* **열 줄이 굴리지 않고 그대로 보이는** 높이. 한 줄(제목 + 보낸이·시각 + 칸막이)이
-     --today-row 이고, 열 줄이면 그 열 배다.
-     높이를 min 으로 못박지 않는 이유 — 격자가 이미 셋을 같은 키로 늘려 준다
-     (align-items: stretch). 못박아 두면 셋 다 비어 있을 때도 빈 칸 세 개가 남는다. */
+  /* 한 줄(제목 + 보낸이·시각 + 칸막이)이 --today-row 다. min 과 max 를 같은 값으로
+     두어 **항목이 하나든 열이든 칸의 키가 같게** 한다. */
   flex: 1 1 auto;
-  min-height: 0;
+  min-height: calc(var(--today-rows) * var(--today-row));
   max-height: calc(var(--today-rows) * var(--today-row));
   overflow-y: auto;
   padding-top: var(--s-xs);
@@ -1237,7 +1286,7 @@ table.data tr:last-child td { border-bottom: none; }
   .today { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 760px) {
-  /* 좁은 화면에서는 셋이 위아래로 선다 — 한 칸이 화면을 다 먹지 않게 여섯 줄만 */
-  .today { grid-template-columns: minmax(0, 1fr); --today-rows: 6; }
+  /* 좁은 화면에서는 셋이 위아래로 선다 — 한 칸이 화면을 다 먹지 않게 네 줄만 */
+  .today { grid-template-columns: minmax(0, 1fr); --today-rows: 4; }
   .nav-logo { font-size: 22px; }
 }

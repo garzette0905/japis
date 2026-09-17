@@ -5,7 +5,7 @@
 
 ## 이름
 
-**JAPIS** — *Jaden's Automated Personal Intelligence Service* (자피스 / 제이피스).
+**JAPIS** — *JAden Personal Intelligence Service* (자피스 / 제이피스).
 
 JPI(Jaden Personal Intelligence)에 구동 체계(**S**ystem/**S**ervice)를 붙인 이름이다.
 영화 속 J.A.R.V.I.S.의 어감과 "모든 개인 서비스와 데이터를 지능적으로 관리해 주는

@@ -163,6 +163,25 @@ export const SERVICES = [
     reauth: false,
     external: false,
   },
+  {
+    // 북마크 — 자주 가는 주소를 내 손으로 정리해 두는 자리. 브라우저 즐겨찾기는
+    // 기기마다 따로 놀고 회사 컴퓨터와 집 컴퓨터가 서로를 모른다. 여기 것은 D1에
+    // 있으므로 어디서 들어와도 같은 목록이다.
+    //
+    // **사내와 사외를 먼저 가른다.** 사내 주소는 회사 망 안에서만 열리므로, 밖에서
+    // 눌러 봐야 시간만 버린다 — 섞어 두지 않고 칸을 나눠 둔다. 폴더는 한 겹 더
+    // 들어간다(하위 폴더).
+    key: 'bookmarks',
+    label: '북마크',
+    group: 'personal',
+    desc: '사내·사외로 나눠 담는 주소록 — 폴더 안에 폴더까지',
+    url: '/#/bookmarks',
+    route: '#/bookmarks',
+    accent: 'teal',
+    icon: '🔖',
+    reauth: false,
+    external: false,
+  },
 
   // ── 홈페이지 ──────────────────────────────────────────────────────────
   {
@@ -194,7 +213,7 @@ export const SERVICES = [
     key: 'sns',
     label: 'SNS',
     group: 'homepage',
-    desc: '인스타그램 · Thread · Facebook · Telegram',
+    desc: '인스타그램 · Thread · Facebook · Telegram · LinkedIn · 다모앙',
     url: '/#/sns',
     route: '#/sns',
     accent: 'pink',
@@ -208,6 +227,9 @@ export const SERVICES = [
       { label: 'Thread', ico: 'thread', url: 'https://www.threads.net' },
       { label: 'Facebook', ico: 'people', url: 'https://www.facebook.com' },
       { label: 'Telegram', ico: 'send', url: 'https://web.telegram.org' },
+      { label: 'LinkedIn', ico: 'linkedin', url: 'https://www.linkedin.com/feed/' },
+      // 다모앙 — 국내 커뮤니티. 로그인해야 보이는 글이 많아 새 탭으로 나가는 것이 낫다.
+      { label: '다모앙', ico: 'damoang', url: 'https://damoang.net' },
     ],
   },
 

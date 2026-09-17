@@ -1,13 +1,36 @@
 {
-  "name": "JAPIS — Jaden's Automated Personal Intelligence Service",
+  "name": "JAPIS — JAden Personal Intelligence Service",
   "short_name": "JAPIS",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#f5f5f5",
-  "theme_color": "#111111",
+  "background_color": "#0f31c8",
+  "theme_color": "#0f31c8",
   "lang": "ko",
   "icons": [
-    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
   ]
 }

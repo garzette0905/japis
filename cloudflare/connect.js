@@ -48,11 +48,16 @@ export const PROVIDERS = {
     // ⚠️ 이 목록을 늘리면 **이미 연결해 둔 사람의 토큰에는 새 권한이 없다.** 구글은
     //    옛 토큰을 조용히 그대로 쓰다가 새 API에서만 403(insufficient scopes)을 낸다.
     //    그래서 늘린 뒤에는 '연결 끊기 → 연결하기'를 한 번 해야 한다(화면이 안내한다).
+    //
+    // calendar.events · tasks 는 **쓰기까지** 하는 권한이다. 대시보드의 한 줄 입력칸
+    // (/api/ask)이 "내일 오후 3시 치과"를 받아 캘린더에 실제로 넣어야 하기 때문이다.
+    // 나머지 둘(사진·메일)은 읽기 전용 그대로다 — 메일을 대신 보내는 일은 없다.
     scope: [
       'https://www.googleapis.com/auth/photoslibrary.readonly',
       'https://www.googleapis.com/auth/gmail.readonly',
       'https://www.googleapis.com/auth/calendar.readonly',
-      'https://www.googleapis.com/auth/tasks.readonly',
+      'https://www.googleapis.com/auth/calendar.events',
+      'https://www.googleapis.com/auth/tasks',
     ].join(' '),
     hint: 'garzette@gmail.com',
     idOf: (env) => env.GOOGLE_CLIENT_ID,
@@ -201,6 +206,14 @@ export async function disconnect(env, userId, name) {
   await Promise.all((list.keys || []).map((k) => env.SESSIONS.delete(k.name)));
 }
 
+/**
+ * 그 화면의 미리보기 캐시를 버린다.
+ * 방금 넣은 일정이 5분(캐시 수명) 뒤에야 '오늘' 칸에 나타나면 넣은 것 같지가 않다 —
+ * 무언가를 만든 쪽에서 이 함수를 불러 다음 번에 새로 받아 오게 한다.
+ */
+export const dropFeedCache = (env, userId, keys) =>
+  Promise.all([].concat(keys).map((k) => env.SESSIONS.delete(`feed:${userId}:${k}`).catch(() => {})));
+
 export async function connectionStatus(env, userId) {
   const { results } = await env.DB.prepare('SELECT * FROM connections WHERE user_id = ?').bind(userId).all();
   const byName = new Map((results || []).map((r) => [r.provider, r]));
@@ -214,8 +227,11 @@ export async function connectionStatus(env, userId) {
   }));
 }
 
-/** 쓸 수 있는 액세스 토큰. 만료가 가까우면 조용히 갱신해 둔다. */
-async function accessToken(env, userId, name) {
+/**
+ * 쓸 수 있는 액세스 토큰. 만료가 가까우면 조용히 갱신해 둔다.
+ * 대시보드의 한 줄 입력칸(ask.js)도 같은 문을 쓴다 — 토큰을 다루는 곳은 여기 하나다.
+ */
+export async function accessToken(env, userId, name) {
   const row = await getConn(env, userId, name);
   if (!row) return null;
 
