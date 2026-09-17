@@ -22,3 +22,4 @@ npx wrangler d1 execute japis-db --remote --file=./migrations/00X_....sql
 | `004_wiki.sql` | Jaden wiki(포털 안 메모) — 메모·폴더·첨부파일 이름표 세 표 |
 | `005_wiki_share.sql` | 메모 공유 — `wiki_notes.share_token` · `shared_at` (주소 하나로 남에게 보여주기) |
 | `006_bookmarks.sql` | 북마크 — `bookmark_folders` · `bookmarks` 두 표 (사내·사외, 하위 폴더) + 기존 wiki 사용자에게 권한 부여 |
+| `007_playlists.sql` | Play Lists — `music_artists` · `music_tracks` 두 표 + 권한 부여, 없어진 네이버 메모 권한 정리 |

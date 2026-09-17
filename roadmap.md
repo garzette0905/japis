@@ -1,5 +1,59 @@
 # JAPIS 로드맵
 
+## 반영 완료 (2026-09-17, 두 번째)
+
+### '오늘' 세 칸이 어긋나던 **진짜** 이유 — 고침
+
+앞서 안쪽 목록의 높이를 못박아 세 칸의 **크기**는 같아졌는데, 화면에서는 여전히
+줄이 맞지 않았다. 원인은 높이가 아니라 **시작하는 줄**이었다 —
+`.panel + .panel { margin-top: 16px }`. 판을 위아래로 쌓을 때를 위해 오래전부터
+있던 규칙인데, 격자 안에서는 둘째·셋째 칸만 16px 아래로 밀어냈다. 첫 칸만 위에
+붙어 있으니 크기가 같아도 어긋나 보인다. 격자 안에서는 그 여백을 걷었다
+(`.today > .today-panel { margin: 0 }`). 세 칸의 위와 아래가 같은 줄에 선다.
+
+### 칸 머리에 새로 고침 — 완료
+
+↗(새 탭) 옆에 ↻ 를 두었다. 서버는 받아 온 것을 5분 담아 두는데(KV), 이 단추는
+그것을 버리고 지금 것을 다시 묻는다(`/api/feed/<key>?fresh=1`). 방금 처리한 메일이
+5분 동안 그대로 남아 있으면 그 목록은 믿을 수 없게 된다. 도는 동안 단추가 돈다 —
+아무 일도 안 일어나는 것처럼 보이지 않게.
+
+### 공식 마크를 쓴다 — 완료
+
+SNS 목록에서 눈이 찾는 것은 '인스타그램'이라는 **글자**가 아니라 그 동그란
+**마크**다. 우리가 다시 그린 카메라보다 그 회사가 쓰는 그림이 백 배 빨리 읽힌다.
+그래서 색을 품은 한 벌(`BRAND_ICONS`)을 예외로 들였다 — 인스타그램·Threads·
+Facebook·Telegram·X·LinkedIn·다모앙, 그리고 wepic·카드모아(각자의 favicon 에서
+그대로 가져왔다). 우리 마크(JAPIS)도 같은 자리에 넣어 **상단 띠의 'JAPIS' 앞**과
+로그인 화면의 간판 위에 세웠다.
+
+획만 있는 마크는 검은 알약 위에서 사라지므로, 전부 **판**(둥근 사각) 모양으로 통일했다.
+
+### 차례를 바꿨다
+
+- 개인서비스 — **Jaden wiki** 가 맨 앞, 그 아래 북마크, 맨 끝에 Play Lists.
+- 홈페이지 — Julie · SNS · Word Writer.
+- SNS 에 **X**(x.com)를 더했다.
+
+### 네이버 메모 — 뺐다
+
+네이버가 메모 API를 열지 않아 링크 한 줄 이상이 될 수 없었고, 그 자리는 Jaden wiki 가
+대신한다. 남은 권한 행은 `007_playlists.sql` 이 함께 지운다.
+
+### Play Lists — 완료
+
+개인서비스 맨 아래에 화면 하나를 세웠다(`#/playlists`). 왼쪽에 가수, 가운데에 담는
+줄과 곡 목록 — 북마크와 같은 얼개다(같은 얼개를 두 번 배우게 하지 않는다).
+
+- **가수를 먼저 세운다.** 곡 줄에 이름을 적어 두면 표는 하나로 끝나지만, 이름을
+  고쳐 적는 순간 같은 가수가 둘이 된다("아이유" / "IU").
+- 그렇다고 **미리 만들 필요는 없다.** 담는 줄에 없는 이름을 적으면 그 자리에서
+  가수가 생긴다 — 한 곡 적으려고 두 번 일하게 하지 않는다.
+- **들을 주소는 곡마다 선택이다.** 적어 두면 '듣기'가 서고, 안 적어도 목록은
+  목록대로 산다. 이 화면의 본업은 재생이 아니라 **적어 두기**다.
+
+표 둘을 더했다 → `migrations/007_playlists.sql` (**배포 전에 먼저 돌린다**).
+
 ## 반영 완료 (2026-09-17)
 
 ### 이름 — 'Automated' 를 뺀다
@@ -335,6 +389,7 @@ HTML5 의 `draggable` 을 쓰지 않았다. 그것은 마우스에만 있는 기
 | 구글·마이크로소프트 OAuth 클라이언트 등록 후 시크릿 4개 넣기 | Cloudflare 대시보드 — [cloudflare/README.md](cloudflare/README.md) 3번 |
 | **구글 연결 한 번 끊었다 다시 하기** (쓰기 권한이 늘었다 — 한 줄 입력칸이 쓴다) | 협업 화면의 '연결' 판 |
 | `006_bookmarks.sql` 을 운영 D1 에 적용 | `npx wrangler d1 execute japis-db --remote --file=./migrations/006_bookmarks.sql` |
+| `007_playlists.sql` 을 운영 D1 에 적용 | `npx wrangler d1 execute japis-db --remote --file=./migrations/007_playlists.sql` |
 | SNS 6곳을 본인 계정·채널 주소로 | [cloudflare/services.js](cloudflare/services.js) `sns.links` |
 | Word Writer 배포 후 **Prompt Builder 주소** 적기 | [cloudflare/services.js](cloudflare/services.js) `wordwriter.url` |
 | 타임라인 배포 후 주소 적기 | [cloudflare/services.js](cloudflare/services.js) `timeline.url` |

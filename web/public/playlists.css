@@ -1,0 +1,148 @@
+/* Play Lists 화면 — 가수와 곡.
+   북마크 화면과 같은 얼개를 쓰되(왼쪽 기둥 + 담는 줄 + 목록), 목록은 '차례가 있는'
+   모양이다 — 번호가 앞에 서고 곡 이름이 굵게 온다. */
+
+.pl {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: var(--s-lg, 24px);
+  align-items: start;
+}
+
+/* ---------- 왼쪽 기둥 — 가수 ---------- */
+
+.pl-side { position: sticky; top: 16px; }
+.pl-artist-list { list-style: none; margin: 0; padding: 0; }
+.pl-artist {
+  display: flex; align-items: center; gap: 2px;
+  border-bottom: 1px solid var(--hairline-soft);
+}
+.pl-artist.is-on { background: var(--canvas-soft); }
+.pl-artist.is-on .pl-artist-name { font-weight: 700; }
+.pl-artist-open {
+  display: flex; align-items: center; gap: 8px;
+  flex: 1 1 auto; min-width: 0;
+  padding: 9px 4px;
+  font: inherit; text-align: left; color: inherit;
+  background: none; border: none; cursor: pointer;
+}
+.pl-artist-open:hover .pl-artist-name { text-decoration: underline; text-underline-offset: 2px; }
+.pl-artist-ico { display: flex; color: var(--ink-faint); flex: none; }
+.pl-artist-ico .ico { width: 15px; height: 15px; }
+.pl-artist-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pl-count { font-size: 12px; font-weight: 500; color: var(--ink-faint); }
+
+.pl-artist-acts { display: inline-flex; opacity: 0; flex: none; }
+.pl-artist:hover .pl-artist-acts,
+.pl-artist:focus-within .pl-artist-acts { opacity: 1; }
+
+.pl-mini {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; padding: 0;
+  color: var(--ink-faint); background: none; border: none; cursor: pointer;
+}
+.pl-mini:hover, .pl-mini.is-on { color: var(--ink); }
+.pl-mini .ico { width: 14px; height: 14px; }
+
+.pl-newartist { margin-top: var(--s-md, 16px); width: 100%; justify-content: center; }
+.pl-newartist .ico { width: 13px; height: 13px; }
+
+/* ---------- 담는 줄 ---------- */
+
+.pl-new {
+  display: grid; gap: 8px;
+  padding: var(--s-md, 16px);
+  background: var(--canvas);
+  border: 1px solid var(--ink);
+  margin-bottom: var(--s-md, 16px);
+}
+.pl-new-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.pl-new-row > * { min-width: 0; }
+.pl-new .pl-select { flex: 0 1 170px; }
+.pl-new .pl-artist-in { flex: 1 1 170px; }
+.pl-new .pl-title { flex: 2 1 220px; }
+.pl-new .pl-url { flex: 2 1 260px; }
+.pl-new .pl-memo { flex: 1 1 180px; }
+.pl-new .pl-save { flex: none; padding: 8px 20px; }
+
+.pl-select, .pl-artist-in, .pl-title, .pl-url, .pl-memo {
+  font: inherit; color: var(--ink);
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+  padding: 8px 10px;
+}
+.pl-select:focus, .pl-artist-in:focus, .pl-title:focus, .pl-url:focus, .pl-memo:focus {
+  outline: none; border-color: var(--ink);
+}
+
+/* ---------- 검색 ---------- */
+
+.pl-search {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 14px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-input);
+  margin-bottom: var(--s-sm, 12px);
+}
+.pl-search:focus-within { border-color: var(--ink); }
+.pl-search-ico { display: flex; color: var(--ink-faint); }
+.pl-search-ico .ico { width: 16px; height: 16px; }
+.pl-search input { flex: 1 1 auto; min-width: 0; font: inherit; border: none; outline: none; background: none; }
+
+/* ---------- 목록 ---------- */
+
+.pl-loading { padding: 32px 0; color: var(--ink-faint); }
+.pl-tracks { list-style: none; margin: 0; padding: 0; counter-reset: pl; }
+.pl-track {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 6px;
+  border-bottom: 1px solid var(--hairline-soft);
+}
+.pl-track:hover { background: var(--canvas-soft); }
+.pl-track.is-star { border-left: 2px solid var(--ink); }
+.pl-no {
+  flex: none; width: 24px; text-align: right;
+  font-size: 13px; font-variant-numeric: tabular-nums; color: var(--ink-faint);
+}
+.pl-track-body { display: grid; gap: 2px; flex: 1 1 auto; min-width: 0; }
+.pl-track-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pl-track-title { font-weight: 700; letter-spacing: -.3px; }
+.pl-track-sub { font-size: 13px; color: var(--ink-muted); }
+
+/* '듣기' — 주소를 적어 둔 곡에만 선다 */
+.pl-play {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 12px; font-weight: 500; letter-spacing: .2px;
+  padding: 3px 11px;
+  border: 1px solid var(--hairline); border-radius: var(--r-pill);
+  color: var(--ink); text-decoration: none;
+  white-space: nowrap;
+}
+.pl-play:hover { border-color: var(--ink); text-decoration: none; }
+.pl-play .ico { width: 12px; height: 12px; }
+
+.pl-track-acts { display: flex; align-items: center; gap: 2px; flex: none; }
+.pl-track .pl-mini { opacity: 0; }
+.pl-track:hover .pl-mini,
+.pl-track:focus-within .pl-mini,
+.pl-track .pl-mini.is-on { opacity: 1; }
+
+/* ---------- 한 줄 고치기 ---------- */
+
+.pl-track.is-editing { background: var(--canvas-soft); }
+.pl-edit { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; }
+.pl-edit .pl-select { flex: 0 1 150px; }
+.pl-edit .pl-title { flex: 2 1 200px; }
+.pl-edit .pl-url { flex: 2 1 220px; }
+.pl-edit .pl-memo { flex: 1 1 160px; }
+.pl-edit-acts { display: flex; gap: 8px; margin-left: auto; }
+
+/* ---------- 좁은 화면 ---------- */
+
+@media (max-width: 900px) {
+  .pl { grid-template-columns: minmax(0, 1fr); }
+  .pl-side { position: static; }
+  .pl-artists { max-height: 240px; overflow-y: auto; }
+  /* 손가락에는 '손을 올리면 나오는' 단추가 없다 */
+  .pl-artist-acts, .pl-track .pl-mini { opacity: 1; }
+}

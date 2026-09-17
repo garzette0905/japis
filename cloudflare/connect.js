@@ -390,14 +390,15 @@ const FEEDS = {
  *   { state: 'ok' | 'unconfigured' | 'disconnected' | 'error', items, note }
  * 무슨 일이 생겨도 던지지 않는다 — 미리보기가 안 나오는 것과 포털이 멈추는 것은 다르다.
  */
-export async function feedFor(env, ctx, userId, key) {
+export async function feedFor(env, ctx, userId, key, { fresh = false } = {}) {
   const provider = FEED_OF[key];
   const fetcher = FEEDS[key];
   if (!provider || !fetcher) return { state: 'none', items: [] };
   if (!providerReady(env, provider)) return { state: 'unconfigured', items: [], provider };
 
   const cacheKey = `feed:${userId}:${key}`;
-  const hit = await env.SESSIONS.get(cacheKey, 'json');
+  // 사람이 새로 고침을 눌렀으면 담아 둔 것을 보지 않는다 — 그러려고 누른 것이다.
+  const hit = fresh ? null : await env.SESSIONS.get(cacheKey, 'json');
   if (hit) return hit;
 
   try {

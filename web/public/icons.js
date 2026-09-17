@@ -27,6 +27,104 @@ const wrap = (inner) =>
   `<svg class="ico" viewBox="0 0 24 24" fill="currentColor" fill-rule="evenodd" clip-rule="evenodd"
         aria-hidden="true" focusable="false">${inner}</svg>`;
 
+/**
+ * **공식 마크** — 남의 회사 것과 우리 앱 것.
+ *
+ * 위의 한 벌(SERVICE_ICONS·UI_ICONS)은 색을 품지 않는다. 그것이 옳은 자리가 있고,
+ * 옳지 않은 자리가 있다. SNS 목록에서 눈이 찾는 것은 '인스타그램'이라는 **글자**가
+ * 아니라 그 동그란 **마크**다 — 거기서는 우리가 다시 그린 카메라보다 그 회사가 쓰는
+ * 그림이 백 배 빨리 읽힌다. wepic·카드모아도 제 아이콘이 이미 있다(각자의 favicon).
+ *
+ * 그래서 이 한 벌만 예외로 **색을 품는다.** 대신 규칙을 셋 둔다.
+ *   · 마크는 24칸을 가득 채운 **둥근 판**이다. 그래야 흰 바탕에서도, 메뉴의 검은
+ *     알약 위에서도 같은 모양으로 선다(획만 있는 마크는 검정 위에서 사라진다).
+ *   · 여기 있는 것은 **그 회사를 가리키는 자리**에만 쓴다. 단추·상태에는 쓰지 않는다.
+ *   · 그림 안의 id 에는 접두어(bi-)를 붙여 서로 밟지 않게 한다.
+ */
+const BRAND_ICONS = {
+  // ── 우리 것 ─────────────────────────────────────────────────────────
+  // JAPIS — 파란 판 위의 J (favicon.svg 와 같은 좌표)
+  japis:
+    '<defs><linearGradient id="bi-japis" x1="0" y1="0" x2="1" y2="1">' +
+    '<stop offset="0" stop-color="#2450f2"/><stop offset=".55" stop-color="#0f31c8"/>' +
+    '<stop offset="1" stop-color="#061a97"/></linearGradient></defs>' +
+    '<rect width="24" height="24" rx="5.4" fill="url(#bi-japis)"/>' +
+    '<g fill="#fff" transform="scale(.0469)">' +
+    '<rect x="150" y="54" width="257" height="92" rx="46"/><rect x="315" y="54" width="92" height="252"/>' +
+    '<path d="M407 306A150 150 0 0 1 107 306L199 306A58 58 0 0 0 315 306Z"/>' +
+    '<circle cx="153" cy="306" r="46"/><circle cx="257" cy="296" r="40"/></g>',
+
+  // wepic — 제 favicon 그대로(색 고리 여덟 조각 + 렌즈). 64칸 그림을 24칸으로 줄인다
+  wepic:
+    '<g transform="scale(.375)">' +
+    '<rect width="64" height="64" rx="15" fill="#101a2e"/>' +
+    '<path d="M32,6 A26,26 0 0 1 50.385,13.615 L40.839,23.161 A12.5,12.5 0 0 0 32,19.5 Z" fill="#ff3b30"/>' +
+    '<path d="M50.385,13.615 A26,26 0 0 1 58,32 L44.5,32 A12.5,12.5 0 0 0 40.839,23.161 Z" fill="#ff9500"/>' +
+    '<path d="M58,32 A26,26 0 0 1 50.385,50.385 L40.839,40.839 A12.5,12.5 0 0 0 44.5,32 Z" fill="#ffcc00"/>' +
+    '<path d="M50.385,50.385 A26,26 0 0 1 32,58 L32,44.5 A12.5,12.5 0 0 0 40.839,40.839 Z" fill="#34c759"/>' +
+    '<path d="M32,58 A26,26 0 0 1 13.615,50.385 L23.161,40.839 A12.5,12.5 0 0 0 32,44.5 Z" fill="#00c7be"/>' +
+    '<path d="M13.615,50.385 A26,26 0 0 1 6,32 L19.5,32 A12.5,12.5 0 0 0 23.161,40.839 Z" fill="#3b82f6"/>' +
+    '<path d="M6,32 A26,26 0 0 1 13.615,13.615 L23.161,23.161 A12.5,12.5 0 0 0 19.5,32 Z" fill="#5856d6"/>' +
+    '<path d="M13.615,13.615 A26,26 0 0 1 32,6 L32,19.5 A12.5,12.5 0 0 0 23.161,23.161 Z" fill="#c026d3"/>' +
+    '<circle cx="32" cy="32" r="12.5" fill="#22304f"/><circle cx="32" cy="32" r="6.5" fill="#0b1220"/>' +
+    '<circle cx="28.5" cy="28.5" r="2.6" fill="#eef4ff"/></g>',
+
+  // 카드모아 — 제 아이콘 그대로(겹쳐 쌓은 카드)
+  cardmoa:
+    '<g transform="scale(.375)">' +
+    '<rect x=".5" y=".5" width="63" height="63" rx="14.5" fill="#fff" stroke="#e3e3e4"/>' +
+    '<rect x="19" y="17" width="26" height="8" rx="3" fill="#ff385c" opacity=".35"/>' +
+    '<rect x="14" y="23" width="36" height="25" rx="5" fill="#ff385c"/>' +
+    '<rect x="14" y="29" width="36" height="4.5" fill="#fff"/>' +
+    '<rect x="18.5" y="39" width="10" height="2.8" rx="1.4" fill="#fff"/>' +
+    '<rect x="31" y="39" width="5.5" height="2.8" rx="1.4" fill="#fff" opacity=".55"/></g>',
+
+  // ── SNS ─────────────────────────────────────────────────────────────
+  // 인스타그램 — 둥근 사각 카메라. 공식 그라데이션(노랑 → 분홍 → 보라)
+  instagram:
+    '<defs><linearGradient id="bi-ig" x1="0" y1="1" x2="1" y2="0">' +
+    '<stop offset="0" stop-color="#ffd521"/><stop offset=".3" stop-color="#f50000"/>' +
+    '<stop offset=".62" stop-color="#b900b4"/><stop offset="1" stop-color="#5100ff"/>' +
+    '</linearGradient></defs>' +
+    '<rect width="24" height="24" rx="5.4" fill="url(#bi-ig)"/>' +
+    '<path d="M8.4 4.6h7.2a3.8 3.8 0 0 1 3.8 3.8v7.2a3.8 3.8 0 0 1-3.8 3.8H8.4a3.8 3.8 0 0 1-3.8-3.8V8.4a3.8 3.8 0 0 1 3.8-3.8Zm0 1.9a1.9 1.9 0 0 0-1.9 1.9v7.2a1.9 1.9 0 0 0 1.9 1.9h7.2a1.9 1.9 0 0 0 1.9-1.9V8.4a1.9 1.9 0 0 0-1.9-1.9Z" fill="#fff"/>' +
+    '<path d="M12 7.9a4.1 4.1 0 1 1 0 8.2 4.1 4.1 0 0 1 0-8.2Zm0 1.9a2.2 2.2 0 1 0 0 4.4 2.2 2.2 0 0 0 0-4.4Z" fill="#fff"/>' +
+    '<circle cx="16.4" cy="7.6" r="1" fill="#fff"/>',
+
+  // Threads — 검은 판 위의 고리 하나(@ 를 닮은 그 마크)
+  threads:
+    '<rect width="24" height="24" rx="5.4" fill="#000"/>' +
+    '<path d="M12.2 4.6c3.3 0 5.4 1.5 6.2 4.1l-1.9.6c-.6-1.9-2-2.8-4.3-2.8-2.9 0-4.6 1.9-4.6 5.5s1.7 5.5 4.6 5.5c2.1 0 3.4-.9 3.4-2.2 0-.9-.6-1.5-1.7-1.8-.3 1.9-1.5 3-3.2 3-1.7 0-2.9-1.1-2.9-2.7 0-1.9 1.5-3.1 4-3.1.5 0 1 .04 1.5.13-.1-1-.7-1.6-1.8-1.6-.8 0-1.4.3-1.9.9l-1.5-1.2c.8-1 1.9-1.6 3.4-1.6 2.3 0 3.7 1.4 3.8 3.9 1.8.6 2.8 1.9 2.8 3.7 0 2.5-2.2 4.2-5.4 4.2-4.2 0-6.7-2.7-6.7-7.5S8 4.6 12.2 4.6Zm-.4 8.1c-1.3 0-2 .5-2 1.3 0 .6.4 1 1.1 1 .9 0 1.5-.8 1.6-2.2a4 4 0 0 0-.7-.1Z" fill="#fff"/>',
+
+  // Facebook — 파란 판 위의 f
+  facebook:
+    '<rect width="24" height="24" rx="5.4" fill="#0866ff"/>' +
+    '<path d="M15.6 12.9h-2.3V21h-3.2v-8.1H8.4v-2.9h1.7V8.6c0-2.3 1.4-3.6 3.6-3.6h2.2v2.9h-1.4c-.8 0-1.2.4-1.2 1.1v1h2.6Z" fill="#fff"/>',
+
+  // Telegram — 하늘색 판 위의 종이비행기
+  telegram:
+    '<rect width="24" height="24" rx="5.4" fill="#2aabee"/>' +
+    '<path d="M18.9 6.6 16.8 17c-.16.7-.58.87-1.17.54l-3.23-2.38-1.56 1.5c-.17.17-.32.32-.66.32l.24-3.34 6.08-5.5c.27-.23-.06-.36-.41-.13l-7.52 4.73-3.24-1.01c-.7-.22-.71-.7.15-1.04l12.66-4.88c.59-.21 1.1.14.76 1.79Z" fill="#fff"/>',
+
+  // X — 검은 판 위의 X
+  x:
+    '<rect width="24" height="24" rx="5.4" fill="#000"/>' +
+    '<path d="M13.63 11.1 18.4 5.6h-1.55l-3.9 4.53-3.13-4.53H5.6l5.03 7.26-5.03 5.84h1.55l4.16-4.83 3.33 4.83h4.22Zm-9.1-4.34h1.9l7.9 11.3h-1.9Z" fill="#fff"/>',
+
+  // LinkedIn — 파란 판 위의 in
+  linkedin:
+    '<rect width="24" height="24" rx="5.4" fill="#0a66c2"/>' +
+    '<circle cx="7.1" cy="7.3" r="1.9" fill="#fff"/><rect x="5.35" y="10.2" width="3.5" height="8.9" fill="#fff"/>' +
+    '<path d="M10.6 10.2h3.35v1.2a3.7 3.7 0 0 1 6.55 2.4v5.3h-3.5v-4.7a1.7 1.7 0 0 0-3.4 0v4.7h-3Z" fill="#fff"/>',
+
+  // 다모앙 — 제 favicon 그대로(검은 덩어리 위 노란 획 셋)
+  damoang:
+    '<rect width="24" height="24" rx="5.4" fill="#1a1a1a"/>' +
+    '<rect x="4.6" y="7.6" width="3.1" height="9" rx="1.55" fill="#ffe135" transform="rotate(-12 6.15 12.1)"/>' +
+    '<rect x="10.45" y="6.8" width="3.1" height="9.8" rx="1.55" fill="#ffe135"/>' +
+    '<rect x="16.3" y="7.6" width="3.1" height="9" rx="1.55" fill="#ffe135" transform="rotate(12 17.85 12.1)"/>',
+};
+
 /** 화면(서비스) 그림. key 는 services.js 의 key 와 같다. */
 const SERVICE_ICONS = {
   // 집 — 지붕과 몸통 하나, 아래에 문을 판다
@@ -61,6 +159,10 @@ const SERVICE_ICONS = {
   bookmarks:
     '<path d="M6.4 2.6h11.2a1.8 1.8 0 0 1 1.8 1.8v16.4a.9.9 0 0 1-1.42.73L12 17.3l-5.98 4.23A.9.9 0 0 1 4.6 20.8V4.4a1.8 1.8 0 0 1 1.8-1.8Z"/>',
 
+  // 음표 둘 — 목록이 아니라 '듣는 것'이라는 표
+  playlists:
+    '<path d="M20.4 2.3a1.2 1.2 0 0 1 1.4 1.18V15.4a3.4 3.4 0 1 1-2.2-3.17V6.6L11 8.5v9.1a3.4 3.4 0 1 1-2.2-3.17V6.2a1.2 1.2 0 0 1 .94-1.17Z"/>',
+
   // 보고서 — 반듯한 종이에 세 줄
   wordwriter:
     '<path d="M5.6 2.4h12.8a1.8 1.8 0 0 1 1.8 1.8v15.6a1.8 1.8 0 0 1-1.8 1.8H5.6a1.8 1.8 0 0 1-1.8-1.8V4.2a1.8 1.8 0 0 1 1.8-1.8Zm1.8 6v2h9.2v-2Zm0 4.2v2h9.2v-2Zm0 4.2v2h5.8v-2Z"/>',
@@ -88,10 +190,6 @@ const SERVICE_ICONS = {
   // 네모 안의 체크
   gtasks:
     '<path d="M4.8 2.6h14.4A2.6 2.6 0 0 1 21.8 5.2v14.4a2.6 2.6 0 0 1-2.6 2.6H4.8a2.6 2.6 0 0 1-2.6-2.6V5.2A2.6 2.6 0 0 1 4.8 2.6Zm12 5.55-6.5 6.5-2.6-2.6-1.98 1.98 4.58 4.58 8.48-8.48Z"/>',
-
-  // 메모지 — 오른쪽 아래 모서리가 접힌 종이
-  naver:
-    '<path d="M4.6 2.6h14.8A1.6 1.6 0 0 1 21 4.2v9.6l-7.6 7.6H4.6A1.6 1.6 0 0 1 3 19.8V4.2a1.6 1.6 0 0 1 1.6-1.6Zm2.2 4.6v2h10.4v-2Zm0 4.4v2h7.4v-2Z"/>',
 
   // 구름 — 덩어리 넷을 겹쳐 하나로 본다
   onedrive:
@@ -138,6 +236,8 @@ const UI_ICONS = {
     '<path d="M3.8 4.2h5.1a1.6 1.6 0 0 1 1.3.67l1.1 1.53h8.9A1.8 1.8 0 0 1 22 8.2v10.4a1.8 1.8 0 0 1-1.8 1.8H3.8A1.8 1.8 0 0 1 2 18.6V6a1.8 1.8 0 0 1 1.8-1.8Z"/>',
   note: SERVICE_ICONS.jadenwiki,
   bookmark: SERVICE_ICONS.bookmarks,
+  music: SERVICE_ICONS.playlists,
+  playlists: SERVICE_ICONS.playlists,
   star: '<path d="M12 2.1 15.05 8.4l6.85.96-4.95 4.85 1.17 6.89L12 17.84 5.88 21.1l1.17-6.89L2.1 9.36l6.85-.96Z"/>',
   trash:
     '<path d="M9.4 2.4h5.2a1.4 1.4 0 0 1 1.4 1.4v1h4.6a1.2 1.2 0 0 1 0 2.4H3.4a1.2 1.2 0 0 1 0-2.4H8v-1a1.4 1.4 0 0 1 1.4-1.4Z"/>' +
@@ -216,7 +316,17 @@ const UI_ICONS = {
 };
 
 /** 화면 그림 하나. 모르는 key 는 점 하나로 둔다(이모지로 되돌아가지 않는다 — 줄이 어긋난다). */
-export const serviceIco = (key) => wrap(SERVICE_ICONS[key] || UI_ICONS.dot);
+/** 공식 마크는 색을 품으므로 currentColor 로 싸지 않는다(그림이 스스로 칠한다). */
+const wrapBrand = (inner) =>
+  `<svg class="ico ico-brand" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${inner}</svg>`;
+
+export const hasBrandIco = (name) => !!BRAND_ICONS[name];
+
+/** 그 회사(또는 우리 앱)의 공식 마크. 없으면 null — 부르는 쪽이 단색 그림으로 돌아간다. */
+export const brandIco = (name) => (BRAND_ICONS[name] ? wrapBrand(BRAND_ICONS[name]) : null);
+
+/** 화면 그림 — 제 공식 아이콘이 있으면 그것을 먼저 쓴다(wepic · 카드모아). */
+export const serviceIco = (key) => brandIco(key) || wrap(SERVICE_ICONS[key] || UI_ICONS.dot);
 
 /** 포털 그림 하나. */
 export const ico = (name) => wrap(UI_ICONS[name] || UI_ICONS.dot);

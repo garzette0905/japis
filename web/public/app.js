@@ -8,7 +8,8 @@
 import { $, el, esc, api, toast } from './util.js';
 import { renderWiki, wikiLeaving } from './wiki.js';
 import { renderBookmarks } from './bookmarks.js';
-import { ico, serviceIco } from './icons.js';
+import { renderPlaylists } from './playlists.js';
+import { ico, serviceIco, brandIco } from './icons.js';
 
 const state = {
   me: null,
@@ -362,7 +363,9 @@ function menuGroups() {
 function renderNav() {
   el('nav').innerHTML = `
     <button class="nav-toggle" id="nav-toggle" type="button" aria-label="메뉴 열기" aria-expanded="false">${ico('menu')}</button>
-    <a class="nav-logo" href="#/">JAPIS</a>
+    <a class="nav-logo" href="#/" aria-label="JAPIS 대시보드">
+      <span class="nav-mark" aria-hidden="true">${brandIco('japis')}</span><span>JAPIS</span>
+    </a>
     <div class="nav-now" id="nav-now" aria-live="off">
       <span class="now-date" id="now-date"></span>
       <span class="now-time" id="now-time"></span>
@@ -570,6 +573,14 @@ function route() {
     }
     return renderBookmarks(page);
   }
+  // Play Lists — 가수와 곡을 적어 두는 자리. 북마크와 같은 얼개다.
+  if (hash === '#/playlists') {
+    if (!state.services.some((s) => s.key === 'playlists')) {
+      location.hash = '#/';
+      return;
+    }
+    return renderPlaylists(page);
+  }
   if (hash === '#/me') return renderMe(page);
   if (state.me.role === 'admin') {
     if (hash === '#/admin') return renderAdmin(page);
@@ -665,6 +676,17 @@ function wireCards(root) {
       if (s) openService(s, { newTab: true });
     })
   );
+  // 칸 머리의 새로 고침 — 서버가 5분 담아 둔 것을 버리고 지금 것을 다시 받아 온다.
+  // (돌아가는 동안 단추가 돈다. 아무 일도 안 일어나는 것처럼 보이지 않게.)
+  root.querySelectorAll('[data-refresh]').forEach((b) =>
+    b.addEventListener('click', async () => {
+      if (b.classList.contains('is-spinning')) return;
+      b.classList.add('is-spinning');
+      state.feeds.delete(b.dataset.refresh);
+      await loadFeed(b.dataset.refresh, { fresh: true });
+      b.classList.remove('is-spinning');
+    })
+  );
   root.querySelectorAll('.card-feed[data-feed]').forEach((n) => loadFeed(n.dataset.feed));
 }
 
@@ -728,7 +750,7 @@ function feedHtml(key, f) {
     .join('')}</ul>`;
 }
 
-async function loadFeed(key) {
+async function loadFeed(key, { fresh = false } = {}) {
   const paint = () => {
     const node = $(`.card-feed[data-feed="${key}"]`, el('page'));
     if (!node) return;
@@ -747,9 +769,14 @@ async function loadFeed(key) {
       })
     );
   };
-  if (state.feeds.has(key)) return paint();
+  if (state.feeds.has(key) && !fresh) return paint();
+  if (fresh) {
+    // 다시 받아 오는 동안 빈 칸을 보여 주면 "지워졌나?" 싶다 — 돌고 있다고 말해 준다.
+    const node = $(`.card-feed[data-feed="${key}"]`, el('page'));
+    if (node) node.innerHTML = '<span class="spinner"></span>';
+  }
   try {
-    state.feeds.set(key, await api(`/api/feed/${encodeURIComponent(key)}`));
+    state.feeds.set(key, await api(`/api/feed/${encodeURIComponent(key)}${fresh ? '?fresh=1' : ''}`));
   } catch (e) {
     state.feeds.set(key, { state: 'error', note: e.message, items: [] });
   }
@@ -1021,6 +1048,8 @@ function todayHtml() {
                     title="${esc(s.label)} 열기"${s.ready ? '' : ' disabled'}>
               <span class="today-ico" aria-hidden="true">${serviceIco(s.key)}</span><span>${esc(t.title)}</span>
             </button>
+            <button class="today-refresh" type="button" data-refresh="${esc(s.key)}"
+                    title="새로 고침" aria-label="${esc(t.title)} 새로 고침">${ico('reload')}</button>
             ${popBtn(s)}
           </div>
           <div class="card-feed" data-feed="${esc(s.key)}"><span class="spinner"></span></div>
@@ -1281,7 +1310,7 @@ function renderLinks(page, key) {
           <span class="card-band band-${esc(s.accent || 'sky')}"></span>
           <span class="card-body">
             <span class="card-top">
-              <span class="card-icon" aria-hidden="true">${ico(l.ico || 'link')}</span>
+              <span class="card-icon" aria-hidden="true">${brandIco(l.ico) || ico(l.ico || 'link')}</span>
               <span class="card-title">${esc(l.label)}</span>
             </span>
             <span class="card-foot"><span class="tag open">바로 열기</span></span>

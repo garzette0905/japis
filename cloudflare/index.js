@@ -25,6 +25,15 @@ import {
 } from './connect.js';
 import { apiAsk } from './ask.js';
 import {
+  listMusic,
+  createArtist,
+  updateArtist,
+  deleteArtist,
+  createTrack,
+  updateTrack,
+  deleteTrack,
+} from './music.js';
+import {
   listBookmarks,
   createBookmark,
   updateBookmark,
@@ -497,6 +506,9 @@ const requireWiki = requireScreen('jadenwiki');
 
 /** 북마크도 같은 얼개다 — 'bookmarks' 권한 하나가 화면과 API를 함께 연다. */
 const requireBookmarks = requireScreen('bookmarks');
+
+/** Play Lists 도 마찬가지 — 'playlists' 권한 하나가 문이다. */
+const requireMusic = requireScreen('playlists');
 
 // ──────────────────────────────────────────────────────────────
 // 인증 API
@@ -1057,7 +1069,7 @@ async function goService(request, env, ctx, user, sess, key, inFrame = false) {
  * 내용이지 목차가 아니다 — 재인증을 세워 둔 화면의 속을 목록 API로 새어 나가게 하면
  * 자물쇠를 달아 둔 의미가 없다.
  */
-async function apiFeed(request, env, ctx, user, sess, key) {
+async function apiFeed(request, env, ctx, user, sess, key, fresh = false) {
   const s = serviceOf(key);
   if (!s || !FEED_OF[key]) return fail('미리보기가 없는 화면입니다.', 404);
 
@@ -1066,7 +1078,7 @@ async function apiFeed(request, env, ctx, user, sess, key) {
   if (perm.reauth && !(await unlockedUntil(env, sess.sid, key))) {
     return json({ state: 'locked', items: [] });
   }
-  return json(await feedFor(env, ctx, user.id, key));
+  return json(await feedFor(env, ctx, user.id, key, { fresh }));
 }
 
 /** 동의 화면으로 보낸다. 돌아오는 곳은 /connect/<provider>/callback 하나뿐이다. */
@@ -1572,7 +1584,9 @@ export default {
       }
       const mFeed = path.match(/^\/api\/feed\/([a-z0-9_-]{1,40})$/i);
       if (mFeed && method === 'GET') {
-        return requireLogin(request, env, (user, sess) => apiFeed(request, env, ctx, user, sess, mFeed[1]));
+        // ?fresh=1 — 칸 머리의 새로 고침이 부른 것이다. 5분 담아 둔 것을 버리고 다시 묻는다.
+        const fresh = url.searchParams.get('fresh') === '1';
+        return requireLogin(request, env, (user, sess) => apiFeed(request, env, ctx, user, sess, mFeed[1], fresh));
       }
       const mStart = path.match(/^\/connect\/([a-z]{1,20})\/start$/);
       if (mStart && method === 'GET') {
@@ -1688,6 +1702,31 @@ export default {
       }
       if (mBm && method === 'DELETE') {
         return requireBookmarks(request, env, (user) => deleteBookmark(env, user.id, Number(mBm[1])));
+      }
+
+      // ---- Play Lists (가수와 곡) ----
+      if (path === '/api/music' && method === 'GET') {
+        return requireMusic(request, env, (user) => listMusic(env, user.id, url));
+      }
+      if (path === '/api/music/artists' && method === 'POST') {
+        return requireMusic(request, env, (user) => createArtist(request, env, user.id));
+      }
+      const mArtist = path.match(/^\/api\/music\/artists\/(\d+)$/);
+      if (mArtist && method === 'PATCH') {
+        return requireMusic(request, env, (user) => updateArtist(request, env, user.id, Number(mArtist[1])));
+      }
+      if (mArtist && method === 'DELETE') {
+        return requireMusic(request, env, (user) => deleteArtist(env, user.id, Number(mArtist[1])));
+      }
+      if (path === '/api/music/tracks' && method === 'POST') {
+        return requireMusic(request, env, (user) => createTrack(request, env, user.id));
+      }
+      const mTrack = path.match(/^\/api\/music\/tracks\/(\d+)$/);
+      if (mTrack && method === 'PATCH') {
+        return requireMusic(request, env, (user) => updateTrack(request, env, user.id, Number(mTrack[1])));
+      }
+      if (mTrack && method === 'DELETE') {
+        return requireMusic(request, env, (user) => deleteTrack(env, user.id, Number(mTrack[1])));
       }
 
       // ---- 관리자 ----

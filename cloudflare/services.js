@@ -85,8 +85,43 @@ export const SERVICES = [
     external: false,
     always: true,           // 권한표와 무관하게 모두에게 보인다
   },
-
   // ── 개인서비스 ────────────────────────────────────────────────────────
+  {
+    // 예전에는 이 자리가 옵시디언(obsidian://open?vault=Jaden)이었다. 그 주소는 이 컴퓨터의
+    // 프로그램을 부르는 것이라 휴대폰에서도, 남의 컴퓨터에서도 열리지 않았다.
+    // 이제 **포털 안 화면**이다 — 메모가 D1에 있어 어디서 들어와도 같은 것을 본다.
+    // (key 는 그대로 둔다. user_services 의 권한 행이 이 값으로 붙어 있다.)
+    key: 'jadenwiki',
+    label: 'Jaden wiki',
+    group: 'personal',
+    desc: '메모를 쓰고 폴더로 묶고 검색한다 — 사진·html 파일까지',
+    url: '/#/wiki',
+    route: '#/wiki',
+    accent: 'purple',
+    icon: '📓',
+    reauth: false,
+    external: false,
+  },
+  {
+    // 북마크 — 자주 가는 주소를 내 손으로 정리해 두는 자리. 브라우저 즐겨찾기는
+    // 기기마다 따로 놀고 회사 컴퓨터와 집 컴퓨터가 서로를 모른다. 여기 것은 D1에
+    // 있으므로 어디서 들어와도 같은 목록이다.
+    //
+    // **사내와 사외를 먼저 가른다.** 사내 주소는 회사 망 안에서만 열리므로, 밖에서
+    // 눌러 봐야 시간만 버린다 — 섞어 두지 않고 칸을 나눠 둔다. 폴더는 한 겹 더
+    // 들어간다(하위 폴더).
+    key: 'bookmarks',
+    label: '북마크',
+    group: 'personal',
+    desc: '사내·사외로 나눠 담는 주소록 — 폴더 안에 폴더까지',
+    url: '/#/bookmarks',
+    route: '#/bookmarks',
+    accent: 'teal',
+    icon: '🔖',
+    reauth: false,
+    external: false,
+  },
+
   {
     key: 'wepic',
     label: 'wepic',
@@ -147,56 +182,25 @@ export const SERVICES = [
     reauth: false,
     external: true,
   },
-  {
-    // 예전에는 이 자리가 옵시디언(obsidian://open?vault=Jaden)이었다. 그 주소는 이 컴퓨터의
-    // 프로그램을 부르는 것이라 휴대폰에서도, 남의 컴퓨터에서도 열리지 않았다.
-    // 이제 **포털 안 화면**이다 — 메모가 D1에 있어 어디서 들어와도 같은 것을 본다.
-    // (key 는 그대로 둔다. user_services 의 권한 행이 이 값으로 붙어 있다.)
-    key: 'jadenwiki',
-    label: 'Jaden wiki',
-    group: 'personal',
-    desc: '메모를 쓰고 폴더로 묶고 검색한다 — 사진·html 파일까지',
-    url: '/#/wiki',
-    route: '#/wiki',
-    accent: 'purple',
-    icon: '📓',
-    reauth: false,
-    external: false,
-  },
-  {
-    // 북마크 — 자주 가는 주소를 내 손으로 정리해 두는 자리. 브라우저 즐겨찾기는
-    // 기기마다 따로 놀고 회사 컴퓨터와 집 컴퓨터가 서로를 모른다. 여기 것은 D1에
-    // 있으므로 어디서 들어와도 같은 목록이다.
-    //
-    // **사내와 사외를 먼저 가른다.** 사내 주소는 회사 망 안에서만 열리므로, 밖에서
-    // 눌러 봐야 시간만 버린다 — 섞어 두지 않고 칸을 나눠 둔다. 폴더는 한 겹 더
-    // 들어간다(하위 폴더).
-    key: 'bookmarks',
-    label: '북마크',
-    group: 'personal',
-    desc: '사내·사외로 나눠 담는 주소록 — 폴더 안에 폴더까지',
-    url: '/#/bookmarks',
-    route: '#/bookmarks',
-    accent: 'teal',
-    icon: '🔖',
-    reauth: false,
-    external: false,
-  },
 
-  // ── 홈페이지 ──────────────────────────────────────────────────────────
   {
-    key: 'wordwriter',
-    label: 'Word Writer',
-    group: 'homepage',
-    desc: '보고서 종류를 고르면 Prompt Builder 가 열린다',
-    // 배포되면 **Prompt Builder 화면 주소**를 적는다(첫 화면이 곧 Prompt Builder 여야 한다).
-    url: null,
-    repo: 'garzette0905/samsung-word-writer-pro',
-    accent: 'orange',
-    icon: '📄',
+    // Play Lists — 가수를 적어 두고 그 아래 곡을 쌓는다.
+    //
+    // 스트리밍 서비스의 목록은 그 서비스 안에서만 산다 — 멜론에 담은 것은 유튜브에서
+    // 안 보이고, 유튜브에 담은 것은 애플에서 안 보인다. 여기 것은 **내가 적어 둔
+    // 목록**이라 어디서 듣든 그대로 남는다(들을 주소는 곡마다 따로 붙인다).
+    key: 'playlists',
+    label: 'Play Lists',
+    group: 'personal',
+    desc: '가수와 곡을 적어 두는 내 음악 목록',
+    url: '/#/playlists',
+    route: '#/playlists',
+    accent: 'pink',
+    icon: '🎵',
     reauth: false,
-    external: true,
+    external: false,
   },
+  // ── 홈페이지 ──────────────────────────────────────────────────────────
   {
     key: 'julie',
     label: 'Julie',
@@ -213,7 +217,7 @@ export const SERVICES = [
     key: 'sns',
     label: 'SNS',
     group: 'homepage',
-    desc: '인스타그램 · Thread · Facebook · Telegram · LinkedIn · 다모앙',
+    desc: '인스타그램 · Threads · Facebook · Telegram · X · LinkedIn · 다모앙',
     url: '/#/sns',
     route: '#/sns',
     accent: 'pink',
@@ -221,16 +225,32 @@ export const SERVICES = [
     reauth: false,
     external: false,
     // 본인 계정 주소(프로필·채널)가 정해지면 여기만 고친다.
-    // ico 는 icons.js 의 그림 이름이다(이모지가 아니다).
+    // ico 는 icons.js 의 그림 이름이다. SNS 는 **그 회사의 공식 마크**를 쓴다
+    // (BRAND_ICONS) — 링크 목록에서 눈이 찾는 것은 이름이 아니라 그 동그란 마크다.
     links: [
-      { label: '인스타그램', ico: 'camera', url: 'https://www.instagram.com' },
-      { label: 'Thread', ico: 'thread', url: 'https://www.threads.net' },
-      { label: 'Facebook', ico: 'people', url: 'https://www.facebook.com' },
-      { label: 'Telegram', ico: 'send', url: 'https://web.telegram.org' },
+      { label: '인스타그램', ico: 'instagram', url: 'https://www.instagram.com' },
+      { label: 'Threads', ico: 'threads', url: 'https://www.threads.net' },
+      { label: 'Facebook', ico: 'facebook', url: 'https://www.facebook.com' },
+      { label: 'Telegram', ico: 'telegram', url: 'https://web.telegram.org' },
+      { label: 'X', ico: 'x', url: 'https://x.com' },
       { label: 'LinkedIn', ico: 'linkedin', url: 'https://www.linkedin.com/feed/' },
       // 다모앙 — 국내 커뮤니티. 로그인해야 보이는 글이 많아 새 탭으로 나가는 것이 낫다.
       { label: '다모앙', ico: 'damoang', url: 'https://damoang.net' },
     ],
+  },
+
+  {
+    key: 'wordwriter',
+    label: 'Word Writer',
+    group: 'homepage',
+    desc: '보고서 종류를 고르면 Prompt Builder 가 열린다',
+    // 배포되면 **Prompt Builder 화면 주소**를 적는다(첫 화면이 곧 Prompt Builder 여야 한다).
+    url: null,
+    repo: 'garzette0905/samsung-word-writer-pro',
+    accent: 'orange',
+    icon: '📄',
+    reauth: false,
+    external: true,
   },
 
   // ── 협업 ──────────────────────────────────────────────────────────────
@@ -299,21 +319,6 @@ export const SERVICES = [
     accent: 'purple',
     icon: '✅',
     reauth: false,
-    external: true,
-  },
-  {
-    key: 'naver',               // key 는 그대로 둔다(예전 'Naver Memo' 권한이 이어진다)
-    label: '네이버 메모',
-    group: 'collab',
-    // 자체 제작 전까지는 네이버 메모를 그대로 연다. 네이버는 메모 API를 열지 않아
-    // 최근 글 미리보기는 붙일 수 없다 — 링크만 둔다.
-    desc: '네이버 메모를 연다 — 자체 제작 전까지',
-    url: 'https://memo.naver.com',
-    account: 'garzette',
-    accent: 'green',
-    icon: '📝',
-    reauth: false,
-    frame: false,           // 네이버도 프레임을 막는다
     external: true,
   },
   {

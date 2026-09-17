@@ -13,6 +13,7 @@
 | `app.js` | 로그인 뒤의 모든 화면(대시보드·묶음별 목록·내 계정·관리자)을 그린다 |
 | `wiki.js` · `wiki.css` | Jaden wiki(포털 안 메모) 화면 |
 | `bookmarks.js` · `bookmarks.css` | 북마크(사내·사외 주소록) 화면 |
+| `playlists.js` · `playlists.css` | Play Lists(가수·곡) 화면 |
 | `icons.js` · `util.js` | 한 벌로 그린 픽토그램 · 화면들이 함께 쓰는 자잘한 것 |
 | `styles.css` | 전체 스타일. 색·글꼴·간격 토큰이 파일 맨 위에 모여 있다 |
 | `manifest.json` | 홈 화면에 설치할 때 쓰는 정보 |
