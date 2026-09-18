@@ -12,49 +12,49 @@
        (단추·알약·칩)은 **완전한 알약**. 그 사이의 어정쩡한 8px 은 없다.
      · 글자 위계는 극단적이다. 큰 제목(40px 이상, 자간 -1px)과 작은 글자(12–16px)
        사이에 중간이 거의 없다 — 위는 간판, 아래는 목록.
-     · 글꼴은 Inter(라틴) + Noto Sans KR(한글). 간판 글씨만 Bebas Neue 를 쓴다.
+     · 글꼴은 Geist(라틴) + Noto Sans KR(한글)로 통일한다. 모노스페이스는 코드에만 쓴다.
    ========================================================================== */
 
 :root {
   /* 구조색 — 동작(단추·활성표시)은 검정 하나로 간다. 파랑은 더 이상 쓰지 않는다 */
-  --primary:        #111111;
-  --primary-active: #000000;
+  --primary:        #5e6ad2;
+  --primary-active: #4f59bc;
   --on-primary:     #ffffff;
-  --secondary:      #111111;
+  --secondary:      #5e6ad2;
   --brand-bg:       #ddd9e4;   /* 앱 아이콘과 로그인 화면의 라벤더 그레이 바탕 */
 
   /* 바탕 */
-  --canvas:        #ffffff;
-  --canvas-soft:   #f5f5f5;   /* 사진과 칸이 서는 '스튜디오' 회색 */
+  --canvas:        #faf9fd;
+  --canvas-soft:   #f2f0fa;   /* lavender canvas lift */
   --surface:       #ffffff;
-  --hairline:      #cacacb;
-  --hairline-soft: #e5e5e5;
+  --hairline:      #d9d6e6;
+  --hairline-soft: #ebe9f2;
 
   /* 글자 */
-  --ink:           #111111;
-  --ink-secondary: #39393b;
-  --ink-muted:     #707072;
-  --ink-faint:     #9e9ea0;
+  --ink:           #181729;
+  --ink-secondary: #45435b;
+  --ink-muted:     #77738b;
+  --ink-faint:     #9c98ad;
 
   /* 신호색 — 이 셋만 색으로 말한다. 장식으로는 쓰지 않는다 */
   --sale:    #d30005;
   --success: #007d48;
-  --info:    #1151ff;
+  --info:    #5e6ad2;
 
   /* 구별용 팔레트 — 폴더 점처럼 '색이 곧 이름표'인 자리에만. 단추·띠에는 쓰지 않는다 */
-  --a-purple: #beaffd;
+  --a-purple: #a99cf3;
   --a-pink:   #ed1aa0;
   --a-orange: #dd5b00;
   --a-teal:   #0a7281;
   --a-green:  #1aae39;
-  --a-sky:    #1151ff;
+  --a-sky:    #828fff;
   --a-brown:  #4c012d;
 
   /* 모서리 — 담는 것은 0, 누르는 것은 알약. 그 사이는 없다 */
-  --r-xs: 0;  --r-sm: 0;  --r-md: 0;
-  --r-lg: 0;  --r-xl: 0;  --r-full: 9999px;
+  --r-xs: 4px;  --r-sm: 6px;  --r-md: 8px;
+  --r-lg: 12px;  --r-xl: 16px;  --r-full: 9999px;
   --r-pill: 9999px;
-  --r-input: 24px;            /* 입력칸만 살짝 둥근 알약(나이키 검색칸) */
+  --r-input: 8px;
 
   /* 그림자 — 없다. 떠 있어야 하는 것(모달·떠 있는 판)만 아주 옅게 */
   --sh-1: none;
@@ -65,10 +65,9 @@
   --s-lg: 24px; --s-xl: 30px; --s-xxl: 48px;
 
   --nav-h: 60px;
-  --font: 'Inter', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI',
+  --font: 'Geist', -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', 'Noto Sans KR',
           Helvetica, Arial, sans-serif;
-  /* 간판 글씨 — 영문 로고·큰 숫자에만. 한글은 여기서 Noto 로 떨어진다 */
-  --font-display: 'Bebas Neue', 'Inter', 'Noto Sans KR', Helvetica, Arial, sans-serif;
+  --font-display: 'Geist', -apple-system, BlinkMacSystemFont, system-ui, 'Noto Sans KR', sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -1011,15 +1010,15 @@ table.data tr:last-child td { border-bottom: none; }
   font-weight: 500;
   letter-spacing: -.1px;
 }
-.btn-primary { background: var(--ink); color: var(--on-primary); border-color: var(--ink); }
-.btn-primary:hover { background: #000; }
+.btn-primary { background: var(--primary); color: var(--on-primary); border-color: var(--primary); }
+.btn-primary:hover { background: #828fff; border-color: #828fff; }
 /* 눌린 순간 살짝 주저앉는다 — 나이키의 '탭 붕괴' */
 .btn-primary:active, .btn-secondary:active, .btn-utility:active { transform: scale(.97); }
 .btn-secondary {
   background: var(--canvas-soft); color: var(--ink);
-  border-color: transparent; box-shadow: none;
+  border-color: var(--hairline); box-shadow: none;
 }
-.btn-secondary:hover { background: #ebebeb; }
+.btn-secondary:hover { background: var(--surface); border-color: var(--primary); }
 
 .btn-utility {
   border-radius: var(--r-pill);
@@ -1056,8 +1055,8 @@ table.data tr:last-child td { border-bottom: none; }
 }
 .field input:focus, .field select:focus, .field textarea:focus {
   background: var(--canvas);
-  border-color: var(--ink);
-  box-shadow: 0 0 0 4px var(--canvas-soft);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
 }
 .field-label {
   font-size: 12px; font-weight: 500; letter-spacing: .4px; text-transform: uppercase;
@@ -1088,7 +1087,7 @@ table.data tr:last-child td { border-bottom: none; }
 .side-item:hover { background: var(--canvas-soft); }
 .side-item:hover .side-ico { color: var(--ink); }
 .side-item.is-active, .side-row.is-here .side-item {
-  background: var(--ink); color: var(--on-primary);
+  background: var(--primary); color: var(--on-primary);
 }
 .side-item.is-active .side-ico, .side-row.is-here .side-item .side-ico { color: var(--on-primary); }
 /* 검정 줄이 곧 표시다. 왼쪽의 세로 막대는 두 번 말하는 것이라 걷어낸다 */
@@ -1110,19 +1109,19 @@ table.data tr:last-child td { border-bottom: none; }
 
 /* ---------- 타일 · 카드 — 그림자 없이, 각지게 ---------- */
 
-.tile { border-radius: 0; border-color: var(--hairline-soft); font-weight: 500; }
-.tile:hover { border-color: var(--ink); color: var(--ink); box-shadow: none; }
+.tile { border-radius: var(--r-lg); border-color: var(--hairline-soft); font-weight: 500; }
+.tile:hover { border-color: var(--primary); color: var(--ink); box-shadow: none; }
 .tiles { gap: 8px; }
 
-.card { border-radius: 0; border-color: var(--hairline-soft); }
-.card:hover { box-shadow: none; border-color: var(--ink); }
+.card { border-radius: var(--r-lg); border-color: var(--hairline-soft); }
+.card:hover { box-shadow: none; border-color: var(--primary); }
 /* 머리띠는 장식이다 — 나이키에는 그런 자리가 없다 */
 .card-band { display: none; }
 .card-icon {
   width: 40px; height: 40px;
   background: var(--canvas-soft);
-  border-radius: 0;
-  color: var(--ink);
+  border-radius: var(--r-md);
+  color: var(--primary);
 }
 .card-icon .ico { width: 21px; height: 21px; }
 .card-title { font-weight: 700; letter-spacing: -.4px; }
@@ -1133,7 +1132,7 @@ table.data tr:last-child td { border-bottom: none; }
   border-color: var(--hairline);
   font-weight: 500; letter-spacing: .2px;
 }
-.tag.open { color: var(--ink); border-color: var(--ink); background: var(--canvas); }
+.tag.open { color: var(--primary); border-color: var(--primary); background: var(--canvas); }
 .pill-role { font-weight: 500; }
 
 /* ---------- 공식 마크 ----------
