@@ -43,26 +43,9 @@ const wrap = (inner) =>
  */
 const BRAND_ICONS = {
   // ── 우리 것 ─────────────────────────────────────────────────────────
-  // JAPIS — 파란 판 위의 J (favicon.svg 와 **같은 좌표·같은 그라디에이션**)
-  //
-  // 두 가지가 favicon 과 어긋나 있었다. 고쳐 둔다.
-  //   · 글씨가 **판을 가득 채웠다**. 24칸짜리 마크에서는 J 가 판을 밀어내는
-  //     것처럼 보인다 — favicon 과 같이 0.86배로 줄여 여백을 남긴다.
-  //   · 글씨가 **납작한 흰색**이었다. 판만 그라디에이션이고 글씨는 #fff 여서,
-  //     상단 띠의 이 마크만 앱 아이콘·탭 아이콘과 다른 그림으로 보였다.
-  //     favicon 의 ink(오른위 흰색 → 왼아래 #b3cdfa)를 그대로 가져온다.
+  // JAPIS — 상단 띠에서도 앱 아이콘과 같은 라벤더 그레이·청록 J를 쓴다.
   japis:
-    '<defs><linearGradient id="bi-japis" x1="0" y1="0" x2="1" y2="1">' +
-    '<stop offset="0" stop-color="#2450f2"/><stop offset=".55" stop-color="#0f31c8"/>' +
-    '<stop offset="1" stop-color="#061a97"/></linearGradient>' +
-    '<linearGradient id="bi-japis-ink" gradientUnits="userSpaceOnUse" x1="407" y1="54" x2="107" y2="456">' +
-    '<stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#b3cdfa"/></linearGradient></defs>' +
-    '<rect width="24" height="24" rx="5.4" fill="url(#bi-japis)"/>' +
-    // 512칸 그림을 24칸으로(1/512*24 = .0469), 그 안에서 다시 .86배로 줄여 가운데 세운다.
-    '<g fill="url(#bi-japis-ink)" transform="scale(.0469) translate(256 256) scale(.86) translate(-257 -255)">' +
-    '<rect x="150" y="54" width="257" height="92" rx="46"/><rect x="315" y="54" width="92" height="254"/>' +
-    '<path d="M407 306A150 150 0 0 1 107 306L199 306A58 58 0 0 0 315 306Z"/>' +
-    '<circle cx="153" cy="306" r="46"/><circle cx="257" cy="296" r="40"/></g>',
+    '<image href="/icon-192.png" x="0" y="0" width="24" height="24" preserveAspectRatio="xMidYMid slice"/>',
 
   // wepic — 제 favicon 그대로(색 고리 여덟 조각 + 렌즈). 64칸 그림을 24칸으로 줄인다
   wepic:

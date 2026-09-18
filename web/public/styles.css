@@ -20,7 +20,8 @@
   --primary:        #111111;
   --primary-active: #000000;
   --on-primary:     #ffffff;
-  --secondary:      #111111;   /* 로그인 화면의 밤하늘 */
+  --secondary:      #111111;
+  --brand-bg:       #ddd9e4;   /* 앱 아이콘과 로그인 화면의 라벤더 그레이 바탕 */
 
   /* 바탕 */
   --canvas:        #ffffff;
@@ -1301,9 +1302,11 @@ table.data tr:last-child td { border-bottom: none; }
 /* ---------- 로그인 화면 ----------
    왼쪽은 검정 한 장. 그 위에 간판 글씨 하나만 올린다. */
 
-.gate-night { background: var(--ink); color: #fff; }
+.gate-night { background: var(--brand-bg); color: var(--ink); }
 /* 알록달록한 점은 검정 위에서 장난감처럼 보인다 — 흐린 흰 점으로 통일한다 */
-.gate-night .star { background: rgba(255,255,255,.28) !important; box-shadow: none !important; }
+.gate-night .star { background: rgba(255,255,255,.42) !important; box-shadow: none !important; }
+.gate-night .gate-tag { color: rgba(17,17,17,.78); }
+.gate-night .gate-sub { color: rgba(17,17,17,.58); }
 .gate-logo {
   font-family: var(--font-display);
   font-weight: 400; letter-spacing: 1px; text-transform: uppercase;
