@@ -4,6 +4,8 @@
 
 - **백엔드**: `cloudflare/index.js` — 설정·배포는 [`cloudflare/README.md`](../cloudflare/README.md)
 - **로컬 실행**: 저장소 루트에서 `npm run dev` (wrangler dev)
+- **아이콘 png**: 손으로 고치지 않는다 — `favicon.svg` 를 고친 뒤
+  `python3 tools/make-icons.py` 로 다시 굽는다(설치할 것 없음)
 
 ## 파일
 
@@ -16,8 +18,9 @@
 | `playlists.js` · `playlists.css` | Play Lists(가수·곡) 화면 |
 | `icons.js` · `util.js` | 한 벌로 그린 픽토그램 · 화면들이 함께 쓰는 자잘한 것 |
 | `styles.css` | 전체 스타일. 색·글꼴·간격 토큰이 파일 맨 위에 모여 있다 |
-| `manifest.json` | 홈 화면에 설치할 때 쓰는 정보 |
+| `manifest.json` | 홈 화면에 설치할 때 쓰는 정보 + **홈화면 바로가기**(`shortcuts`) 네 개 |
 | `favicon.svg` · `icon-192.png` · `icon-512.png` · `apple-touch-icon.png` | 앱 아이콘 — 파란 판 위의 J(같은 좌표로 구운 한 벌) |
+| `shortcut-*.png` | 바로가기 아이콘 96×96 (대시보드·북마크·wiki·playlists) |
 | `og-japis.png` | 링크 미리보기 카드에 서는 그림(1200×630). 로그인 없이 열린다 |
 | `robots.txt` | 검색 차단(개인 포털이라 전부 Disallow) |
 

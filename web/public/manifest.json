@@ -1,12 +1,19 @@
 {
+  "id": "/",
   "name": "JAPIS — JAden Personal Intelligence Service",
   "short_name": "JAPIS",
+  "description": "흩어진 나의 서비스를 한자리에서.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui", "browser"],
+  "orientation": "any",
   "background_color": "#0f31c8",
   "theme_color": "#0f31c8",
   "lang": "ko",
+  "dir": "ltr",
+  "categories": ["productivity", "utilities"],
+  "launch_handler": { "client_mode": "navigate-existing" },
   "icons": [
     {
       "src": "/favicon.svg",
@@ -31,6 +38,36 @@
       "sizes": "180x180",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "북마크",
+      "short_name": "북마크",
+      "description": "사내·사외로 나눠 담은 주소록을 연다",
+      "url": "/#/bookmarks",
+      "icons": [{ "src": "/shortcut-bookmarks.png", "sizes": "96x96", "type": "image/png" }]
+    },
+    {
+      "name": "Jaden wiki",
+      "short_name": "메모",
+      "description": "메모를 쓰고 찾는다",
+      "url": "/#/wiki",
+      "icons": [{ "src": "/shortcut-wiki.png", "sizes": "96x96", "type": "image/png" }]
+    },
+    {
+      "name": "Play Lists",
+      "short_name": "음악",
+      "description": "가수와 곡 목록을 연다",
+      "url": "/#/playlists",
+      "icons": [{ "src": "/shortcut-playlists.png", "sizes": "96x96", "type": "image/png" }]
+    },
+    {
+      "name": "대시보드",
+      "short_name": "대시보드",
+      "description": "연결된 서비스를 한자리에서 연다",
+      "url": "/#/",
+      "icons": [{ "src": "/shortcut-dashboard.png", "sizes": "96x96", "type": "image/png" }]
     }
   ]
 }

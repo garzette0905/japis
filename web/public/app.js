@@ -1343,6 +1343,34 @@ function renderMe(page) {
         </tbody>
       </table></div>
     </div>
+    <div class="panel">
+      <div class="panel-title">홈 화면 · 위젯</div>
+      <p class="field-hint" id="pwa-state" style="margin:0 0 12px"></p>
+      <p class="field-hint" style="margin:0 0 12px">
+        <b>안드로이드에는 웹앱(PWA)이 쓸 수 있는 홈화면 위젯이 없습니다.</b>
+        날씨·캘린더처럼 홈화면에서 내용이 바뀌는 그 위젯은 안드로이드 앱만 만들 수 있고
+        (<span class="nowrap">AppWidgetProvider</span>), 스토어에 올리는 앱 껍데기가 필요합니다.
+        설치한 웹앱이 홈화면에 세울 수 있는 것은 <b>바로가기</b>까지입니다 —
+        아래 방법으로 화면마다 하나씩 세워 두면 위젯처럼 한 번에 들어옵니다.
+      </p>
+      <div class="table-wrap"><table class="data">
+        <tbody>
+          <tr><th>안드로이드</th><td>
+            홈화면의 <b>JAPIS</b> 아이콘을 <b>길게 누르면</b> 북마크 · Jaden wiki ·
+            Play Lists · 대시보드가 뜹니다. 그중 하나를 <b>끌어다 홈화면에 놓으면</b>
+            그 화면으로 바로 들어가는 아이콘이 섭니다.
+          </td></tr>
+          <tr><th>아이폰 · 아이패드</th><td>
+            사파리에서 <b>공유 → 홈 화면에 추가</b>. iOS 는 길게 누르는 목록을 주지 않으므로,
+            원하는 화면(예: 북마크)을 열어 둔 채로 추가하면 그 화면이 바로 열립니다.
+          </td></tr>
+          <tr><th>컴퓨터</th><td>
+            크롬·엣지 주소창 오른쪽의 <b>설치</b> 아이콘. 설치한 뒤 작업표시줄·독의
+            아이콘을 오른쪽 클릭하면 같은 네 가지가 뜹니다.
+          </td></tr>
+        </tbody>
+      </table></div>
+    </div>
     <div class="panel" id="bio-panel" hidden>
       <div class="panel-title">생체인증</div>
       <p class="field-hint" style="margin:0 0 12px">
@@ -1378,6 +1406,7 @@ function renderMe(page) {
     </div>`;
 
   wireBio();
+  paintPwaState();
 
   $('#form-mypw').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -1392,6 +1421,22 @@ function renderMe(page) {
       showError(el('mypw-error'), err.message);
     }
   });
+}
+
+/**
+ * '홈 화면 · 위젯' 칸의 첫 줄 — 지금 이 창이 설치된 앱인지 브라우저 탭인지 적는다.
+ * 설치하지 않은 사람에게 "아이콘을 길게 누르세요"라고만 적어 두면 누를 아이콘이 없다.
+ */
+function paintPwaState() {
+  const box = el('pwa-state');
+  if (!box) return;
+  const standalone =
+    window.matchMedia?.('(display-mode: standalone)').matches ||
+    window.matchMedia?.('(display-mode: minimal-ui)').matches ||
+    window.navigator.standalone === true;
+  box.innerHTML = standalone
+    ? '이 창은 <b>설치된 앱</b>으로 열려 있습니다. 아래 방법으로 화면마다 바로가기를 세울 수 있습니다.'
+    : '이 창은 <b>브라우저 탭</b>입니다. 먼저 아래 방법으로 JAPIS 를 설치하세요.';
 }
 
 /** 내 계정 화면의 생체인증 칸. 이 기기에 잠금장치가 없으면 칸 자체를 띄우지 않는다. */
