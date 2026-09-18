@@ -92,7 +92,7 @@ export const SERVICES = [
     // 이제 **포털 안 화면**이다 — 메모가 D1에 있어 어디서 들어와도 같은 것을 본다.
     // (key 는 그대로 둔다. user_services 의 권한 행이 이 값으로 붙어 있다.)
     key: 'jadenwiki',
-    label: 'Jaden wiki',
+    label: 'Jaden Meno',
     group: 'personal',
     desc: '메모를 쓰고 폴더로 묶고 검색한다 — 사진·html 파일까지',
     url: '/#/wiki',

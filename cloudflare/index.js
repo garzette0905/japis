@@ -14,6 +14,7 @@
 //   3. **가입이 없다.** 관리자가 사람을 만들고, 그 사람이 볼 화면을 골라 준다.
 
 import { GROUPS, SERVICES, serviceOf, isAlways, isReady } from './services.js';
+import { countUsage, ranksFor, refreshUsageRanks } from './usage.js';
 import {
   PROVIDERS,
   FEED_OF,
@@ -62,6 +63,7 @@ import {
   sharedNotePage,
   renderMarkdown,
   reorderFolders,
+  touchFolder,
 } from './wiki.js';
 
 const enc = new TextEncoder();
@@ -384,6 +386,7 @@ async function loadPerms(env, userId) {
  */
 async function visibleServices(env, user, sid) {
   const perms = await loadPerms(env, user.id);
+  const usageRanks = await ranksFor(env, user.id, 'service');
   const admin = user.role === 'admin';
   const out = [];
   for (const s of SERVICES) {
@@ -412,9 +415,27 @@ async function visibleServices(env, user, sid) {
       reauth,
       unlockTtl: reauth ? unlockTtl(env, perm) : 0,
       unlockedUntil: reauth && ready && sid ? await unlockedUntil(env, sid, s.key) : 0,
+      usageRank: usageRanks.get(s.key) || null,
     });
   }
-  return out;
+  // 개인서비스 안에서만 사용 순위를 적용한다. 다른 묶음의 위치와 PC 메뉴 체계는
+  // 그대로이고, 아직 한 번도 쓰지 않은 항목은 코드에 적힌 기존 차례를 지킨다.
+  return out
+    .map((s, original) => ({ s, original }))
+    .sort((a, b) => {
+      if (a.s.group !== b.s.group || a.s.group !== 'personal') return a.original - b.original;
+      return (a.s.usageRank ?? 2147483647) - (b.s.usageRank ?? 2147483647) || a.original - b.original;
+    })
+    .map(({ s }) => s);
+}
+
+async function apiCountService(env, user, key) {
+  const s = serviceOf(key);
+  if (!s || !isReady(s)) return fail('없는 화면입니다.', 404);
+  const perm = await permissionFor(env, user, s);
+  if (!perm.allowed) return fail('이 화면을 볼 권한이 없습니다.', 403, { code: 'forbidden' });
+  await countUsage(env, user.id, 'service', s.key);
+  return json({ ok: true });
 }
 
 /** /go/<key> 에서 쓰는 판정 — 볼 수 있는가, 재인증이 필요한가. */
@@ -1550,6 +1571,10 @@ export default {
           json({ groups: GROUPS, services: await visibleServices(env, user, sess.sid) })
         );
       }
+      const mServiceOpen = path.match(/^\/api\/services\/([a-z0-9_-]+)\/open$/);
+      if (mServiceOpen && method === 'POST') {
+        return requireLogin(request, env, (user) => apiCountService(env, user, mServiceOpen[1]));
+      }
       if (path === '/api/unlock' && method === 'POST') {
         return requireLogin(request, env, (user, sess) => apiUnlock(request, env, ctx, user, sess));
       }
@@ -1665,6 +1690,10 @@ export default {
       if (path === '/api/wiki/folders/order' && method === 'PUT') {
         return requireWiki(request, env, (user) => reorderFolders(request, env, user.id));
       }
+      const mFolderOpen = path.match(/^\/api\/wiki\/folders\/(\d+)\/open$/);
+      if (mFolderOpen && method === 'POST') {
+        return requireWiki(request, env, (user) => touchFolder(env, user.id, Number(mFolderOpen[1])));
+      }
       const mFolder = path.match(/^\/api\/wiki\/folders\/(\d+)$/);
       if (mFolder && method === 'PATCH') {
         return requireWiki(request, env, (user) => updateFolder(request, env, user.id, Number(mFolder[1])));
@@ -1773,14 +1802,15 @@ export default {
   },
 
   async scheduled(event, env, ctx) {
+    // 클릭은 그때그때 세기만 하고 이 예약 작업에서만 표시 순위를 바꾼다.
     // 접속 기록은 90일만 둔다. 오래된 것을 계속 쌓아 둘 이유가 없고,
     // IP가 섞인 기록을 무기한 보관하고 싶지도 않다.
     const cutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
     ctx.waitUntil(
-      env.DB.prepare('DELETE FROM access_log WHERE created_at < ?')
-        .bind(cutoff)
-        .run()
-        .catch((e) => console.warn('접속기록 정리 실패:', e.message))
+      Promise.all([
+        refreshUsageRanks(env),
+        env.DB.prepare('DELETE FROM access_log WHERE created_at < ?').bind(cutoff).run(),
+      ]).catch((e) => console.warn('하루 정리 작업 실패:', e.message))
     );
   },
 };

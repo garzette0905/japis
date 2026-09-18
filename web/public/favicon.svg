@@ -1,4 +1,13 @@
-<!-- JAPIS app icon. Raster sizes are derived from icon-512.png. -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
-  <image href="/icon-512.png" width="1024" height="1024" preserveAspectRatio="xMidYMid slice"/>
+<!-- Self-contained so desktop browsers can render it in a tab without loading another file. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="plate" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#2450f2"/><stop offset=".55" stop-color="#0f31c8"/><stop offset="1" stop-color="#061a97"/>
+    </linearGradient>
+    <linearGradient id="ink" x1="1" y1="0" x2="0" y2="1">
+      <stop stop-color="#fff"/><stop offset="1" stop-color="#b3cdfa"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#plate)"/>
+  <path d="M39 13v25c0 10-5 15-14 15-6 0-10-2-13-6l7-7c2 2 3 3 6 3 4 0 5-2 5-6V13h9z" fill="url(#ink)"/>
 </svg>

@@ -422,11 +422,26 @@ function renderSide() {
   const groups = menuGroups()
     .map((g) => {
       const items = state.services.filter((s) => s.group === g.key);
+      const topTwo = g.key === 'personal' ? items.filter((s) => s.ready).slice(0, 2) : [];
+      const rest = g.key === 'personal' ? items.filter((s) => !topTwo.includes(s)) : [];
       return `<div class="side-group">
         <a class="side-head${on('#/g/' + g.key)}" href="#/g/${g.key}">
           <span>${esc(g.label)}</span><span class="side-count">${items.length}</span>
         </a>
-        <ul class="side-list">${items.map(row).join('')}</ul>
+        <ul class="side-list${g.key === 'personal' ? ' side-personal-desktop' : ''}">${items.map(row).join('')}</ul>
+        ${
+          g.key === 'personal'
+            ? `<div class="side-personal-mobile">
+                <ul class="side-list">${topTwo.map(row).join('')}</ul>
+                ${rest.length ? `<label class="side-mobile-picker">
+                  <select data-mobile-services aria-label="다른 개인서비스 선택">
+                    <option value="">다른 개인서비스</option>
+                    ${rest.map((s) => `<option value="${esc(s.key)}"${s.ready ? '' : ' disabled'}>${esc(s.label)}${s.ready ? '' : ' · 준비중'}</option>`).join('')}
+                  </select>
+                </label>` : ''}
+              </div>`
+            : ''
+        }
       </div>`;
     })
     .join('');
@@ -468,6 +483,15 @@ function renderSide() {
       document.body.classList.remove('side-open');
       const s = state.services.find((x) => x.key === btn.dataset.pop);
       if (s) openService(s, { newTab: true });
+    })
+  );
+  el('side').querySelectorAll('[data-mobile-services]').forEach((select) =>
+    select.addEventListener('change', () => {
+      const s = state.services.find((x) => x.key === select.value);
+      select.value = '';
+      if (!s) return;
+      document.body.classList.remove('side-open');
+      openService(s);
     })
   );
   el('side')
@@ -796,6 +820,8 @@ async function loadFeed(key, { fresh = false } = {}) {
  */
 function openService(s, { newTab = false } = {}) {
   if (!s.ready) return toast('아직 준비 중인 화면입니다.');
+  // 이 요청은 횟수만 올린다. 표시 순위는 서버의 하루 한 번 예약 작업에서 확정된다.
+  api(`/api/services/${encodeURIComponent(s.key)}/open`, { method: 'POST' }).catch(() => {});
 
   // 포털 안 화면(SNS 등)은 프레임에 담을 것이 아니라 그냥 그 화면으로 넘어간다.
   if (s.route) {
@@ -1356,7 +1382,7 @@ function renderMe(page) {
       <div class="table-wrap"><table class="data">
         <tbody>
           <tr><th>안드로이드</th><td>
-            홈화면의 <b>JAPIS</b> 아이콘을 <b>길게 누르면</b> 북마크 · Jaden wiki ·
+            홈화면의 <b>JAPIS</b> 아이콘을 <b>길게 누르면</b> 북마크 · Jaden Meno ·
             Play Lists · 대시보드가 뜹니다. 그중 하나를 <b>끌어다 홈화면에 놓으면</b>
             그 화면으로 바로 들어가는 아이콘이 섭니다.
           </td></tr>

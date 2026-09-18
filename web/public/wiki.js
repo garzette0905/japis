@@ -195,6 +195,7 @@ function paintSide() {
   );
   side.querySelectorAll('[data-go]').forEach((b) =>
     b.addEventListener('click', () => {
+      api(`/api/wiki/folders/${b.dataset.go}/open`, { method: 'POST' }).catch(() => {});
       Object.assign(wiki.view, { folder: b.dataset.go, starred: false, trash: false });
       paintSide();
       paintBar();

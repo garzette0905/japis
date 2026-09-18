@@ -78,6 +78,23 @@ CREATE TABLE IF NOT EXISTS access_log (
 CREATE INDEX IF NOT EXISTS idx_access_log_created ON access_log (created_at);
 CREATE INDEX IF NOT EXISTS idx_access_log_user ON access_log (user_id, created_at);
 
+-- 메뉴·북마크·메모 폴더의 사용량. 클릭 때는 click_count 만 바뀌고 하루 한 번
+-- sort_rank 를 확정한다. 화면 조회 때마다 순서가 바뀌지 않게 분리한 값이다.
+CREATE TABLE IF NOT EXISTS usage_rankings (
+  user_id            INTEGER NOT NULL,
+  item_type          TEXT    NOT NULL,
+  item_key           TEXT    NOT NULL,
+  click_count        INTEGER NOT NULL DEFAULT 0,
+  ranked_click_count INTEGER NOT NULL DEFAULT 0,
+  sort_rank          INTEGER NOT NULL DEFAULT 2147483647,
+  updated_at         TEXT    NOT NULL,
+  ranked_at          TEXT,
+  PRIMARY KEY (user_id, item_type, item_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_usage_rankings_order
+  ON usage_rankings (user_id, item_type, sort_rank);
+
 -- 생체인증(WebAuthn 패스키). 여기 있는 것은 **공개키뿐**이다 — 지문도, 개인키도
 -- 휴대폰의 보안칩 밖으로 나오지 않는다. 이 표가 통째로 새어도 남의 계정으로
 -- 로그인할 재료가 되지 않는다.
