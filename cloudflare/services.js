@@ -107,13 +107,13 @@ export const SERVICES = [
     // 기기마다 따로 놀고 회사 컴퓨터와 집 컴퓨터가 서로를 모른다. 여기 것은 D1에
     // 있으므로 어디서 들어와도 같은 목록이다.
     //
-    // **사내와 사외를 먼저 가른다.** 사내 주소는 회사 망 안에서만 열리므로, 밖에서
+    // **업무와 개인을 먼저 가른다.** 업무 주소는 회사 망 안에서만 열릴 수 있으므로,
     // 눌러 봐야 시간만 버린다 — 섞어 두지 않고 칸을 나눠 둔다. 폴더는 한 겹 더
     // 들어간다(하위 폴더).
     key: 'bookmarks',
     label: '북마크',
     group: 'personal',
-    desc: '사내·사외로 나눠 담는 주소록 — 폴더 안에 폴더까지',
+    desc: '업무·개인으로 나눠 담는 주소록 — 폴더 안에 폴더까지',
     url: '/#/bookmarks',
     route: '#/bookmarks',
     accent: 'teal',
@@ -171,19 +171,6 @@ export const SERVICES = [
     external: true,
   },
   {
-    key: 'timeline',            // key 는 그대로 둔다(권한표가 이 값으로 붙어 있다)
-    label: '타임라인',
-    group: 'personal',
-    desc: '이동 기록을 달력·지도로 되짚어 본다',
-    url: null,
-    repo: 'garzette0905/google-timeline',
-    accent: 'sky',
-    icon: '🗺️',
-    reauth: false,
-    external: true,
-  },
-
-  {
     // Play Lists — 가수를 적어 두고 그 아래 곡을 쌓는다.
     //
     // 스트리밍 서비스의 목록은 그 서비스 안에서만 산다 — 멜론에 담은 것은 유튜브에서
@@ -197,6 +184,30 @@ export const SERVICES = [
     route: '#/playlists',
     accent: 'pink',
     icon: '🎵',
+    reauth: false,
+    external: false,
+  },
+  // 아직 개발하지 않은 메뉴는 개인서비스 묶음의 마지막에 둔다.
+  {
+    key: 'timeline',            // key 는 그대로 둔다(권한표가 이 값으로 붙어 있다)
+    label: '타임라인',
+    group: 'personal',
+    desc: '이동 기록을 달력·지도로 되짚어 본다',
+    url: null,
+    repo: 'garzette0905/google-timeline',
+    accent: 'sky',
+    icon: '🗺️',
+    reauth: false,
+    external: true,
+  },
+  {
+    key: 'healthcheck',
+    label: '건강검진',
+    group: 'personal',
+    desc: '건강검진 기록을 모아 관리한다',
+    url: null,
+    accent: 'green',
+    icon: '♡',
     reauth: false,
     external: false,
   },

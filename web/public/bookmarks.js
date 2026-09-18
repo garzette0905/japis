@@ -17,7 +17,7 @@
 // <dialog> 한 벌로 통일한다 (wiki.js 가 같은 이유로 먼저 그렇게 했다).
 //
 // 화면의 얼개
-//   왼쪽 기둥  사내 / 사외 — 먼저 고르는 칸. 그 아래 폴더(하위 폴더는 한 겹 들여쓴다)
+//   왼쪽 기둥  업무 / 개인 — 먼저 고르는 칸. 그 아래 폴더(하위 폴더는 한 겹 들여쓴다)
 //   가운데     검색 + [담기] → 목록
 //
 // 서버는 cloudflare/bookmarks.js 다. 북마크는 D1(표)에 있으므로 회사 컴퓨터·집
@@ -27,7 +27,7 @@ import { el, esc, api, toast, when } from './util.js';
 import { ico } from './icons.js';
 
 const bm = {
-  // 사내·사외 중 어디를 보고 있었는지만 이 기기에 적어 둔다. **자료가 아니라
+  // 업무·개인 중 어디를 보고 있었는지만 이 기기에 적어 둔다. **자료가 아니라
   // 보던 자리**다 — 북마크 자체는 한 줄도 여기에 두지 않는다(전부 D1에 있다).
   scope: localStorage.getItem('bm.scope') === 'in' ? 'in' : 'out',
   folder: '',            // '' 전체 · 'none' 폴더 없음 · '<id>'
@@ -40,13 +40,13 @@ const bm = {
 
 let searchTimer = null;
 
-const SCOPE_LABEL = { in: '사내', out: '사외' };
+const SCOPE_LABEL = { in: '업무', out: '개인' };
 
 export async function renderBookmarks(page) {
   page.innerHTML = `
     <div class="page-head tight">
       <h1 class="page-title">북마크</h1>
-      <p class="page-lead">사내와 사외를 나눠 담습니다. 폴더 안에 폴더를 하나 더 둘 수 있습니다.</p>
+      <p class="page-lead">업무와 개인을 나눠 담습니다. 폴더 안에 폴더를 하나 더 둘 수 있습니다.</p>
     </div>
     <div class="bm">
       <aside class="bm-side" id="bm-side"></aside>
@@ -176,7 +176,7 @@ const askYes = ({ title, message, submit = '지우기' }) =>
   sheet({ title, body: `<p class="bm-sheet-lead">${message}</p>`, submit, danger: true });
 
 // ──────────────────────────────────────────────────────────────
-// 왼쪽 기둥 — 사내 · 사외 · 폴더
+// 왼쪽 기둥 — 업무 · 개인 · 폴더
 // ──────────────────────────────────────────────────────────────
 
 function paintSide() {
@@ -204,7 +204,7 @@ function paintSide() {
   const tree = tops.map((f) => row(f, 0) + kidsOf(f.id).map((k) => row(k, 1)).join('')).join('');
 
   side.innerHTML = `
-    <div class="bm-scope" role="tablist" aria-label="사내 · 사외">
+    <div class="bm-scope" role="tablist" aria-label="업무 · 개인">
       ${['out', 'in']
         .map(
           (k) => `<button class="bm-scope-btn${bm.scope === k ? ' is-on' : ''}" type="button" role="tab"
@@ -331,7 +331,7 @@ const folderOptions = (sel) =>
  */
 async function openBookmark(item = null) {
   const editing = !!item;
-  // 담을 때는 지금 보고 있는 칸(사내·사외·폴더)을 미리 골라 둔다 — 열어 둔 폴더에
+  // 담을 때는 지금 보고 있는 칸(업무·개인·폴더)을 미리 골라 둔다 — 열어 둔 폴더에
   // 담으려고 팝업에서 또 고르게 하지 않는다.
   const scope = editing ? item.scope : bm.scope;
   const folderId = editing ? item.folderId : /^\d+$/.test(bm.folder) ? Number(bm.folder) : '';
@@ -350,10 +350,10 @@ async function openBookmark(item = null) {
     </label>
     <div class="bm-f-pair">
       <label class="bm-f">
-        <span class="bm-f-label">사내 · 사외</span>
+        <span class="bm-f-label">업무 · 개인</span>
         <select class="bm-f-input" name="scope">
-          <option value="out"${scope === 'out' ? ' selected' : ''}>사외</option>
-          <option value="in"${scope === 'in' ? ' selected' : ''}>사내</option>
+          <option value="out"${scope === 'out' ? ' selected' : ''}>개인</option>
+          <option value="in"${scope === 'in' ? ' selected' : ''}>업무</option>
         </select>
       </label>
       <label class="bm-f">
@@ -407,7 +407,7 @@ async function openBookmark(item = null) {
       await api('/api/bookmarks', { method: 'POST', body: picked });
       toast('담았습니다.');
     }
-    // 담은 것이 보이는 칸으로 옮겨 준다 — 사내에 담았는데 사외 목록을 보고 있으면
+    // 담은 것이 보이는 칸으로 옮겨 준다 — 업무에 담았는데 개인 목록을 보고 있으면
     // "안 들어갔다"고 읽힌다.
     if (picked.scope !== bm.scope) {
       bm.scope = picked.scope;

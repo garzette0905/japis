@@ -44,7 +44,7 @@
     {
       "name": "북마크",
       "short_name": "북마크",
-      "description": "사내·사외로 나눠 담은 주소록을 연다",
+      "description": "업무·개인으로 나눠 담은 주소록을 연다",
       "url": "/#/bookmarks",
       "icons": [{ "src": "/shortcut-bookmarks.png", "sizes": "96x96", "type": "image/png" }]
     },
