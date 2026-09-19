@@ -5,6 +5,7 @@
   "description": "JAPIS — JAden Personal Intelligence Service (Cloudflare Worker 개인 포털)",
   "scripts": {
     "dev": "wrangler dev",
+    "test": "node --test --test-isolation=none",
     "deploy": "wrangler deploy",
     "db:local": "wrangler d1 execute japis-db --local --file=./schema.sql",
     "db:remote": "wrangler d1 execute japis-db --remote --file=./schema.sql"

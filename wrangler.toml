@@ -30,6 +30,11 @@ not_found_handling = "none"
 #   "없는 경로는 index.html" 규칙과 /go/<key> 게이트가 제대로 걸린다.
 run_worker_first = true
 
+# 대시보드의 자연어 입력을 읽는다. Workers AI 무료 할당량 안에서 우선 사용하고,
+# 모델 호출이 실패하거나 한도가 끝나면 cloudflare/ask.js 의 규칙 파서로 자동 복귀한다.
+[ai]
+binding = "AI"
+
 # 사용자·권한·접속기록 저장소 (D1/SQL). 스키마는 저장소 루트의 schema.sql 참고.
 #   생성:      npx wrangler d1 create japis-db
 #   스키마적용: npx wrangler d1 execute japis-db --remote --file=./schema.sql

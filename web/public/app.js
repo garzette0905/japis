@@ -1159,11 +1159,11 @@ function wireAsk(page) {
     }
     asking = false;
     out.innerHTML = askResultHtml(r);
-    // 방금 넣은 것이 '오늘' 칸에도 바로 보여야 한다. 서버의 캐시는 이미 버렸으니
-    // 화면이 들고 있던 것만 버리고 그 칸 하나를 다시 받아 온다.
+    // 저장 성공 뒤 해당 할 일/일정 칸을 한 번 강제 새로 고침한다. 서버도 캐시 삭제를
+    // 끝낸 뒤 응답하므로 저장 전 목록과 경합하지 않는다.
     if (r.ok && r.mode === 'created' && r.feedKey) {
       state.feeds.delete(r.feedKey);
-      loadFeed(r.feedKey);
+      await loadFeed(r.feedKey, { fresh: true });
     }
     out.querySelectorAll('[data-as]').forEach((b) =>
       b.addEventListener('click', () => send({ q: body.q, as: b.dataset.as, intent: 'create' }))
