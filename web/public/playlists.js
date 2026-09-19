@@ -260,9 +260,10 @@ function paintList() {
             <span class="pl-track-body">
               <span class="pl-track-top">
                 <span class="pl-track-title">${esc(t.title)}</span>
-                ${t.url ? `<a class="pl-play" href="${esc(t.url)}" target="_blank" rel="noopener noreferrer" title="들으러 가기">${ico('pop')} 듣기</a>` : ''}
+                ${t.url ? `<a class="pl-play" data-play="${t.id}" href="${esc(t.url)}" target="_blank" rel="noopener noreferrer" title="들으러 가기">${ico('pop')} 듣기</a>` : ''}
               </span>
               <span class="pl-track-sub">${esc(t.artistName || '')}${t.memo ? ` · ${esc(t.memo)}` : ''}</span>
+              <span class="pl-play-count" title="이 목록에서 듣기를 누른 횟수">${Number(t.playCount) || 0}회 들음</span>
             </span>
             <span class="pl-track-acts">
               <button class="pl-mini${t.starred ? ' is-on' : ''}" type="button" data-star="${t.id}"
@@ -273,6 +274,27 @@ function paintList() {
           </li>`
     )
     .join('')}</ul>`;
+
+  list.querySelectorAll('[data-play]').forEach((a) =>
+    a.addEventListener('click', async () => {
+      const t = pl.tracks.find((x) => x.id === Number(a.dataset.play));
+      if (!t) return;
+      try {
+        const r = await api(`/api/music/tracks/${t.id}/play`, { method: 'POST' });
+        t.playCount = r.track.playCount;
+        // 새 순위를 바로 보여 준다. 열린 음악 탭은 그대로 유지된다.
+        pl.tracks.sort((x, y) =>
+          Number(y.starred) - Number(x.starred) ||
+          (Number(y.playCount) || 0) - (Number(x.playCount) || 0) ||
+          String(x.artistName || '').localeCompare(String(y.artistName || ''), 'ko') ||
+          x.id - y.id
+        );
+        paintList();
+      } catch (e) {
+        toast(`재생 횟수를 기록하지 못했습니다: ${e.message}`);
+      }
+    })
+  );
 
   list.querySelectorAll('[data-star]').forEach((b) =>
     b.addEventListener('click', async () => {

@@ -24,3 +24,4 @@ npx wrangler d1 execute japis-db --remote --file=./migrations/00X_....sql
 | `006_bookmarks.sql` | 북마크 — `bookmark_folders` · `bookmarks` 두 표 (사내·사외, 하위 폴더) + 기존 wiki 사용자에게 권한 부여 |
 | `007_playlists.sql` | Play Lists — `music_artists` · `music_tracks` 두 표 + 권한 부여, 없어진 네이버 메모 권한 정리 |
 | `008_usage_rankings.sql` | 개인서비스·북마크·메모 폴더 클릭 누적 및 하루 단위 확정 순위 |
+| `009_music_play_counts.sql` | Play Lists 듣기 클릭 누적, FLO 스트리밍 횟수 메모를 초기값으로 한 번 이관 |

@@ -33,6 +33,7 @@ import {
   createTrack,
   updateTrack,
   deleteTrack,
+  playTrack,
 } from './music.js';
 import {
   listBookmarks,
@@ -1749,6 +1750,10 @@ export default {
       }
       if (path === '/api/music/tracks' && method === 'POST') {
         return requireMusic(request, env, (user) => createTrack(request, env, user.id));
+      }
+      const mTrackPlay = path.match(/^\/api\/music\/tracks\/(\d+)\/play$/);
+      if (mTrackPlay && method === 'POST') {
+        return requireMusic(request, env, (user) => playTrack(env, user.id, Number(mTrackPlay[1])));
       }
       const mTrack = path.match(/^\/api\/music\/tracks\/(\d+)$/);
       if (mTrack && method === 'PATCH') {

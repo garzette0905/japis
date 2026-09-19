@@ -108,6 +108,11 @@
 .pl-track-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .pl-track-title { font-weight: 700; letter-spacing: -.3px; }
 .pl-track-sub { font-size: 13px; color: var(--ink-muted); }
+.pl-play-count {
+  width: max-content;
+  font-size: 12px; font-variant-numeric: tabular-nums;
+  color: var(--ink-faint);
+}
 
 /* '듣기' — 주소를 적어 둔 곡에만 선다 */
 .pl-play {

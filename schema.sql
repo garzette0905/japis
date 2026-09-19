@@ -217,3 +217,36 @@ CREATE TABLE IF NOT EXISTS bookmarks (
 
 CREATE INDEX IF NOT EXISTS idx_bookmarks_user   ON bookmarks (user_id, scope, folder_id);
 CREATE INDEX IF NOT EXISTS idx_bookmarks_opened ON bookmarks (user_id, last_opened_at);
+
+-- ── Play Lists (가수와 곡) ─────────────────────────────────────────────
+-- 자세한 설계는 migrations/007_playlists.sql 과 009_music_play_counts.sql 참고.
+
+CREATE TABLE IF NOT EXISTS music_artists (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id    INTEGER NOT NULL,
+  name       TEXT    NOT NULL,
+  memo       TEXT    NOT NULL DEFAULT '',
+  created_at TEXT    NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_music_artists_user ON music_artists (user_id, name);
+
+CREATE TABLE IF NOT EXISTS music_tracks (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id        INTEGER NOT NULL,
+  artist_id      INTEGER NOT NULL,
+  title          TEXT    NOT NULL,
+  url            TEXT    NOT NULL DEFAULT '',
+  memo           TEXT    NOT NULL DEFAULT '',
+  starred        INTEGER NOT NULL DEFAULT 0,
+  sort_order     INTEGER NOT NULL DEFAULT 0,
+  play_count     INTEGER NOT NULL DEFAULT 0,
+  last_played_at TEXT,
+  created_at     TEXT    NOT NULL,
+  updated_at     TEXT    NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_music_tracks_user
+  ON music_tracks (user_id, artist_id, sort_order);
+CREATE INDEX IF NOT EXISTS idx_music_tracks_plays
+  ON music_tracks (user_id, starred DESC, play_count DESC);
