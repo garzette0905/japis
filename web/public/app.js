@@ -422,26 +422,11 @@ function renderSide() {
   const groups = menuGroups()
     .map((g) => {
       const items = state.services.filter((s) => s.group === g.key);
-      const topTwo = g.key === 'personal' ? items.filter((s) => s.ready).slice(0, 2) : [];
-      const rest = g.key === 'personal' ? items.filter((s) => !topTwo.includes(s)) : [];
       return `<div class="side-group">
         <a class="side-head${on('#/g/' + g.key)}" href="#/g/${g.key}">
           <span>${esc(g.label)}</span><span class="side-count">${items.length}</span>
         </a>
-        <ul class="side-list${g.key === 'personal' ? ' side-personal-desktop' : ''}">${items.map(row).join('')}</ul>
-        ${
-          g.key === 'personal'
-            ? `<div class="side-personal-mobile">
-                <ul class="side-list">${topTwo.map(row).join('')}</ul>
-                ${rest.length ? `<label class="side-mobile-picker">
-                  <select data-mobile-services aria-label="다른 개인서비스 선택">
-                    <option value="">다른 개인서비스</option>
-                    ${rest.map((s) => `<option value="${esc(s.key)}"${s.ready ? '' : ' disabled'}>${esc(s.label)}${s.ready ? '' : ' · 준비중'}</option>`).join('')}
-                  </select>
-                </label>` : ''}
-              </div>`
-            : ''
-        }
+        <ul class="side-list">${items.map(row).join('')}</ul>
       </div>`;
     })
     .join('');
@@ -483,15 +468,6 @@ function renderSide() {
       document.body.classList.remove('side-open');
       const s = state.services.find((x) => x.key === btn.dataset.pop);
       if (s) openService(s, { newTab: true });
-    })
-  );
-  el('side').querySelectorAll('[data-mobile-services]').forEach((select) =>
-    select.addEventListener('change', () => {
-      const s = state.services.find((x) => x.key === select.value);
-      select.value = '';
-      if (!s) return;
-      document.body.classList.remove('side-open');
-      openService(s);
     })
   );
   el('side')

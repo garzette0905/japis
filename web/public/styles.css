@@ -378,7 +378,6 @@ button { font-family: inherit; }
 .side-head.is-active { color: var(--primary); }
 
 .side-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
-.side-personal-mobile { display: none; }
 
 /* 한 줄 — 아이콘 + 이름, 그리고 손이 닿을 때만 나오는 ↗ */
 .side-row { position: relative; display: flex; align-items: center; }
@@ -956,13 +955,6 @@ table.data tr:last-child td { border-bottom: none; }
     transition: transform .18s ease;
   }
   body.side-open .side { transform: none; }
-  .side-personal-desktop { display: none; }
-  .side-personal-mobile { display: grid; gap: 6px; }
-  .side-mobile-picker select {
-    width: 100%; min-height: 38px; padding: 7px 30px 7px 8px;
-    border: 1px solid var(--hairline); background: var(--canvas); color: var(--ink);
-    border-radius: var(--r-input); font: inherit;
-  }
 
   .page { padding: var(--s-lg) var(--s-md) 48px; }
   .page-title { font-size: 30px; letter-spacing: -.75px; }

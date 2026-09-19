@@ -134,7 +134,7 @@ function paintSide() {
 
   const folders = wiki.folders
     .map(
-      (f) => `<li class="wiki-folder${on(plain && v.folder === String(f.id))}" data-folder="${f.id}">
+      (f, index) => `<li class="wiki-folder${index >= 2 ? ' wiki-folder-extra' : ''}${on(plain && v.folder === String(f.id))}" data-folder="${f.id}">
         <span class="wiki-folder-grip" data-grip="${f.id}" role="button" tabindex="0"
               title="끌어서 차례 바꾸기" aria-label="${esc(f.name)} 폴더 끌어서 옮기기">${ico('grip')}</span>
         <button class="wiki-folder-go" type="button" data-go="${f.id}">
@@ -168,6 +168,13 @@ function paintSide() {
       <button class="wiki-side-add" type="button" id="wiki-folder-add" title="폴더 만들기" aria-label="폴더 만들기">${ico('plus')}</button>
     </div>
     <ul class="wiki-folders">${folders || '<li class="wiki-side-empty">폴더가 없습니다</li>'}</ul>
+    ${wiki.folders.length > 2 ? `<label class="wiki-folder-picker">
+      <span class="wiki-folder-picker-label">다른 폴더</span>
+      <select id="wiki-folder-picker" aria-label="다른 폴더 선택">
+        <option value="">폴더 선택</option>
+        ${wiki.folders.slice(2).map((f) => `<option value="${f.id}"${v.folder === String(f.id) ? ' selected' : ''}>${esc(f.name)} (${f.count})</option>`).join('')}
+      </select>
+    </label>` : ''}
 
     <ul class="wiki-nav wiki-nav-foot">
       <li><button class="wiki-navitem${on(v.trash)}" type="button" data-nav="trash">
@@ -179,6 +186,15 @@ function paintSide() {
     location.hash = '#/wiki/new';
   });
   el('wiki-folder-add').addEventListener('click', addFolder);
+  el('wiki-folder-picker')?.addEventListener('change', (e) => {
+    const id = e.target.value;
+    if (!id) return;
+    api(`/api/wiki/folders/${id}/open`, { method: 'POST' }).catch(() => {});
+    Object.assign(wiki.view, { folder: id, starred: false, trash: false });
+    paintSide();
+    paintBar();
+    loadNotes();
+  });
 
   side.querySelectorAll('[data-nav]').forEach((b) =>
     b.addEventListener('click', () => {

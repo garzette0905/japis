@@ -48,6 +48,7 @@
   font-size: 12px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase;
   color: var(--ink-faint);
 }
+.wiki-folder-picker { display: none; }
 .wiki-side-add {
   width: 22px; height: 22px;
   display: grid; place-items: center;
@@ -472,6 +473,14 @@ body.wiki-resizing .wiki-ed-body { cursor: nwse-resize; }
   /* 폴더 목록을 세로 기둥에서 **가로로 흐르는 알약**으로. 세로로 세우면 메모가
      화면 밖으로 밀려난다 — 좁은 화면에서 주인공은 메모다. */
   .wiki-nav, .wiki-folders { display: flex; flex-wrap: wrap; gap: 4px; }
+  .wiki-folders .wiki-folder-extra { display: none; }
+  .wiki-folder-picker { display: grid; gap: 4px; margin-top: 6px; }
+  .wiki-folder-picker-label { font-size: 11px; color: var(--ink-muted); }
+  .wiki-folder-picker select {
+    width: 100%; min-height: 38px; padding: 7px 30px 7px 8px;
+    border: 1px solid var(--hairline); background: var(--canvas); color: var(--ink);
+    border-radius: var(--r-input); font: inherit;
+  }
   .wiki-nav-foot { width: 100%; margin-top: var(--s-xs); padding-top: var(--s-xs); }
   .wiki-navitem, .wiki-folder-go { width: auto; border: 1px solid var(--hairline); }
   .wiki-side-head { padding: 0; }
