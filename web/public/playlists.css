@@ -143,6 +143,11 @@
   .pl { grid-template-columns: minmax(0, 1fr); }
   .pl-side { position: static; }
   .pl-artists { max-height: 240px; overflow-y: auto; }
+  /* 가수를 고른 직후 곡 목록이 먼저 보이게 한다. 담는 입력칸은 목록 아래로 내린다. */
+  .pl-main { display: flex; flex-direction: column; }
+  .pl-list { order: 1; }
+  .pl-bar { order: 2; }
+  #pl-new { order: 3; }
   /* 손가락에는 '손을 올리면 나오는' 단추가 없다 */
   .pl-artist-acts, .pl-track .pl-mini { opacity: 1; }
 }

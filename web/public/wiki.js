@@ -853,7 +853,11 @@ async function openEditor(page, id) {
   wireEditor();
   paintShareButton();
   markSaved(note.updatedAt ? '저장됨 · ' + when(note.updatedAt) : '');
-  el(id ? 'ed-body' : 'ed-title').focus();
+  // 모바일에서는 자동 포커스가 곧 소프트 키보드 호출이다. 메모를 여는 첫 순간에는
+  // 내용을 온전히 보여주고, 사용자가 제목이나 본문을 직접 누를 때만 키보드를 연다.
+  if (!window.matchMedia('(max-width: 860px)').matches) {
+    el(id ? 'ed-body' : 'ed-title').focus();
+  }
 }
 
 // ---------- 서식 단추 ----------

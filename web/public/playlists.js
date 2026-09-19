@@ -21,6 +21,13 @@ const pl = {
 
 let searchTimer = null;
 
+/** 별도 국적 정보가 없으므로 한글 이름을 한국 가수로 보고 먼저 세운다. */
+const koreanFirst = (artists) => [...artists].sort((a, b) => {
+  const ak = /^[가-힣]/.test(String(a.name || '').trim());
+  const bk = /^[가-힣]/.test(String(b.name || '').trim());
+  return Number(bk) - Number(ak) || String(a.name).localeCompare(String(b.name), 'ko');
+});
+
 export async function renderPlaylists(page) {
   page.innerHTML = `
     <div class="page-head tight">
@@ -46,7 +53,7 @@ async function load() {
   else if (pl.artist) q.set('artist', pl.artist);
   try {
     const r = await api(`/api/music?${q}`);
-    pl.artists = r.artists || [];
+    pl.artists = koreanFirst(r.artists || []);
     pl.tracks = r.tracks || [];
     pl.total = r.total || 0;
   } catch (e) {
@@ -231,7 +238,7 @@ function paintList() {
   if (!pl.tracks.length) {
     list.innerHTML = `<div class="empty"><div class="empty-icon">${ico('playlists')}</div>
       <strong>${pl.q ? '찾는 곡이 없습니다.' : '아직 담아 둔 곡이 없습니다.'}</strong>
-      <p>${pl.q ? '다른 낱말로 찾아보세요.' : '위 칸에 가수와 곡을 적고 담기를 누르세요.'}</p></div>`;
+      <p>${pl.q ? '다른 낱말로 찾아보세요.' : '곡 담기 칸에 가수와 곡을 적고 담기를 누르세요.'}</p></div>`;
     return;
   }
 
