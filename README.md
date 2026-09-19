@@ -261,7 +261,7 @@ push하면 끝입니다. DB 마이그레이션이 필요 없습니다.
 | 개인서비스 | 가계부 | https://gagyebu.wepiclab.workers.dev/ |
 | 개인서비스 | 카드모아 | https://cardmoa.wepiclab.workers.dev |
 | 개인서비스 | Taylor Bookshelf | https://taylor-bookshelf.pages.dev |
-| 개인서비스 | 타임라인 | 준비중 (저장소만 있음) |
+| 개인서비스 | 타임라인 | `timeline.wepiclab.workers.dev` |
 | 개인서비스 | Play Lists | 포털 안 화면 — 가수·곡 (`#/playlists`) |
 | 홈페이지 | Julie | https://julieenglish.co.kr |
 | 홈페이지 | SNS | 포털 안 화면 — 인스타그램·Threads·Facebook·Telegram·X·LinkedIn·다모앙 |

@@ -187,19 +187,19 @@ export const SERVICES = [
     reauth: false,
     external: false,
   },
-  // 아직 개발하지 않은 메뉴는 개인서비스 묶음의 마지막에 둔다.
   {
     key: 'timeline',            // key 는 그대로 둔다(권한표가 이 값으로 붙어 있다)
     label: '타임라인',
     group: 'personal',
     desc: '이동 기록을 달력·지도로 되짚어 본다',
-    url: null,
+    url: 'https://timeline.wepiclab.workers.dev/',
     repo: 'garzette0905/google-timeline',
     accent: 'sky',
     icon: '🗺️',
     reauth: false,
     external: true,
   },
+  // 아직 개발하지 않은 메뉴는 개인서비스 묶음의 마지막에 둔다.
   {
     key: 'healthcheck',
     label: '건강검진',

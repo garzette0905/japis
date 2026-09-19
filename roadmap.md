@@ -464,7 +464,7 @@ HTML5 의 `draggable` 을 쓰지 않았다. 그것은 마우스에만 있는 기
 | `007_playlists.sql` 을 운영 D1 에 적용 | `npx wrangler d1 execute japis-db --remote --file=./migrations/007_playlists.sql` |
 | SNS 6곳을 본인 계정·채널 주소로 | [cloudflare/services.js](cloudflare/services.js) `sns.links` |
 | Word Writer 배포 후 **Prompt Builder 주소** 적기 | [cloudflare/services.js](cloudflare/services.js) `wordwriter.url` |
-| 타임라인 배포 후 주소 적기 | [cloudflare/services.js](cloudflare/services.js) `timeline.url` |
+| 타임라인 배포 후 주소 적기 | 완료 — `https://timeline.wepiclab.workers.dev/` |
 
 ### 그다음
 
