@@ -1,0 +1,248 @@
+/* ============================================================================
+   헬스정보 · 인바디·혈액 — 검사 결과 화면의 스타일
+   ----------------------------------------------------------------------------
+   본 화면의 규칙(styles.css)을 그대로 따른다: 담는 것은 각지게, 누르는 것은 알약,
+   그림자 없이 1px 실선 하나로 깊이를 낸다.
+
+   이 화면만의 규칙이 하나 더 있다 — **색이 곧 판정이다.**
+   검사표에서 눈이 찾는 것은 값이 아니라 "이게 괜찮은 값인가"다. 그래서 빨강은
+   범위를 벗어난 줄에만 서고, 초록은 '좋은 쪽으로 움직였다'에만 선다. 그 둘
+   말고는 이 화면에 색이 없다 — 색이 흔하면 빨강을 못 찾는다.
+   ========================================================================== */
+
+.hp, .hl { display: flex; flex-direction: column; gap: var(--s-lg); }
+.hp-loading, .hp-empty { padding: var(--s-lg); color: var(--ink-muted); font-size: 14px; }
+.hp-blank { padding: var(--s-xl); border: 1px solid var(--hairline); background: var(--surface); }
+.hp-blank p { margin: 0 0 6px; font-size: 14px; }
+
+/* 작은 단추 — 표 안과 카드 머리에만 선다 */
+.btn-sm { padding: 6px 12px; font-size: 13px; }
+.btn-primary.is-danger { background: var(--sale); border-color: var(--sale); }
+
+/* ── 연도 칩 ───────────────────────────────────────────────────────────
+   연도가 먼저 크게 보이고 월일이 그 아래 작게 붙는다. 검진은 해로 기억하지
+   날짜로 기억하지 않는다. 벗어난 항목 수는 빨간 배지로 칩 위에 얹는다. */
+.hp-year-row { display: flex; gap: var(--s-xs); flex-wrap: wrap; align-items: stretch; }
+.hp-year {
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-width: 78px; padding: 8px 14px;
+  border: 1px solid var(--hairline); background: var(--surface);
+  border-radius: var(--r-pill); cursor: pointer;
+  font: inherit; color: var(--ink-secondary);
+}
+.hp-year:hover { border-color: var(--ink); }
+.hp-year.is-on { background: var(--ink); border-color: var(--ink); color: #fff; }
+.hp-year-n { font-size: 16px; font-weight: 600; letter-spacing: -.3px; }
+.hp-year-d { font-size: 11px; opacity: .72; }
+.hp-year-bad {
+  position: absolute; top: -5px; right: -3px;
+  min-width: 18px; height: 18px; padding: 0 5px;
+  display: grid; place-items: center;
+  border-radius: var(--r-pill); background: var(--a-red); color: #fff;
+  font-size: 11px; font-weight: 600;
+}
+.hp-year.is-add { min-width: 44px; color: var(--ink-muted); }
+.hp-year.is-add .ico { width: 16px; height: 16px; }
+
+/* ── 요약 ─────────────────────────────────────────────────────────────── */
+.hp-sum { border: 1px solid var(--hairline); background: var(--surface); padding: var(--s-lg); }
+.hp-sum-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s-md); flex-wrap: wrap; }
+.hp-sum-title { margin: 0; font-size: 22px; letter-spacing: -.5px; }
+.hp-sum-sub { margin: 4px 0 0; font-size: 13px; color: var(--ink-muted); }
+.hp-sum-act { display: flex; gap: var(--s-xs); align-items: center; }
+.hp-sum-memo {
+  margin: var(--s-sm) 0 0; padding: 10px 12px;
+  background: var(--canvas-soft); font-size: 13px; color: var(--ink-secondary); line-height: 1.6;
+}
+.hp-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1px; margin-top: var(--s-md); background: var(--hairline); border: 1px solid var(--hairline); }
+.hp-tile { background: var(--surface); padding: var(--s-sm) var(--s-md); display: flex; flex-direction: column; gap: 2px; }
+.hp-tile-l { font-size: 12px; color: var(--ink-muted); }
+.hp-tile-v { font-size: 24px; letter-spacing: -.5px; }
+.hp-tile-s { font-size: 12px; color: var(--ink-faint); }
+
+/* ── 지켜볼 항목 ──────────────────────────────────────────────────────
+   범위를 벗어난 줄만 모아 맨 위에 세운다. 백오십 줄짜리 표에서 그 여덟 줄을
+   스스로 찾아내게 하지 않는다. */
+.hp-watch { border: 1px solid var(--a-red); border-left-width: 3px; background: var(--surface); padding: var(--s-md) var(--s-lg); }
+.hp-watch.is-clear { border-color: var(--hairline); border-left-color: var(--success); display: flex; align-items: center; gap: var(--s-xs); font-size: 14px; color: var(--ink-secondary); }
+.hp-watch.is-clear .ico { width: 16px; height: 16px; color: var(--success); }
+.hp-watch-title { margin: 0 0 var(--s-sm); font-size: 14px; letter-spacing: -.2px; }
+.hp-watch-title span { color: var(--a-red); }
+.hp-watch-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.hp-watch-item {
+  display: flex; align-items: center; gap: var(--s-xs); flex-wrap: wrap;
+  padding: 7px 0; border-top: 1px solid var(--hairline-soft); font-size: 13px;
+}
+.hp-watch-item:first-child { border-top: 0; }
+.hp-watch-cat { font-size: 11px; color: var(--ink-faint); }
+.hp-watch-v { font-weight: 600; font-variant-numeric: tabular-nums; }
+.hp-watch-ref { font-size: 12px; color: var(--ink-faint); }
+
+/* ── 판정 알약 · 증감 ─────────────────────────────────────────────────── */
+.hp-flag {
+  display: inline-block; padding: 1px 7px; border-radius: var(--r-pill);
+  font-size: 11px; font-weight: 600; line-height: 1.6; white-space: nowrap;
+}
+.hp-flag.is-hi { background: color-mix(in srgb, var(--a-red) 13%, transparent); color: var(--a-red); }
+.hp-flag.is-lo { background: color-mix(in srgb, var(--info) 13%, transparent); color: var(--info); }
+.hp-delta { font-size: 11px; color: var(--ink-faint); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.hp-delta.is-good { color: var(--success); }
+.hp-delta.is-bad { color: var(--a-red); }
+
+/* ── 분류 섹션 ────────────────────────────────────────────────────────
+   기본은 접어 둔다. 열여섯 묶음을 전부 펼치면 이번 회차를 훑는 데 스크롤을
+   백 번 굴려야 한다 — 눈이 필요한 묶음만 연다. */
+.hp-groups { display: flex; flex-direction: column; gap: 1px; background: var(--hairline); border: 1px solid var(--hairline); }
+.hp-group { background: var(--surface); }
+.hp-group-head {
+  width: 100%; display: flex; align-items: center; gap: var(--s-xs);
+  padding: 13px var(--s-md); border: 0; background: none; cursor: pointer;
+  font: inherit; text-align: left; color: var(--ink);
+}
+.hp-group-head:hover { background: var(--canvas-soft); }
+.hp-group-name { font-size: 15px; font-weight: 600; letter-spacing: -.2px; flex: none; }
+.hp-group-hint { font-size: 12px; color: var(--ink-faint); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hp-group-n, .hp-group-bad {
+  flex: none; min-width: 22px; padding: 1px 7px; border-radius: var(--r-pill);
+  font-size: 11px; font-weight: 600; text-align: center;
+}
+.hp-group-n { background: var(--canvas-soft); color: var(--ink-muted); }
+.hp-group-bad { background: var(--a-red); color: #fff; }
+.hp-caret { flex: none; display: grid; place-items: center; transform: rotate(180deg); transition: transform .15s ease; }
+.hp-caret .ico { width: 14px; height: 14px; color: var(--ink-faint); }
+.hp-group.is-open .hp-caret { transform: rotate(-90deg); }
+.hp-table-wrap { display: none; overflow-x: auto; border-top: 1px solid var(--hairline-soft); }
+.hp-group.is-open .hp-table-wrap { display: block; }
+
+/* ── 결과표 — 결과지와 같은 모양 ──────────────────────────────────────
+   항목 | 참고범위 | 이번 | 지난번 | 그 전. 병원 종이가 이 차례라서 이 차례다. */
+.hp-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.hp-table th, .hp-table td { padding: 8px 10px; text-align: left; vertical-align: top; border-top: 1px solid var(--hairline-soft); }
+.hp-table thead th {
+  position: sticky; top: 0; z-index: 1;
+  border-top: 0; background: var(--canvas-soft);
+  font-size: 11px; font-weight: 600; color: var(--ink-muted); white-space: nowrap;
+}
+.hp-table tbody tr.is-off { background: color-mix(in srgb, var(--a-red) 4%, transparent); }
+.hp-table .hp-n { width: 34%; min-width: 180px; font-weight: 400; }
+.hp-table .hp-r { width: 14%; min-width: 88px; color: var(--ink-faint); font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.hp-table .hp-v { min-width: 96px; font-variant-numeric: tabular-nums; color: var(--ink-muted); }
+.hp-table .hp-v.is-now { color: var(--ink); }
+.hp-val { font-weight: 600; margin-right: 5px; }
+.hp-name {
+  border: 0; background: none; padding: 0; font: inherit; cursor: pointer;
+  color: var(--ink); text-align: left; font-weight: 600;
+}
+.hp-name:hover { text-decoration: underline; }
+.hp-en { display: block; font-size: 11px; color: var(--ink-faint); }
+.hp-unit { color: var(--ink-faint); font-weight: 400; }
+
+.hp-disclaimer {
+  margin: 0; padding: var(--s-md);
+  border: 1px solid var(--hairline); background: var(--canvas-soft);
+  font-size: 12px; color: var(--ink-muted); line-height: 1.7;
+}
+
+/* ── 추이 카드 ────────────────────────────────────────────────────────── */
+.hp-trend-card { border: 1px solid var(--hairline); background: var(--surface); padding: var(--s-lg); }
+.hp-trend-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--s-sm); }
+.hp-trend-title { margin: 0; font-size: 20px; letter-spacing: -.4px; }
+.hp-trend-sub { margin: 3px 0 0; font-size: 12px; color: var(--ink-muted); }
+.hp-trend-n { flex: none; font-size: 12px; color: var(--ink-faint); }
+.hp-trend-memo { margin: var(--s-sm) 0 0; font-size: 13px; color: var(--ink-secondary); }
+.hp-trend-table { margin-top: var(--s-sm); }
+.hp-trend-table thead th { position: static; }
+
+/* 선 하나 — 참고범위를 띠로 깔고 그 위에 값을 잇는다.
+   값만 이어 놓으면 오르내림은 보여도 그것이 괜찮은 수치인지는 안 보인다. */
+.hp-chart { width: 100%; height: auto; aspect-ratio: 720 / 210; margin: var(--s-md) 0 0; display: block; overflow: visible; }
+.hp-band { fill: color-mix(in srgb, var(--success) 9%, transparent); }
+.hp-axis { stroke: var(--hairline); stroke-width: 1; }
+.hp-line { fill: none; stroke: var(--ink); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.hp-dot { fill: var(--surface); stroke: var(--ink); stroke-width: 2; }
+.hp-dot.is-bad { fill: var(--a-red); stroke: var(--a-red); }
+.hp-vx { font-size: 11px; fill: var(--ink); text-anchor: middle; font-weight: 600; }
+.hp-ax { font-size: 10px; fill: var(--ink-faint); text-anchor: middle; }
+
+/* ── 인바디·혈액 — 왼쪽에서 항목을 고르고 오른쪽에서 길게 본다 ────────── */
+.hl { display: grid; grid-template-columns: 236px minmax(0, 1fr); gap: var(--s-lg); align-items: start; }
+.hl-side { border: 1px solid var(--hairline); background: var(--surface); position: sticky; top: var(--s-md); }
+.hl-tabs { display: flex; border-bottom: 1px solid var(--hairline); }
+.hl-tab {
+  flex: 1; padding: 11px 8px; border: 0; background: none; cursor: pointer;
+  font: inherit; font-size: 13px; font-weight: 600; color: var(--ink-muted);
+  border-bottom: 2px solid transparent;
+}
+.hl-tab.is-on { color: var(--ink); border-bottom-color: var(--ink); }
+.hl-codes { max-height: 62vh; overflow-y: auto; padding: var(--s-xs) 0; }
+.hl-cat h4 { margin: var(--s-sm) var(--s-md) 4px; font-size: 11px; color: var(--ink-faint); font-weight: 600; }
+.hl-cat ul { list-style: none; margin: 0; padding: 0; }
+.hl-code {
+  width: 100%; display: flex; align-items: baseline; justify-content: space-between; gap: 6px;
+  padding: 6px var(--s-md); border: 0; background: none; cursor: pointer;
+  font: inherit; font-size: 13px; text-align: left; color: var(--ink-secondary);
+}
+.hl-code em { font-style: normal; font-size: 11px; color: var(--ink-faint); flex: none; }
+.hl-code:hover { background: var(--canvas-soft); }
+.hl-code.is-on { background: var(--ink); color: #fff; }
+.hl-code.is-on em { color: rgba(255,255,255,.66); }
+.hl-main { display: flex; flex-direction: column; gap: var(--s-lg); min-width: 0; }
+
+.hl-exams { border: 1px solid var(--hairline); background: var(--surface); }
+.hl-exams-head { display: flex; align-items: center; justify-content: space-between; gap: var(--s-sm); padding: var(--s-sm) var(--s-md); border-bottom: 1px solid var(--hairline); }
+.hl-exams-head h3 { margin: 0; font-size: 14px; letter-spacing: -.2px; }
+.hl-exam-list { list-style: none; margin: 0; padding: 0; }
+.hl-exam { display: flex; align-items: center; gap: var(--s-xs); flex-wrap: wrap; padding: 9px var(--s-md); border-top: 1px solid var(--hairline-soft); font-size: 13px; }
+.hl-exam:first-child { border-top: 0; }
+.hl-exam-kind { flex: none; padding: 1px 8px; border-radius: var(--r-pill); font-size: 11px; font-weight: 600; background: var(--canvas-soft); color: var(--ink-muted); }
+.hl-exam-kind.kind-inbody { background: color-mix(in srgb, var(--a-teal) 13%, transparent); color: var(--a-teal); }
+.hl-exam-kind.kind-blood { background: color-mix(in srgb, var(--a-red) 11%, transparent); color: var(--a-red); }
+.hl-exam-date { font-variant-numeric: tabular-nums; font-weight: 600; }
+.hl-exam-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-muted); }
+.hl-exam-n { font-size: 12px; color: var(--ink-faint); }
+
+/* ── 묻는 창 ──────────────────────────────────────────────────────────
+   window.prompt/confirm 은 설치한 웹앱과 앱 안 브라우저에서 조용히 무시된다.
+   그래서 이 화면의 모든 물음은 <dialog> 다(메모·북마크와 같은 이유). */
+.hp-dialog {
+  border: 1px solid var(--hairline); background: var(--surface);
+  padding: 0; max-width: min(560px, calc(100vw - 32px)); width: 100%;
+  color: var(--ink);
+}
+.hp-dialog::backdrop { background: rgba(24, 23, 41, .42); }
+.hp-form { padding: var(--s-lg); display: flex; flex-direction: column; gap: var(--s-sm); }
+.hp-form .modal-title { margin: 0; font-size: 20px; letter-spacing: -.4px; }
+.hp-form .modal-lead { margin: 0; font-size: 13px; color: var(--ink-muted); line-height: 1.6; }
+.hp-form .modal-actions { display: flex; justify-content: flex-end; gap: var(--s-xs); margin-top: var(--s-xs); }
+.hp-dialog:has(.hp-form-wide) { max-width: min(880px, calc(100vw - 32px)); }
+.hp-form-body { max-height: 62vh; overflow-y: auto; display: flex; flex-direction: column; gap: var(--s-md); }
+
+.hp-fs { border: 1px solid var(--hairline); padding: var(--s-sm) var(--s-md) var(--s-md); margin: 0; }
+.hp-fs legend { padding: 0 6px; font-size: 12px; font-weight: 600; color: var(--ink-muted); }
+.hp-fs-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: var(--s-xs); }
+.hp-in { display: flex; flex-direction: column; gap: 3px; }
+.hp-in-l { font-size: 12px; color: var(--ink-secondary); }
+.hp-in-l em { font-style: normal; color: var(--ink-faint); }
+.hp-in input {
+  width: 100%; padding: 6px 9px; font: inherit; font-size: 13px;
+  border: 1px solid var(--hairline); background: var(--surface); color: var(--ink);
+  border-radius: var(--r-xs);
+}
+.hp-in input:focus { outline: 2px solid var(--ink); outline-offset: -1px; border-color: var(--ink); }
+
+/* ── 좁은 화면 ────────────────────────────────────────────────────────
+   휴대폰에서는 기둥을 접어 위아래로 세운다. 표는 가로로 굴린다 —
+   글자를 줄여 억지로 넣으면 숫자가 안 읽힌다. */
+@media (max-width: 900px) {
+  .hl { grid-template-columns: 1fr; }
+  .hl-side { position: static; }
+  .hl-codes { max-height: 240px; }
+}
+@media (max-width: 600px) {
+  .hp-sum, .hp-trend-card { padding: var(--s-md); }
+  .hp-sum-act { width: 100%; }
+  .hp-table .hp-n { min-width: 150px; }
+  .hp-fs-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+  .hp-year { min-width: 66px; padding: 7px 11px; }
+}

@@ -25,3 +25,5 @@ npx wrangler d1 execute japis-db --remote --file=./migrations/00X_....sql
 | `007_playlists.sql` | Play Lists — `music_artists` · `music_tracks` 두 표 + 권한 부여, 없어진 네이버 메모 권한 정리 |
 | `008_usage_rankings.sql` | 개인서비스·북마크·메모 폴더 클릭 누적 및 하루 단위 확정 순위 |
 | `009_music_play_counts.sql` | Play Lists 듣기 클릭 누적, FLO 스트리밍 횟수 메모를 초기값으로 한 번 이관 |
+| `010_health.sql` | 헬스정보 — `health_exams`·`health_metrics`·`health_results` 세 표 + 검사항목 이름표 170줄 + 권한 부여 |
+| `011_health_seed_2022_2024.sql` | 강북삼성병원 2024년 결과지에서 옮겨 적은 2022·2023·2024 종합검진과 2024 인바디 |

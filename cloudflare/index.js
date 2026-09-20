@@ -26,6 +26,15 @@ import {
 } from './connect.js';
 import { apiAsk } from './ask.js';
 import {
+  healthOverview,
+  examDetail,
+  trend as healthTrend,
+  createExam,
+  updateExam,
+  deleteExam,
+  putResults,
+} from './health.js';
+import {
   listMusic,
   createArtist,
   updateArtist,
@@ -531,6 +540,33 @@ const requireBookmarks = requireScreen('bookmarks');
 
 /** Play Lists 도 마찬가지 — 'playlists' 권한 하나가 문이다. */
 const requireMusic = requireScreen('playlists');
+
+/**
+ * 문이 **둘 중 하나**면 되는 자리.
+ *
+ * 헬스정보(연 1회 종합검진)와 인바디·혈액(수시 측정)은 화면이 둘이지만 표는
+ * 하나다 — 같은 `/api/health/*` 를 부른다. 그래서 둘 중 아무 화면이라도 열
+ * 수 있는 사람이면 통과시킨다. 하나만 켜 둔 사람에게 "권한이 없다"고 하면,
+ * 켜 둔 그 화면조차 빈 채로 뜬다.
+ */
+const requireAnyScreen = (...keys) => (request, env, handler) =>
+  requireLogin(request, env, async (user, sess) => {
+    let locked = false;
+    for (const key of keys) {
+      const perm = await permissionFor(env, user, serviceOf(key));
+      if (!perm.allowed) continue;
+      if (perm.reauth && !(await unlockedUntil(env, sess.sid, key))) {
+        locked = true;                       // 열 수는 있는데 잠겨 있다 — 다음 키를 마저 본다
+        continue;
+      }
+      return handler(user, sess);
+    }
+    if (locked) return fail('화면 잠금을 먼저 풀어주세요.', 403, { code: 'locked' });
+    return fail('이 화면을 볼 권한이 없습니다.', 403, { code: 'forbidden' });
+  });
+
+/** 헬스정보 · 인바디·혈액 — 화면은 둘, 표는 하나(health_exams · health_results). */
+const requireHealth = requireAnyScreen('healthcheck', 'bodylab');
 
 // ──────────────────────────────────────────────────────────────
 // 인증 API
@@ -1761,6 +1797,39 @@ export default {
       }
       if (mTrack && method === 'DELETE') {
         return requireMusic(request, env, (user) => deleteTrack(env, user.id, Number(mTrack[1])));
+      }
+
+      // ---- 헬스정보 (건강검진 · 인바디 · 혈액검사) ----
+      // 화면은 둘(헬스정보 · 인바디·혈액)이지만 표는 하나라 문도 하나로 묶는다.
+      if (path === '/api/health' && method === 'GET') {
+        return requireHealth(request, env, async (user) => json(await healthOverview(env, user.id, url)));
+      }
+      // 한 항목의 전 기간 — /api/health/trend?code=ldl&code=hdl
+      if (path === '/api/health/trend' && method === 'GET') {
+        return requireHealth(request, env, async (user) =>
+          json(await healthTrend(env, user.id, url.searchParams.getAll('code')))
+        );
+      }
+      if (path === '/api/health/exams' && method === 'POST') {
+        return requireHealth(request, env, (user) => createExam(request, env, user.id));
+      }
+      // 'exams/<번호>/results' 를 '<번호>' 보다 **먼저** 본다(더 긴 쪽이 앞이다).
+      const mHealthRes = path.match(/^\/api\/health\/exams\/(\d+)\/results$/);
+      if (mHealthRes && method === 'PUT') {
+        return requireHealth(request, env, (user) => putResults(request, env, user.id, Number(mHealthRes[1])));
+      }
+      const mHealthExam = path.match(/^\/api\/health\/exams\/(\d+)$/);
+      if (mHealthExam && method === 'GET') {
+        return requireHealth(request, env, async (user) => {
+          const d = await examDetail(env, user.id, Number(mHealthExam[1]));
+          return d ? json(d) : fail('없는 기록입니다.', 404);
+        });
+      }
+      if (mHealthExam && method === 'PATCH') {
+        return requireHealth(request, env, (user) => updateExam(request, env, user.id, Number(mHealthExam[1])));
+      }
+      if (mHealthExam && method === 'DELETE') {
+        return requireHealth(request, env, (user) => deleteExam(env, user.id, Number(mHealthExam[1])));
       }
 
       // ---- 관리자 ----

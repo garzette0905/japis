@@ -16,6 +16,7 @@ wepic·가계부와 **같은 얼개**입니다: Cloudflare Worker 하나가 백�
 | `cloudflare/wiki.js` | Jaden wiki(포털 안 메모) API — 목록·검색·사진·html 넣고 빼기 |
 | `cloudflare/bookmarks.js` | 북마크(사내·사외 주소록) API — 폴더·하위 폴더·검색 |
 | `cloudflare/music.js` | Play Lists(가수·곡) API |
+| `cloudflare/health.js` | 헬스정보·인바디·혈액 API — 검진 회차·검사항목 이름표·항목별 추이 |
 | `cloudflare/ask.js` | 대시보드 한 줄 입력칸 — 자연어를 읽어 일정·할일을 넣고 찾는다 |
 | `schema.sql` | 사용자·화면권한·접속기록 (D1) 스키마 |
 | `migrations/` | 이미 운영 중인 D1에 표·컬럼을 더하는 스크립트(한 번씩 실행) |

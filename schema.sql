@@ -250,3 +250,65 @@ CREATE INDEX IF NOT EXISTS idx_music_tracks_user
   ON music_tracks (user_id, artist_id, sort_order);
 CREATE INDEX IF NOT EXISTS idx_music_tracks_plays
   ON music_tracks (user_id, starred DESC, play_count DESC);
+
+-- ── 헬스정보 (건강검진 · 인바디 · 혈액검사) ───────────────────────────
+-- 자세한 설계는 migrations/010_health.sql 참고.
+--
+-- 표를 셋으로 나눈 이유 하나만 여기 적어 둔다: 결과지는 해마다 글자가 흔들리고
+-- (ALT · SGPT · 혈청지피티) 단위까지 흔들린다. 값 쪽에 이름을 적어 두면 10년치를
+-- 나란히 세울 수 없다 — 그래서 값에는 code 만, 이름·단위·참고범위는 이름표에.
+--
+-- ⚠️ health_metrics 의 **내용(검사항목 170줄)은 migrations/010 에 있다.**
+--    여기 CREATE TABLE 만 돌리면 빈 이름표가 생기고, 값을 넣을 수 없다.
+
+CREATE TABLE IF NOT EXISTS health_exams (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id    INTEGER NOT NULL,
+  exam_date  TEXT    NOT NULL,                  -- 'YYYY-MM-DD'
+  kind       TEXT    NOT NULL DEFAULT 'checkup',-- 'checkup' | 'inbody' | 'blood'
+  provider   TEXT    NOT NULL DEFAULT '',
+  title      TEXT    NOT NULL DEFAULT '',
+  memo       TEXT    NOT NULL DEFAULT '',
+  created_at TEXT    NOT NULL,
+  updated_at TEXT    NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_health_exams_one  ON health_exams (user_id, kind, exam_date);
+CREATE INDEX IF NOT EXISTS        idx_health_exams_user ON health_exams (user_id, kind, exam_date DESC);
+
+CREATE TABLE IF NOT EXISTS health_metrics (
+  code       TEXT    PRIMARY KEY,
+  name_ko    TEXT    NOT NULL,
+  name_en    TEXT    NOT NULL DEFAULT '',
+  unit       TEXT    NOT NULL DEFAULT '',
+  category   TEXT    NOT NULL,                  -- 분류 키. 이름은 cloudflare/health.js 의 CATEGORIES
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  ref_low    REAL,
+  ref_high   REAL,
+  ref_text   TEXT    NOT NULL DEFAULT '',
+  direction  TEXT    NOT NULL DEFAULT 'mid',    -- 'low' | 'high' | 'mid' | 'none'
+  value_type TEXT    NOT NULL DEFAULT 'num',    -- 'num' | 'text'
+  lab_group  TEXT,                              -- '인바디·혈액' 화면이 권하는 묶음
+  memo       TEXT    NOT NULL DEFAULT ''
+);
+
+CREATE INDEX IF NOT EXISTS idx_health_metrics_cat ON health_metrics (category, sort_order);
+
+CREATE TABLE IF NOT EXISTS health_results (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id    INTEGER NOT NULL,
+  exam_id    INTEGER NOT NULL,
+  code       TEXT    NOT NULL,
+  value_num  REAL,
+  value_text TEXT    NOT NULL DEFAULT '',
+  unit       TEXT    NOT NULL DEFAULT '',
+  -- 그 해 결과지가 적어 준 참고범위. 비어 있으면 이름표의 것을 쓴다.
+  ref_low    REAL,
+  ref_high   REAL,
+  ref_text   TEXT    NOT NULL DEFAULT '',
+  note       TEXT    NOT NULL DEFAULT '',
+  created_at TEXT    NOT NULL
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_health_results_one   ON health_results (exam_id, code);
+CREATE INDEX IF NOT EXISTS        idx_health_results_trend ON health_results (user_id, code);

@@ -9,6 +9,7 @@ import { $, el, esc, api, toast } from './util.js';
 import { renderWiki, wikiLeaving } from './wiki.js';
 import { renderBookmarks } from './bookmarks.js';
 import { renderPlaylists } from './playlists.js';
+import { renderHealth, renderBodylab } from './health.js';
 import { ico, serviceIco, brandIco } from './icons.js';
 
 const state = {
@@ -580,6 +581,22 @@ function route() {
       return;
     }
     return renderPlaylists(page);
+  }
+  // 헬스정보 — 연 1회 종합검진을 검사항목별 연도 트렌드로. 메모·북마크와 같은 얼개다.
+  if (hash === '#/health') {
+    if (!state.services.some((s) => s.key === 'healthcheck')) {
+      location.hash = '#/';
+      return;
+    }
+    return renderHealth(page);
+  }
+  // 인바디·혈액 — 검진과 검진 사이에 잰 것. 표는 헬스정보와 같고 화면만 다르다.
+  if (hash === '#/bodylab') {
+    if (!state.services.some((s) => s.key === 'bodylab')) {
+      location.hash = '#/';
+      return;
+    }
+    return renderBodylab(page);
   }
   if (hash === '#/me') return renderMe(page);
   if (state.me.role === 'admin') {

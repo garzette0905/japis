@@ -199,15 +199,40 @@ export const SERVICES = [
     reauth: false,
     external: true,
   },
-  // 아직 개발하지 않은 메뉴는 개인서비스 묶음의 마지막에 둔다.
   {
+    // 헬스정보 — 연 1회 종합검진을 **검사항목별 연도 트렌드**로 본다.
+    //
+    // 결과지 한 권은 그 해만 말한다. 공복혈당이 96 → 88 → 101 로 움직인 것은
+    // 세 권을 나란히 펴 놓아야 보이고, 그래서 아무도 보지 않는다. 여기서는
+    // 항목을 코드 하나로 모아 두므로(migrations/010) 한 줄로 이어진다.
+    //
+    // (key 는 그대로 둔다 — 예전 '건강검진' 자리의 권한 행이 이 값으로 붙어 있다.)
     key: 'healthcheck',
-    label: '건강검진',
+    label: '헬스정보',
     group: 'personal',
-    desc: '건강검진 기록을 모아 관리한다',
-    url: null,
-    accent: 'green',
+    desc: '건강검진 결과를 검사항목별 연도 트렌드로 본다',
+    url: '/#/health',
+    route: '#/health',
+    accent: 'red',
     icon: '♡',
+    reauth: false,
+    external: false,
+  },
+  {
+    // 인바디·혈액 — 검진과 검진 **사이**를 채우는 자리.
+    //
+    // 연 1회 검진은 점 세 개지만, 인바디와 피검사는 마음먹으면 달마다 잰다.
+    // 그것을 검진 화면에 섞으면 "올해 검진 결과"를 보러 들어와서 열두 줄을
+    // 헤치게 된다. 그래서 화면을 나눈다 — 표는 하나이고(같은 health_results),
+    // 트렌드 선에서는 검진에서 잰 값과 여기서 잰 값이 다시 만난다.
+    key: 'bodylab',
+    label: '인바디 · 혈액',
+    group: 'personal',
+    desc: '체성분과 피검사를 수시로 적고 항목별 추이를 본다',
+    url: '/#/bodylab',
+    route: '#/bodylab',
+    accent: 'red',
+    icon: '🩸',
     reauth: false,
     external: false,
   },
