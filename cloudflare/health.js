@@ -79,6 +79,24 @@ export function flagOf(num, low, high) {
 }
 
 /**
+ * 범위를 벗어난 것 중에서 **걱정할 쪽으로** 벗어났나.
+ *
+ * 2025년 검진의 HDL 61 이 이 함수를 있게 했다. 그 검사실의 참고범위가 40~60 이라
+ * 결과지에 ▲ 가 찍혔고, 화면도 '높음'이라고 적었다 — 거기까지는 맞다. 그런데
+ * HDL 은 **높아서 좋은 것**이다. 그것을 '지켜볼 항목'에 올려 두면, 정작 봐야 할
+ * LDL 옆에 걱정할 것 없는 줄이 나란히 서서 목록의 무게가 깎인다.
+ *
+ * 그래서 판정('높음'·'낮음')은 결과지 그대로 적되, **모아 세우는 것은 나쁜 쪽으로
+ * 벗어난 것만** 한다. 좋고 나쁨이 없는 항목(mid·none)은 어느 쪽이든 올린다.
+ */
+export function isConcerning(flag, direction) {
+  if (flag !== 'H' && flag !== 'L') return false;
+  if (direction === 'low') return flag === 'H';    // 콜레스테롤 — 높은 것만
+  if (direction === 'high') return flag === 'L';   // HDL·사구체여과율 — 낮은 것만
+  return true;                                      // 나트륨·칼륨 — 양쪽 다
+}
+
+/**
  * 전보다 좋아졌나. 'up'·'down' 은 **수치의 방향**, good 은 **몸에 좋은 방향인가**.
  * 두 가지를 따로 돌려주는 이유 — 화살표는 수치를 따르고, 색은 좋고 나쁨을 따른다.
  * (콜레스테롤이 내려간 것은 ↓ 인데 초록이어야 한다.)
@@ -177,7 +195,7 @@ export async function listExams(env, userId, kinds) {
 /** 그 회차의 벗어난 항목 수. 목록의 뱃지에 쓴다(전부 세면 질의가 무거워 한 번에 센다). */
 async function abnormalCounts(env, userId) {
   const { results } = await env.DB.prepare(
-    `SELECT r.exam_id, r.value_num,
+    `SELECT r.exam_id, r.value_num, m.direction,
             COALESCE(r.ref_low,  m.ref_low)  AS lo,
             COALESCE(r.ref_high, m.ref_high) AS hi
        FROM health_results r
@@ -188,7 +206,7 @@ async function abnormalCounts(env, userId) {
   const out = new Map();
   for (const r of results || []) {
     const f = flagOf(Number(r.value_num), r.lo ?? null, r.hi ?? null);
-    if (f === 'H' || f === 'L') out.set(r.exam_id, (out.get(r.exam_id) || 0) + 1);
+    if (isConcerning(f, r.direction)) out.set(r.exam_id, (out.get(r.exam_id) || 0) + 1);
   }
   return out;
 }
@@ -287,6 +305,7 @@ export async function examDetail(env, userId, id) {
           refHigh: cur.refHigh,
           refText: cur.refText,
           flag: cur.flag,
+          concerning: isConcerning(cur.flag, s.direction),
           delta: prev ? deltaOf(cur.num, prev.num, s.direction) : null,
           cells: cols.map((c) => {
             const v = s.values[c.id];
@@ -302,7 +321,7 @@ export async function examDetail(env, userId, id) {
   const watch = [];
   for (const g of groups) {
     for (const r of g.rows) {
-      if (r.flag === 'H' || r.flag === 'L') {
+      if (r.concerning) {
         watch.push({ code: r.code, name: r.name, category: g.key, categoryLabel: g.label, flag: r.flag, cells: r.cells, unit: r.unit, refText: r.refText, delta: r.delta });
       }
     }
@@ -377,6 +396,7 @@ export async function trend(env, userId, codes) {
       num: v.num,
       text: v.text,
       flag: v.flag,
+      concerning: isConcerning(v.flag, row.direction),
       // 그 회차에 실제로 쓴 참고범위. 검사실마다 다르므로 **점마다** 딸려 보낸다 —
       // 이름표의 범위 하나로 띠를 깔면, 띠 안에 있는 점이 '낮음'으로 찍히는
       // 모순이 화면에 그대로 뜬다(요산: 강북삼성 2.8~8.2 · GC Labs 3.4~7.0).

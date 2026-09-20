@@ -115,7 +115,7 @@ function chartSvg(series, { w = 720, h = 210 } = {}) {
 
   const dots = pts
     .map((p, i) => {
-      const bad = p.flag === 'H' || p.flag === 'L';
+      const bad = p.concerning === true;
       return `<circle class="hp-dot${bad ? ' is-bad' : ''}" cx="${x(i).toFixed(1)}" cy="${y(p.num).toFixed(1)}" r="4">
         <title>${esc(p.date)} · ${esc(num(p.num))}${esc(series.unit || '')}${bad ? ` (${FLAG_LABEL[p.flag]})` : ''}</title>
       </circle>`;
@@ -344,14 +344,14 @@ async function paintDetail() {
 }
 
 const countBadge = (g) => {
-  const bad = g.rows.filter((r) => r.flag === 'H' || r.flag === 'L').length;
+  const bad = g.rows.filter((r) => r.concerning).length;
   return bad
     ? `<span class="hp-group-bad">${bad}</span>`
     : `<span class="hp-group-n">${g.rows.length}</span>`;
 };
 
 function rowHtml(r, cols) {
-  return `<tr class="${r.flag === 'H' || r.flag === 'L' ? 'is-off' : ''}">
+  return `<tr class="${r.concerning ? 'is-off' : ''}">
     <th class="hp-n" scope="row">
       <button class="hp-name" type="button" data-trend="${esc(r.code)}" title="${esc(r.memo || r.nameEn || '')}">
         ${esc(r.name)}
@@ -528,7 +528,7 @@ function trendCardHtml(s) {
             .map((p, i) => {
               const before = pts[i + 1];
               const d = before ? deltaOfClient(p.num, before.num, s.direction) : null;
-              return `<tr class="${p.flag === 'H' || p.flag === 'L' ? 'is-off' : ''}">
+              return `<tr class="${p.concerning ? 'is-off' : ''}">
                 <td>${esc(ymd(p.date))}</td>
                 <td class="faint">${esc(p.kindLabel)}</td>
                 <td class="hp-val">${esc(p.num !== null ? num(p.num) : p.text)}</td>

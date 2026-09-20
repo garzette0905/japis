@@ -28,3 +28,4 @@ npx wrangler d1 execute japis-db --remote --file=./migrations/00X_....sql
 | `010_health.sql` | 헬스정보 — `health_exams`·`health_metrics`·`health_results` 세 표 + 검사항목 이름표 170줄 + 권한 부여 |
 | `011_health_seed_2022_2024.sql` | 강북삼성병원 2024년 결과지에서 옮겨 적은 2022·2023·2024 종합검진과 2024 인바디 |
 | `012_health_inbody_blood.sql` | '인바디·혈액' 별도 메뉴 철수, 인바디 상세 항목(세포내외수분·부위별 근육·체세포량 등) 보완, '혈액'을 결과지 스무 항목으로 좁힘, 2025-11-06 혈액검사·2026-04-30 인바디 |
+| `013_health_2025.sql` | 2025-09-02 종합검진(SCL — 병원이 바뀌어 참고범위를 행마다 기록), 혈액검사 4회(2023~2024), 인바디 10회(2024-11~2026-03, 그 중 한 번은 ACCUNIQ) |

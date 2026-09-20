@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { flagOf, deltaOf, CATEGORIES, KINDS } from './health.js';
+import { flagOf, deltaOf, isConcerning, CATEGORIES, KINDS } from './health.js';
 
 // ── 판정 ────────────────────────────────────────────────────────────────
 // 이 셈이 틀리면 화면의 '지켜볼 항목'이 통째로 거짓말이 된다. 경계값을 못 박아 둔다.
@@ -25,6 +25,25 @@ test('모르는 것은 정상이라고 적지 않는다', () => {
   assert.equal(flagOf(null, 0, 10), '');
   assert.equal(flagOf(27.0, null, null), '');
   assert.equal(flagOf(Number.NaN, 0, 10), '');
+});
+
+// ── 걱정할 쪽인가 ───────────────────────────────────────────────────────
+
+test('좋은 쪽으로 벗어난 것은 지켜볼 항목에 올리지 않는다', () => {
+  // 2025년 검진의 HDL 61 (그 검사실 기준 40~60). 결과지에 ▲ 가 찍혔고 화면도
+  // '높음'이라 적는다 — 다만 HDL 은 높아서 좋은 것이라 지켜볼 목록에는 없다.
+  assert.equal(isConcerning('H', 'high'), false);
+  assert.equal(isConcerning('L', 'high'), true);    // 사구체여과율이 낮은 것은 걱정
+
+  assert.equal(isConcerning('H', 'low'), true);     // LDL 이 높은 것은 걱정
+  assert.equal(isConcerning('L', 'low'), false);    // 콜레스테롤이 낮은 것은 아니다
+});
+
+test('좋고 나쁨이 없는 항목은 양쪽 다 올린다', () => {
+  assert.equal(isConcerning('H', 'mid'), true);
+  assert.equal(isConcerning('L', 'mid'), true);
+  assert.equal(isConcerning('N', 'mid'), false);
+  assert.equal(isConcerning('', 'low'), false);     // 판정하지 못한 것은 걱정하지 않는다
 });
 
 // ── 증감 ────────────────────────────────────────────────────────────────
