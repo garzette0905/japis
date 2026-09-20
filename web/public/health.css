@@ -178,9 +178,11 @@
 
 /* 선 하나 — 참고범위를 띠로 깔고 그 위에 값을 잇는다.
    값만 이어 놓으면 오르내림은 보여도 그것이 괜찮은 수치인지는 안 보인다. */
-.hp-chart { width: 100%; height: auto; aspect-ratio: 720 / 210; margin: var(--s-md) 0 0; display: block; overflow: visible; }
+.hp-chart { width: 100%; height: auto; aspect-ratio: 860 / 240; margin: var(--s-md) 0 0; display: block; overflow: visible; }
 .hp-band { fill: color-mix(in srgb, var(--success) 9%, transparent); }
 .hp-axis { stroke: var(--hairline); stroke-width: 1; }
+/* 해의 경계선. 가로축이 달력이라는 것을 이 선들이 말한다 */
+.hp-grid { stroke: var(--hairline-soft); stroke-width: 1; }
 .hp-line { fill: none; stroke: var(--ink); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
 .hp-dot { fill: var(--surface); stroke: var(--ink); stroke-width: 2; }
 .hp-dot.is-bad { fill: var(--a-red); stroke: var(--a-red); }

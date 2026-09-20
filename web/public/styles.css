@@ -50,6 +50,7 @@
   --a-sky:    #828fff;
   --a-brown:  #4c012d;
   --a-red:    #d92d20;
+  --a-gold:   #b58500;
 
   /* 모서리 — 담는 것은 0, 누르는 것은 알약. 그 사이는 없다 */
   --r-xs: 4px;  --r-sm: 6px;  --r-md: 8px;
@@ -413,6 +414,7 @@ button { font-family: inherit; }
 .side-ico.band-sky    { background: color-mix(in srgb, var(--a-sky)    18%, transparent); }
 .side-ico.band-brown  { background: color-mix(in srgb, var(--a-brown)  12%, transparent); }
 .side-ico.band-red    { background: color-mix(in srgb, var(--a-red)    14%, transparent); }
+.side-ico.band-gold   { background: color-mix(in srgb, var(--a-gold)   15%, transparent); }
 
 .side-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -580,6 +582,7 @@ body.frame-open .foot { display: none; }
 .tile-ico.band-sky    { background: color-mix(in srgb, var(--a-sky)    18%, transparent); }
 .tile-ico.band-brown  { background: color-mix(in srgb, var(--a-brown)  12%, transparent); }
 .tile-ico.band-red    { background: color-mix(in srgb, var(--a-red)    14%, transparent); }
+.tile-ico.band-gold   { background: color-mix(in srgb, var(--a-gold)   15%, transparent); }
 
 .tile-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -639,6 +642,7 @@ body.frame-open .foot { display: none; }
 .band-sky    { background: var(--a-sky); }
 .band-brown  { background: var(--a-brown); }
 .band-red    { background: var(--a-red); }
+.band-gold   { background: var(--a-gold); }
 
 .card-body { padding: var(--s-lg); display: flex; flex-direction: column; gap: 6px; flex: 1; }
 .card-top { display: flex; align-items: center; gap: var(--s-xs); }
@@ -1103,7 +1107,15 @@ table.data tr:last-child td { border-bottom: none; }
    나머지 그림이 회색 한 벌이라 줄이 고르게 서고, 그 사이에서 빨강 하나가 눈에
    먼저 걸린다. 색이 흔해지면 이 효과가 곧바로 사라지므로 더 늘리지 않는다.
    (고른 줄은 검정 바탕에 흰 그림이다 — 위의 is-active 규칙이 이것을 이긴다.) */
-.side-ico.band-red, .tile-ico.band-red { color: var(--a-red); }
+.side-ico.band-red,  .tile-ico.band-red  { color: var(--a-red); }
+.side-ico.band-gold, .tile-ico.band-gold { color: var(--a-gold); }
+
+/* 공식 마크는 **칸을 꽉 채운다.**
+   .ico 는 20px 고정이라 22px·28px 칸 안에서 저 혼자 작게 앉아 있었다. 선 그림은
+   그래도 티가 안 나지만, 제 판(둥근 사각)을 가진 마크는 칸과 어긋난 테두리가
+   그대로 보인다 — 상단 띠의 JAPIS 마크가 흐릿해 보이던 것이 이것이었다. */
+.side-ico .ico-brand, .tile-ico .ico-brand { width: 100%; height: 100%; }
+.nav-mark .ico-brand { width: 100%; height: 100%; border-radius: inherit; }
 /* 검정 줄이 곧 표시다. 왼쪽의 세로 막대는 두 번 말하는 것이라 걷어낸다 */
 .side-item.is-active::before, .side-row.is-here .side-item::before { display: none; }
 .side-row.is-soon .side-ico { opacity: .4; }

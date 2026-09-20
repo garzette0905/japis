@@ -28,6 +28,15 @@ const wrap = (inner) =>
         aria-hidden="true" focusable="false">${inner}</svg>`;
 
 /**
+ * 그림 파일로 된 마크를 24칸 안에 통째로 앉힌다.
+ *
+ * `meet` 이지 `slice` 가 아니다 — 제공자가 그려 둔 여백까지가 그 마크의 모양이다.
+ * 꽉 채우자고 잘라내면 봉투의 모서리나 구름의 아래쪽이 날아간다.
+ */
+const brandImage = (src) =>
+  `<image href="${src}" x="0" y="0" width="24" height="24" preserveAspectRatio="xMidYMid meet"/>`;
+
+/**
  * **공식 마크** — 남의 회사 것과 우리 앱 것.
  *
  * 위의 한 벌(SERVICE_ICONS·UI_ICONS)은 색을 품지 않는다. 그것이 옳은 자리가 있고,
@@ -61,6 +70,51 @@ const BRAND_ICONS = {
     '<path d="M13.615,13.615 A26,26 0 0 1 32,6 L32,19.5 A12.5,12.5 0 0 0 23.161,23.161 Z" fill="#c026d3"/>' +
     '<circle cx="32" cy="32" r="12.5" fill="#22304f"/><circle cx="32" cy="32" r="6.5" fill="#0b1220"/>' +
     '<circle cx="28.5" cy="28.5" r="2.6" fill="#eef4ff"/></g>',
+
+  // 가계부 — 제 favicon 그대로(보라 판 위에 오르는 막대 셋). 64칸을 24칸으로 줄인다
+  gagyebu:
+    '<g transform="scale(.375)">' +
+    '<rect width="64" height="64" rx="12" fill="#7132f5"/>' +
+    '<rect x="15" y="34" width="8" height="16" rx="3" fill="#fff"/>' +
+    '<rect x="28" y="26" width="8" height="24" rx="3" fill="#fff" opacity=".85"/>' +
+    '<rect x="41" y="16" width="8" height="34" rx="3" fill="#fff"/></g>',
+
+  // Taylor Bookshelf — 제 favicon 그대로(초록 판 위에 꽂힌 책 셋과 선반)
+  taylor:
+    '<g transform="scale(.5)">' +
+    '<rect width="48" height="48" rx="13" fill="#068b4a"/>' +
+    '<g fill="#fff">' +
+    '<rect x="12" y="12" width="6.5" height="21" rx="2.2"/>' +
+    '<rect x="21" y="12" width="6.5" height="21" rx="2.2" opacity=".72"/>' +
+    '<rect x="30.5" y="13.6" width="6.5" height="19.4" rx="2.2" opacity=".72" transform="rotate(11 33.75 23.3)"/>' +
+    '<rect x="10" y="34.5" width="28" height="3.6" rx="1.8"/>' +
+    '</g></g>',
+
+  // 타임라인 — 제 favicon 그대로(파랑·청록 판 위에 장소 핀과 지나온 눈금 두 줄)
+  timeline:
+    '<defs><linearGradient id="bi-tl" x1="4" y1="2" x2="58" y2="62" gradientUnits="userSpaceOnUse">' +
+    '<stop offset="0" stop-color="#1c64f2"/><stop offset="1" stop-color="#0f766e"/>' +
+    '</linearGradient></defs>' +
+    '<g transform="scale(.375)">' +
+    '<rect width="64" height="64" rx="15" fill="url(#bi-tl)"/>' +
+    '<path fill="#fff" fill-rule="evenodd" d="M32 38.5s-9.5-9.9-9.5-16.5a9.5 9.5 0 1 1 19 0c0 6.6-9.5 16.5-9.5 16.5zm0-12.6a3.9 3.9 0 1 0 0-7.8 3.9 3.9 0 0 0 0 7.8z"/>' +
+    '<path d="M19 47h26" fill="none" stroke="#fff" stroke-opacity=".6" stroke-width="4.5" stroke-linecap="round"/>' +
+    '<path d="M25 55h14" fill="none" stroke="#fff" stroke-opacity=".38" stroke-width="4.5" stroke-linecap="round"/>' +
+    '</g>',
+
+  // 줄리영어학원 — 그 홈페이지가 쓰는 마크 그대로
+  julie: brandImage('/brand/julie.png'),
+
+  // ── 남의 것 — 구글·마이크로소프트의 공식 제품 마크 ───────────────────
+  // 이 다섯은 손으로 다시 그리지 않고 **제공자가 배포하는 그림 파일**을 그대로 쓴다.
+  // 눈이 찾는 것은 '구글 메일'이라는 글자가 아니라 그 빨간 봉투이고, 그것은 조금만
+  // 어긋나도 곧바로 가짜처럼 보인다. 파일은 web/public/brand/ 에 함께 둔다 —
+  // 남의 CDN 을 걸어 두면 그쪽이 주소를 바꾸는 날 아이콘이 통째로 사라진다.
+  gphotos: brandImage('/brand/gphotos.png'),
+  gmail: brandImage('/brand/gmail.png'),
+  gcalendar: brandImage('/brand/gcalendar.png'),
+  gtasks: brandImage('/brand/gtasks.png'),
+  onedrive: brandImage('/brand/onedrive.png'),
 
   // 카드모아 — 제 아이콘 그대로(겹쳐 쌓은 카드)
   cardmoa:
@@ -158,8 +212,10 @@ const SERVICE_ICONS = {
     '<path d="M5.4 2.4h7.8L20.4 9.6v10.8a1.8 1.8 0 0 1-1.8 1.8H5.4a1.8 1.8 0 0 1-1.8-1.8V4.2a1.8 1.8 0 0 1 1.8-1.8Zm2 9.6v2h9.2v-2Zm0 4.4v2h6v-2Z"/>',
 
   // 책갈피 — 아래가 V 로 패인 리본
+  // 북마크 — 끼워 둔 리본 하나. 폭을 줄이고 아래 홈을 깊게 파서 22px 에서도
+  // 리본으로 읽히게 했다(예전 것은 너무 넓어 종잇장처럼 보였다).
   bookmarks:
-    '<path d="M6.4 2.6h11.2a1.8 1.8 0 0 1 1.8 1.8v16.4a.9.9 0 0 1-1.42.73L12 17.3l-5.98 4.23A.9.9 0 0 1 4.6 20.8V4.4a1.8 1.8 0 0 1 1.8-1.8Z"/>',
+    '<path d="M6.8 2.6h10.4a1.9 1.9 0 0 1 1.9 1.9v16.3a1 1 0 0 1-1.57.82L12 17.55l-5.53 4.07a1 1 0 0 1-1.57-.82V4.5a1.9 1.9 0 0 1 1.9-1.9Z"/>',
 
   // 음표 둘 — 목록이 아니라 '듣는 것'이라는 표
   playlists:
@@ -327,7 +383,7 @@ export const hasBrandIco = (name) => !!BRAND_ICONS[name];
 /** 그 회사(또는 우리 앱)의 공식 마크. 없으면 null — 부르는 쪽이 단색 그림으로 돌아간다. */
 export const brandIco = (name) => (BRAND_ICONS[name] ? wrapBrand(BRAND_ICONS[name]) : null);
 
-/** 화면 그림 — 제 공식 아이콘이 있으면 그것을 먼저 쓴다(wepic · 카드모아). */
+/** 화면 그림 — 제 공식 마크가 있으면 그것을 먼저 쓴다(wepic · 가계부 · 구글 넷 …). */
 export const serviceIco = (key) => brandIco(key) || wrap(SERVICE_ICONS[key] || UI_ICONS.dot);
 
 /** 포털 그림 하나. */

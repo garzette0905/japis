@@ -41,6 +41,10 @@ const num = (v) => (v === null || v === undefined ? '' : String(Math.round(v * 1
 const cellText = (c) => (c && c.num !== null && c.num !== undefined ? num(c.num) : c && c.text ? c.text : '');
 
 const ymd = (d) => String(d || '').replaceAll('-', '.');
+
+/** 'YYYY-MM-DD' → 시각. 그래프의 가로축이 달력이 되려면 날짜가 숫자여야 한다.
+ *  UTC 로 읽는다 — 이 날짜에는 시각이 없으므로 표준시가 바뀌어도 하루가 밀리지 않는다. */
+const tsOf = (d) => Date.parse(String(d || '') + 'T00:00:00Z');
 const yearOf = (d) => String(d || '').slice(0, 4);
 
 const flagPill = (flag) =>
@@ -71,15 +75,25 @@ const refLabel = (r) => {
  * 값만 이어 놓으면 오르내림은 보여도 **그것이 괜찮은 수치인지**는 보이지 않는다.
  * 그래서 참고범위를 연한 띠로 먼저 깔고, 선은 그 위에 얹는다 — 띠 밖으로 나간
  * 점만 빨갛게 찍는다. 눈이 먼저 찾는 것은 선의 모양이 아니라 띠를 벗어난 점이다.
+ *
+ * ── 가로축은 **달력**이다 ──────────────────────────────────────────────
+ * 처음에는 점을 고르게 벌려 놓았다. 검사를 1년에 한 번씩 꼬박꼬박 받았다면
+ * 그래도 됐겠지만, 실제로는 **띄엄띄엄 받았다** — 2019년에서 2021년까지는
+ * 한 해에 한 번, 2024년 말부터는 두세 달에 한 번. 고르게 벌려 놓으면 3년의
+ * 공백과 2개월의 간격이 화면에서 같은 너비를 차지해, 선의 기울기가 거짓말을
+ * 한다(3년에 걸쳐 천천히 오른 것이 두 달 만에 치솟은 것처럼 보인다).
+ *
+ * 그래서 가로축을 **연 단위 달력**으로 깔고, 점은 그 해 안의 제 날짜에 찍는다.
+ * 기울기가 곧 '얼마나 빨리 움직였나'가 된다.
  */
-function chartSvg(series, { w = 720, h = 210 } = {}) {
+function chartSvg(series, { w = 860, h = 240 } = {}) {
   const pts = (series.points || []).filter((p) => p.num !== null && p.num !== undefined);
   if (pts.length < 1) return '<p class="hp-empty">그릴 숫자가 아직 없습니다.</p>';
 
-  const padL = 18;
+  const padL = 14;
   const padR = 14;
-  const padT = 16;
-  const padB = 28;
+  const padT = 18;
+  const padB = 34;
   const iw = w - padL - padR;
   const ih = h - padT - padB;
 
@@ -90,8 +104,7 @@ function chartSvg(series, { w = 720, h = 210 } = {}) {
   const bandLow = last.refLow ?? series.refLow ?? null;
   const bandHigh = last.refHigh ?? series.refHigh ?? null;
 
-  const vals = pts.map((p) => p.num);
-  const cands = [...vals];
+  const cands = pts.map((p) => p.num);
   if (bandLow !== null) cands.push(bandLow);
   if (bandHigh !== null) cands.push(bandHigh);
   let lo = Math.min(...cands);
@@ -100,8 +113,31 @@ function chartSvg(series, { w = 720, h = 210 } = {}) {
   const room = (hi - lo) * 0.14;
   lo -= room; hi += room;
 
-  const x = (i) => padL + (pts.length === 1 ? iw / 2 : (iw * i) / (pts.length - 1));
+  // 가로축 — 첫 점의 해 1월 1일부터 마지막 점의 해 12월 31일까지. 해의 경계에
+  // 맞춰 끊어야 눈금이 '2019 · 2020 · 2021' 처럼 읽힌다(9월 16일부터 9월 2일까지가
+  // 아니라). 한 해가 칸 하나이고, 점은 그 칸 안의 제 자리에 앉는다.
+  const at = pts.map((p) => tsOf(p.date));
+  const yFirst = new Date(Math.min(...at)).getUTCFullYear();
+  const yLast = new Date(Math.max(...at)).getUTCFullYear();
+  const t0 = Date.UTC(yFirst, 0, 1);
+  const t1 = Date.UTC(yLast + 1, 0, 1);
+  const x = (t) => padL + (iw * (t - t0)) / (t1 - t0);
   const y = (v) => padT + ih - ((v - lo) / (hi - lo)) * ih;
+
+  const years = yLast - yFirst + 1;
+  const bandW = iw / years;
+  // 칸이 좁으면 해를 건너뛰며 적는다 — 이름표가 겹치면 아무것도 못 읽는다.
+  const yearStep = Math.max(1, Math.ceil(34 / bandW));
+
+  let grid = '';
+  let ticks = '';
+  for (let yr = yFirst; yr <= yLast; yr += 1) {
+    const gx = x(Date.UTC(yr, 0, 1));
+    if (yr > yFirst) grid += `<line class="hp-grid" x1="${gx.toFixed(1)}" y1="${padT}" x2="${gx.toFixed(1)}" y2="${padT + ih}"/>`;
+    if ((yr - yFirst) % yearStep === 0) {
+      ticks += `<text class="hp-ax" x="${(gx + bandW / 2).toFixed(1)}" y="${h - 11}">${yr}</text>`;
+    }
+  }
 
   // 참고범위 띠
   let band = '';
@@ -111,23 +147,40 @@ function chartSvg(series, { w = 720, h = 210 } = {}) {
     band = `<rect class="hp-band" x="${padL}" y="${bTop}" width="${iw}" height="${Math.max(1, bBot - bTop)}"/>`;
   }
 
-  const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(p.num).toFixed(1)}`).join(' ');
+  const px = pts.map((p) => x(tsOf(p.date)));
+  const py = pts.map((p) => y(p.num));
+
+  const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${px[i].toFixed(1)},${py[i].toFixed(1)}`).join(' ');
 
   const dots = pts
     .map((p, i) => {
       const bad = p.concerning === true;
-      return `<circle class="hp-dot${bad ? ' is-bad' : ''}" cx="${x(i).toFixed(1)}" cy="${y(p.num).toFixed(1)}" r="4">
-        <title>${esc(p.date)} · ${esc(num(p.num))}${esc(series.unit || '')}${bad ? ` (${FLAG_LABEL[p.flag]})` : ''}</title>
+      const r = pts.length > 14 ? 3.2 : 4;
+      return `<circle class="hp-dot${bad ? ' is-bad' : ''}" cx="${px[i].toFixed(1)}" cy="${py[i].toFixed(1)}" r="${r}">
+        <title>${esc(ymd(p.date))} · ${esc(num(p.num))}${esc(series.unit || '')}${p.kindLabel ? ` · ${esc(p.kindLabel)}` : ''}${p.flag && p.flag !== 'N' ? ` (${FLAG_LABEL[p.flag]})` : ''}</title>
       </circle>`;
     })
     .join('');
 
-  const labels = pts
-    .map((p, i) => `<text class="hp-vx" x="${x(i).toFixed(1)}" y="${(y(p.num) - 11).toFixed(1)}">${esc(num(p.num))}</text>`)
-    .join('');
+  // 값 이름표는 **자리가 나는 것만** 적는다. 두세 달 간격으로 잰 것들이 몰려 있는
+  // 구간에서 전부 적으면 숫자가 서로를 덮어 하나도 읽히지 않는다. 마지막 점은
+  // 언제나 적고(지금 값이 궁금해서 들어온다), 그 앞으로 거슬러 자리를 잡는다.
+  const MIN_GAP = 30;
+  const show = new Set([pts.length - 1]);
+  let taken = px[pts.length - 1];
+  for (let i = pts.length - 2; i >= 0; i -= 1) {
+    if (taken - px[i] >= MIN_GAP) {
+      show.add(i);
+      taken = px[i];
+    }
+  }
 
-  const axis = pts
-    .map((p, i) => `<text class="hp-ax" x="${x(i).toFixed(1)}" y="${h - 9}">${esc(ymd(p.date).slice(2))}</text>`)
+  const labels = pts
+    .map((p, i) =>
+      show.has(i)
+        ? `<text class="hp-vx" x="${px[i].toFixed(1)}" y="${(py[i] - 11).toFixed(1)}">${esc(num(p.num))}</text>`
+        : ''
+    )
     .join('');
 
   // 세로축에 눈금 숫자를 적지 않는다 — 점마다 값이 이미 붙어 있고, 괜찮은 구간은
@@ -135,10 +188,10 @@ function chartSvg(series, { w = 720, h = 210 } = {}) {
   // preserveAspectRatio 도 건드리지 않는다: 'none' 으로 늘리면 글자까지 함께 늘어난다.
   return `<svg class="hp-chart" viewBox="0 0 ${w} ${h}" role="img"
                aria-label="${esc(series.name)} 추이">
-    ${band}
+    ${band}${grid}
     <line class="hp-axis" x1="${padL}" y1="${padT + ih}" x2="${w - padR}" y2="${padT + ih}"/>
     <path class="hp-line" d="${line}"/>
-    ${dots}${labels}${axis}
+    ${dots}${labels}${ticks}
   </svg>`;
 }
 

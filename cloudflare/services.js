@@ -116,24 +116,14 @@ export const SERVICES = [
     desc: '업무·개인으로 나눠 담는 주소록 — 폴더 안에 폴더까지',
     url: '/#/bookmarks',
     route: '#/bookmarks',
-    accent: 'teal',
+    // 진한 금색. 옆 기둥에서 제 색으로 서는 줄은 헬스정보(빨강)와 이 줄 둘뿐이다
+    // — 리본 모양과 금색이 함께 붙어야 '끼워 둔 자리'로 읽힌다.
+    accent: 'gold',
     icon: '🔖',
     reauth: false,
     external: false,
   },
 
-  {
-    key: 'wepic',
-    label: 'wepic',
-    group: 'personal',
-    desc: '구글 포토 사진을 감성 슬라이드쇼로 — 웹 사진 액자',
-    url: 'https://wepic.kr',
-    repo: 'garzette0905/wepic-live',
-    accent: 'pink',
-    icon: '🖼️',
-    reauth: false,
-    external: true,
-  },
   {
     key: 'gagyebu',
     label: '가계부',
@@ -222,6 +212,21 @@ export const SERVICES = [
     external: false,
   },
   // ── 홈페이지 ──────────────────────────────────────────────────────────
+  {
+    // wepic — **홈페이지 묶음**이다. 개인서비스에 두었던 것을 내렸다.
+    // 개인서비스는 '내가 쓰는 도구'이고, wepic 은 주소를 아는 사람이면 누구나
+    // 여는 **바깥에 서 있는 사이트**다. 줄리·SNS 와 같은 성격이라 같은 칸에 둔다.
+    key: 'wepic',
+    label: 'wepic',
+    group: 'homepage',
+    desc: '구글 포토 사진을 감성 슬라이드쇼로 — 웹 사진 액자',
+    url: 'https://wepic.kr',
+    repo: 'garzette0905/wepic-live',
+    accent: 'pink',
+    icon: '🖼️',
+    reauth: false,
+    external: true,
+  },
   {
     key: 'julie',
     label: 'Julie',
