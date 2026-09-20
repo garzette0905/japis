@@ -1094,6 +1094,16 @@ table.data tr:last-child td { border-bottom: none; }
   background: var(--primary); color: var(--on-primary);
 }
 .side-item.is-active .side-ico, .side-row.is-here .side-item .side-ico { color: var(--on-primary); }
+
+/* 줄마다 accent 가 붙어 오지만(band-*) 이 결에서는 **색 타일을 쓰지 않는다** —
+   위에서 걷어낸 것을 아래의 band-* 규칙이 되살리지 않도록 여기서 다시 못 박는다. */
+.side-ico[class*="band-"], .tile-ico[class*="band-"] { background: none; }
+
+/* 그 중 딱 한 줄만 제 색으로 선다 — 헬스정보.
+   나머지 그림이 회색 한 벌이라 줄이 고르게 서고, 그 사이에서 빨강 하나가 눈에
+   먼저 걸린다. 색이 흔해지면 이 효과가 곧바로 사라지므로 더 늘리지 않는다.
+   (고른 줄은 검정 바탕에 흰 그림이다 — 위의 is-active 규칙이 이것을 이긴다.) */
+.side-ico.band-red, .tile-ico.band-red { color: var(--a-red); }
 /* 검정 줄이 곧 표시다. 왼쪽의 세로 막대는 두 번 말하는 것이라 걷어낸다 */
 .side-item.is-active::before, .side-row.is-here .side-item::before { display: none; }
 .side-row.is-soon .side-ico { opacity: .4; }

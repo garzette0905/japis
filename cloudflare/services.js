@@ -210,29 +210,14 @@ export const SERVICES = [
     key: 'healthcheck',
     label: '헬스정보',
     group: 'personal',
-    desc: '건강검진 결과를 검사항목별 연도 트렌드로 본다',
+    // 인바디·혈액은 한때 옆에 따로 선 메뉴였다. 걷었다 — 메뉴에서 나란히 설
+    // 이유가 없다. 셋 다 내 몸의 같은 기록이고, 보는 사람은 "건강 얘기"를 하러
+    // 한 번 들어온다. 지금은 이 화면 안의 탭 셋이다(#/health/inbody · /blood).
+    desc: '검진 · 인바디 · 피검사를 검사항목별 추이로 본다',
     url: '/#/health',
     route: '#/health',
     accent: 'red',
     icon: '♡',
-    reauth: false,
-    external: false,
-  },
-  {
-    // 인바디·혈액 — 검진과 검진 **사이**를 채우는 자리.
-    //
-    // 연 1회 검진은 점 세 개지만, 인바디와 피검사는 마음먹으면 달마다 잰다.
-    // 그것을 검진 화면에 섞으면 "올해 검진 결과"를 보러 들어와서 열두 줄을
-    // 헤치게 된다. 그래서 화면을 나눈다 — 표는 하나이고(같은 health_results),
-    // 트렌드 선에서는 검진에서 잰 값과 여기서 잰 값이 다시 만난다.
-    key: 'bodylab',
-    label: '인바디 · 혈액',
-    group: 'personal',
-    desc: '체성분과 피검사를 수시로 적고 항목별 추이를 본다',
-    url: '/#/bodylab',
-    route: '#/bodylab',
-    accent: 'red',
-    icon: '🩸',
     reauth: false,
     external: false,
   },

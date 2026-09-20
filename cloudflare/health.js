@@ -377,6 +377,12 @@ export async function trend(env, userId, codes) {
       num: v.num,
       text: v.text,
       flag: v.flag,
+      // 그 회차에 실제로 쓴 참고범위. 검사실마다 다르므로 **점마다** 딸려 보낸다 —
+      // 이름표의 범위 하나로 띠를 깔면, 띠 안에 있는 점이 '낮음'으로 찍히는
+      // 모순이 화면에 그대로 뜬다(요산: 강북삼성 2.8~8.2 · GC Labs 3.4~7.0).
+      refLow: v.refLow,
+      refHigh: v.refHigh,
+      refText: v.refText,
     });
   }
 

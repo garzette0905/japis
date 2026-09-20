@@ -1,11 +1,12 @@
-// 헬스정보 · 인바디·혈액 — 검사 결과를 **항목별로 세워 보는** 두 화면.
+// 헬스정보 — 검사 결과를 **항목별로 세워 보는** 화면 하나, 탭 셋.
 //
-// 화면은 둘인데 파일은 하나다. 둘이 보는 표가 같고(health_exams · health_results),
-// 그리는 부품(트렌드 선 · 판정 알약 · 값 입력 폼)도 같기 때문이다. 파일을 가르면
-// 같은 부품을 두 벌 고치게 된다.
+//   #/health         종합검진  연 1회. 결과지와 **같은 모양**의 표를 그린다
+//   #/health/inbody  인바디    체성분. 고른 항목 하나를 **선 하나**로 길게 본다
+//   #/health/blood   혈액      콜레스테롤·간·신장. 인바디와 같은 얼개
 //
-//   #/health   헬스정보    — 연 1회 종합검진. 결과지와 **같은 모양**의 표를 그린다
-//   #/bodylab  인바디·혈액 — 수시 측정. 고른 항목 하나를 **선 하나**로 길게 본다
+// 처음에는 '인바디·혈액'을 옆 메뉴로 따로 뽑았다. 걷었다 — 메뉴에서 나란히 설
+// 이유가 없다. 셋 다 **내 몸의 같은 기록**이고, 보는 사람은 "건강 얘기"를 하러
+// 한 번 들어온다. 들어와서 탭으로 고르는 것이 맞다.
 //
 // ── 이 화면이 하지 않는 것 ─────────────────────────────────────────────
 // 진단하지 않는다. 참고범위 대비 위치(높음·낮음)와 전보다 어느 쪽으로 움직였는지
@@ -22,14 +23,13 @@ const hs = {
   metrics: [],          // 이름표 전부
   metricMap: new Map(),
   exams: [],            // 전 종류
-  // 헬스정보
+  tab: 'checkup',       // 'checkup' | 'inbody' | 'blood'
+  // 종합검진 탭
   examId: null,
   detail: null,
   open: new Set(),      // 펼쳐 둔 분류
-  // 인바디·혈액
-  labGroup: 'inbody',
-  labCode: 'weight',
-  labSeries: null,
+  // 인바디·혈액 탭 — 고른 항목은 탭마다 따로 기억한다(오가도 보던 자리가 남는다)
+  labCode: { inbody: 'weight', blood: 'ldl' },
 };
 
 const FLAG_LABEL = { H: '높음', L: '낮음', N: '정상' };
@@ -83,10 +83,17 @@ function chartSvg(series, { w = 720, h = 210 } = {}) {
   const iw = w - padL - padR;
   const ih = h - padT - padB;
 
+  // 띠는 **가장 최근 회차가 쓴 기준**으로 깐다. 검사실마다 기준이 달라서
+  // (요산: 강북삼성 2.8~8.2 · GC Labs 3.4~7.0) 이름표의 범위 하나로 깔면
+  // 띠 안에 있는 점이 '낮음'으로 찍히는 모순이 그대로 보인다.
+  const last = pts[pts.length - 1];
+  const bandLow = last.refLow ?? series.refLow ?? null;
+  const bandHigh = last.refHigh ?? series.refHigh ?? null;
+
   const vals = pts.map((p) => p.num);
   const cands = [...vals];
-  if (series.refLow !== null && series.refLow !== undefined) cands.push(series.refLow);
-  if (series.refHigh !== null && series.refHigh !== undefined) cands.push(series.refHigh);
+  if (bandLow !== null) cands.push(bandLow);
+  if (bandHigh !== null) cands.push(bandHigh);
   let lo = Math.min(...cands);
   let hi = Math.max(...cands);
   if (hi === lo) { hi = lo + 1; lo = lo - 1; }
@@ -98,9 +105,9 @@ function chartSvg(series, { w = 720, h = 210 } = {}) {
 
   // 참고범위 띠
   let band = '';
-  const bTop = series.refHigh !== null && series.refHigh !== undefined ? y(series.refHigh) : padT;
-  const bBot = series.refLow !== null && series.refLow !== undefined ? y(series.refLow) : padT + ih;
-  if ((series.refHigh ?? null) !== null || (series.refLow ?? null) !== null) {
+  if (bandHigh !== null || bandLow !== null) {
+    const bTop = bandHigh !== null ? y(bandHigh) : padT;
+    const bBot = bandLow !== null ? y(bandLow) : padT + ih;
     band = `<rect class="hp-band" x="${padL}" y="${bTop}" width="${iw}" height="${Math.max(1, bBot - bTop)}"/>`;
   }
 
@@ -151,34 +158,88 @@ async function loadOverview(force = false) {
 }
 
 const checkups = () => hs.exams.filter((e) => e.kind === 'checkup');
-const labExams = () => hs.exams.filter((e) => e.kind !== 'checkup');
+const examsOf = (kind) => hs.exams.filter((e) => e.kind === kind);
 
 // ══════════════════════════════════════════════════════════════
-// ① 헬스정보 — 연 1회 종합검진
+// 화면 하나, 탭 셋
 // ══════════════════════════════════════════════════════════════
 
-export async function renderHealth(page) {
+const TABS = [
+  { key: 'checkup', label: '종합검진', hint: '연 1회 — 결과지 그대로' },
+  { key: 'inbody',  label: '인바디',   hint: '체성분 · 부위별 근육' },
+  { key: 'blood',   label: '혈액',     hint: '콜레스테롤 · 간 · 신장' },
+];
+const isTab = (k) => TABS.some((t) => t.key === k);
+
+/** 탭의 주소. 종합검진은 맨 주소(#/health)다 — 들어오면 먼저 보이는 것이 그것이다. */
+const tabHash = (key) => (key === 'checkup' ? '#/health' : `#/health/${key}`);
+
+export async function renderHealth(page, sub) {
+  hs.tab = isTab(sub) ? sub : 'checkup';
+
   page.innerHTML = `
     <div class="page-head tight">
       <h1 class="page-title">헬스정보</h1>
-      <p class="page-lead">건강검진 결과를 검사항목별로 세워 봅니다. 항목 이름을 누르면 그 항목만 길게 볼 수 있습니다.</p>
+      <p class="page-lead">검진 · 체성분 · 피검사를 검사항목별로 세워 봅니다. 항목 이름을 누르면 그 항목만 길게 볼 수 있습니다.</p>
     </div>
     <div class="hp">
-      <div class="hp-years" id="hp-years"></div>
-      <div id="hp-body"><div class="hp-loading">불러오는 중…</div></div>
+      <nav class="hp-tabs" id="hp-tabs" aria-label="헬스정보 갈래"></nav>
+      <div id="hp-tabbody"><div class="hp-loading">불러오는 중…</div></div>
     </div>`;
 
+  paintTabs();
   try {
     await loadOverview();
   } catch (e) {
-    el('hp-body').innerHTML = `<p class="hp-empty">${esc(e.message)}</p>`;
+    el('hp-tabbody').innerHTML = `<p class="hp-empty">${esc(e.message)}</p>`;
+    return;
+  }
+  await paintTabBody();
+}
+
+/**
+ * 탭은 단추가 아니라 **링크**다. 주소가 갈리면 뒤로 가기가 살고, 그 탭을 눌러
+ * 둔 채 새로고침해도 같은 자리에 선다(라우터가 sub 를 그대로 돌려준다).
+ */
+function paintTabs() {
+  const box = el('hp-tabs');
+  if (!box) return;
+  box.innerHTML = TABS.map(
+    (t) => `<a class="hp-tab${t.key === hs.tab ? ' is-on' : ''}" href="${tabHash(t.key)}"
+              aria-current="${t.key === hs.tab ? 'page' : 'false'}">
+        <span class="hp-tab-n">${esc(t.label)}</span>
+        <span class="hp-tab-h">${esc(t.hint)}</span>
+      </a>`
+  ).join('');
+}
+
+async function paintTabBody() {
+  const box = el('hp-tabbody');
+  if (!box) return;
+
+  if (hs.tab === 'checkup') {
+    box.innerHTML = `
+      <div class="hp-years" id="hp-years"></div>
+      <div id="hp-body"><div class="hp-loading">불러오는 중…</div></div>`;
+    const list = checkups();
+    if (!hs.examId || !list.some((e) => e.id === hs.examId)) hs.examId = list[0]?.id ?? null;
+    paintYears();
+    await paintDetail();
     return;
   }
 
-  const list = checkups();
-  if (!hs.examId || !list.some((e) => e.id === hs.examId)) hs.examId = list[0]?.id ?? null;
-  paintYears();
-  await paintDetail();
+  // 인바디·혈액 — 왼쪽에서 항목을 고르고 오른쪽에서 길게 본다
+  box.innerHTML = `
+    <div class="hl">
+      <aside class="hl-side"><div class="hl-codes" id="hl-codes"></div></aside>
+      <div class="hl-main">
+        <div id="hl-trend"><div class="hp-loading">불러오는 중…</div></div>
+        <div id="hl-exams"></div>
+      </div>
+    </div>`;
+  paintLabSide();
+  paintLabExams();
+  await paintLabTrend();
 }
 
 function paintYears() {
@@ -373,60 +434,19 @@ function watchHtml(d) {
 }
 
 // ══════════════════════════════════════════════════════════════
-// ② 인바디 · 혈액 — 수시 측정
+// 인바디 · 혈액 탭 — 수시 측정
 // ══════════════════════════════════════════════════════════════
 
-export async function renderBodylab(page) {
-  page.innerHTML = `
-    <div class="page-head tight">
-      <h1 class="page-title">인바디 · 혈액</h1>
-      <p class="page-lead">검진과 검진 사이에 잰 것을 적어 둡니다. 추이에는 종합검진에서 잰 값도 같이 올라옵니다 — 같은 검사라면 같은 선 위에 있어야 합니다.</p>
-    </div>
-    <div class="hl">
-      <aside class="hl-side">
-        <div class="hl-tabs" id="hl-tabs"></div>
-        <div class="hl-codes" id="hl-codes"></div>
-      </aside>
-      <div class="hl-main">
-        <div id="hl-trend"><div class="hp-loading">불러오는 중…</div></div>
-        <div id="hl-exams"></div>
-      </div>
-    </div>`;
-
-  try {
-    await loadOverview();
-  } catch (e) {
-    el('hl-trend').innerHTML = `<p class="hp-empty">${esc(e.message)}</p>`;
-    return;
-  }
-  paintLabSide();
-  paintLabExams();
-  await paintLabTrend();
-}
+/** 지금 탭에서 고른 항목. 탭마다 따로 기억한다. */
+const curCode = () => hs.labCode[hs.tab];
 
 function paintLabSide() {
-  const tabs = el('hl-tabs');
-  if (!tabs) return;
-  const groups = [
-    { key: 'inbody', label: '인바디' },
-    { key: 'blood', label: '혈액' },
-  ];
-  tabs.innerHTML = groups
-    .map(
-      (g) => `<button class="hl-tab${hs.labGroup === g.key ? ' is-on' : ''}" type="button" data-lg="${g.key}">${esc(g.label)}</button>`
-    )
-    .join('');
-  tabs.querySelectorAll('[data-lg]').forEach((b) =>
-    b.addEventListener('click', () => {
-      hs.labGroup = b.dataset.lg;
-      paintLabSide();
-    })
-  );
+  const box = el('hl-codes');
+  if (!box) return;
 
-  const list = hs.metrics.filter((m) => m.labGroup === hs.labGroup);
-  if (list.length && !list.some((m) => m.code === hs.labCode)) {
-    hs.labCode = list[0].code;
-    paintLabTrend();
+  const list = hs.metrics.filter((m) => m.labGroup === hs.tab);
+  if (list.length && !list.some((m) => m.code === curCode())) {
+    hs.labCode[hs.tab] = list[0].code;
   }
 
   const byCat = new Map();
@@ -435,12 +455,12 @@ function paintLabSide() {
     byCat.get(m.category).push(m);
   }
 
-  el('hl-codes').innerHTML = [...byCat.entries()]
+  box.innerHTML = [...byCat.entries()]
     .map(([cat, items]) => {
       const label = hs.categories.find((c) => c.key === cat)?.label || cat;
       return `<div class="hl-cat"><h4>${esc(label)}</h4><ul>${items
         .map(
-          (m) => `<li><button class="hl-code${m.code === hs.labCode ? ' is-on' : ''}" type="button" data-code="${esc(m.code)}">
+          (m) => `<li><button class="hl-code${m.code === curCode() ? ' is-on' : ''}" type="button" data-code="${esc(m.code)}">
             <span>${esc(m.name)}</span>${m.unit ? `<em>${esc(m.unit)}</em>` : ''}
           </button></li>`
         )
@@ -448,9 +468,9 @@ function paintLabSide() {
     })
     .join('');
 
-  el('hl-codes').querySelectorAll('[data-code]').forEach((b) =>
+  box.querySelectorAll('[data-code]').forEach((b) =>
     b.addEventListener('click', async () => {
-      hs.labCode = b.dataset.code;
+      hs.labCode[hs.tab] = b.dataset.code;
       paintLabSide();
       await paintLabTrend();
     })
@@ -459,41 +479,50 @@ function paintLabSide() {
 
 async function paintLabTrend() {
   const box = el('hl-trend');
-  if (!box || !hs.labCode) return;
+  const code = curCode();
+  if (!box || !code) return;
   box.innerHTML = '<div class="hp-loading">불러오는 중…</div>';
   let r;
   try {
-    r = await api(`/api/health/trend?code=${encodeURIComponent(hs.labCode)}`);
+    r = await api(`/api/health/trend?code=${encodeURIComponent(code)}`);
   } catch (e) {
     box.innerHTML = `<p class="hp-empty">${esc(e.message)}</p>`;
     return;
   }
   const s = r.series[0];
   if (!s) {
-    const m = hs.metricMap.get(hs.labCode);
-    box.innerHTML = `<div class="hp-blank"><p>${esc(m?.name || hs.labCode)} 는 아직 잰 기록이 없습니다.</p>
+    const m = hs.metricMap.get(code);
+    box.innerHTML = `<div class="hp-blank"><p>${esc(m?.name || code)} 는 아직 잰 기록이 없습니다.</p>
       <p class="faint">아래 <b>측정 기록</b>에서 회차를 만들고 값을 넣으면 여기에 선이 그려집니다.</p></div>`;
     return;
   }
-  hs.labSeries = s;
   box.innerHTML = trendCardHtml(s);
 }
 
 function trendCardHtml(s) {
   const pts = [...s.points].reverse();
+
+  // 가장 최근 회차가 쓴 기준을 적는다. 회차마다 기준이 달랐다면 그 사실도 적는다 —
+  // 말없이 하나만 보여 주면 옛 값의 판정이 틀린 것처럼 읽힌다.
+  const refs = [...new Set(s.points.map((p) => p.refText || '').filter(Boolean))];
+  const refNow = pts[0]?.refText || s.refText || '';
+  const mixed = refs.length > 1;
+
   return `
     <div class="hp-trend-card">
       <div class="hp-trend-head">
         <div>
           <h2 class="hp-trend-title">${esc(s.name)}${s.unit ? ` <span class="hp-unit">(${esc(s.unit)})</span>` : ''}</h2>
-          <p class="hp-trend-sub">${esc(s.nameEn)}${s.refText ? ` · 참고범위 ${esc(s.refText)}` : ''}</p>
+          <p class="hp-trend-sub">${esc(s.nameEn)}${refNow ? ` · 참고범위 ${esc(refNow)}` : ''}${
+            mixed ? ' <span class="hp-refnote">검사실마다 기준이 달라, 띠와 판정은 회차별 기준을 따릅니다</span>' : ''
+          }</p>
         </div>
         <span class="hp-trend-n">${s.points.length}회</span>
       </div>
       ${s.memo ? `<p class="hp-trend-memo">${esc(s.memo)}</p>` : ''}
       ${chartSvg(s)}
       <table class="hp-table hp-trend-table">
-        <thead><tr><th>측정일</th><th>종류</th><th>값</th><th>판정</th><th>직전 대비</th></tr></thead>
+        <thead><tr><th>측정일</th><th>종류</th><th>값</th>${mixed ? '<th>그때 기준</th>' : ''}<th>판정</th><th>직전 대비</th></tr></thead>
         <tbody>
           ${pts
             .map((p, i) => {
@@ -503,6 +532,7 @@ function trendCardHtml(s) {
                 <td>${esc(ymd(p.date))}</td>
                 <td class="faint">${esc(p.kindLabel)}</td>
                 <td class="hp-val">${esc(p.num !== null ? num(p.num) : p.text)}</td>
+                ${mixed ? `<td class="hp-r">${esc(p.refText || '-')}</td>` : ''}
                 <td>${flagPill(p.flag) || '<span class="faint">-</span>'}</td>
                 <td>${deltaChip(d, '') || '<span class="faint">-</span>'}</td>
               </tr>`;
@@ -526,11 +556,13 @@ function deltaOfClient(v, prev, direction) {
 function paintLabExams() {
   const box = el('hl-exams');
   if (!box) return;
-  const list = labExams();
+  // 이 탭의 기록만 싣는다 — 인바디 탭에서 피검사 줄을 헤칠 이유가 없다.
+  const list = examsOf(hs.tab);
+  const what = hs.tab === 'inbody' ? '인바디' : '피검사';
   box.innerHTML = `
     <div class="hl-exams">
       <div class="hl-exams-head">
-        <h3>측정 기록</h3>
+        <h3>${esc(what)} 기록</h3>
         <button class="btn-secondary btn-sm" type="button" id="hl-add">기록 추가</button>
       </div>
       ${
@@ -538,7 +570,6 @@ function paintLabExams() {
           ? `<ul class="hl-exam-list">${list
               .map(
                 (e) => `<li class="hl-exam">
-                  <span class="hl-exam-kind kind-${esc(e.kind)}">${esc(e.kindLabel)}</span>
                   <span class="hl-exam-date">${esc(ymd(e.date))}</span>
                   <span class="hl-exam-title">${esc(e.title || e.provider || '')}</span>
                   <span class="hl-exam-n">${e.count}항목</span>
@@ -548,11 +579,11 @@ function paintLabExams() {
                 </li>`
               )
               .join('')}</ul>`
-          : `<p class="hp-empty">아직 기록이 없습니다. 인바디 용지나 피검사 결과지를 받으면 여기에 한 줄 만들어 두세요.</p>`
+          : `<p class="hp-empty">아직 ${esc(what)} 기록이 없습니다. 결과지를 받으면 <b>기록 추가</b>로 한 줄 만들어 두세요.</p>`
       }
     </div>`;
 
-  el('hl-add')?.addEventListener('click', () => openExamDialog('inbody'));
+  el('hl-add')?.addEventListener('click', () => openExamDialog(hs.tab));
   box.querySelectorAll('[data-edit]').forEach((b) => b.addEventListener('click', () => openValueDialog(Number(b.dataset.edit))));
   box.querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', () => removeExam(Number(b.dataset.del))));
 }
@@ -626,7 +657,7 @@ function openExamDialog(defaultKind) {
           });
           d.close();
           await loadOverview(true);
-          if (location.hash === '#/health') {
+          if (hs.tab === 'checkup') {
             hs.examId = r.id;
             paintYears();
             await paintDetail();
@@ -661,51 +692,58 @@ async function openValueDialog(examId) {
   const have = new Map();
   for (const g of d.groups) for (const r of g.rows) have.set(r.code, r.cells[0]);
 
-  // 인바디·혈액 회차에서는 그 묶음의 항목만 권한다 — 검진 전용 항목(내시경·청력)까지
-  // 늘어놓으면 스무 칸 채우려고 백오십 칸을 지나야 한다.
+  // 인바디·혈액 회차에서는 **그 결과지에 실제로 찍혀 나오는 항목**만 먼저 권한다.
+  // 검진 전용 항목(내시경·청력)까지 늘어놓으면 스무 칸 채우려고 백오십 칸을 지난다.
+  // 다만 결과지가 늘 같지는 않으므로, 나머지는 접어서 아래에 둔다 — 감추지는 않는다.
   const kind = d.exam.kind;
-  const pool =
-    kind === 'checkup'
-      ? hs.metrics
-      : hs.metrics.filter((m) => m.labGroup === (kind === 'inbody' ? 'inbody' : 'blood') || have.has(m.code));
+  const inPanel = (m) => m.labGroup === kind || have.has(m.code);
+  const pool = kind === 'checkup' ? hs.metrics : hs.metrics.filter(inPanel);
+  const rest = kind === 'checkup' ? [] : hs.metrics.filter((m) => !inPanel(m));
 
-  const byCat = new Map();
-  for (const m of pool) {
-    if (!byCat.has(m.category)) byCat.set(m.category, []);
-    byCat.get(m.category).push(m);
-  }
+  const fieldHtml = (m) => {
+    const cur = have.get(m.code);
+    const v = cur && cur.num !== null && cur.num !== undefined ? num(cur.num) : '';
+    const t = cur ? cur.text || '' : '';
+    return `<label class="hp-in">
+      <span class="hp-in-l">${esc(m.name)}${m.unit ? ` <em>${esc(m.unit)}</em>` : ''}</span>
+      ${
+        m.valueType === 'num'
+          ? `<input type="text" inputmode="decimal" data-code="${esc(m.code)}" data-f="num" value="${esc(v)}" placeholder="${esc(m.refText || '')}">`
+          : `<input type="text" data-code="${esc(m.code)}" data-f="text" value="${esc(t)}" placeholder="${esc(m.refText || '정상 · 음성 …')}">`
+      }
+    </label>`;
+  };
 
-  const catHtml = [...byCat.entries()]
-    .map(([cat, items]) => {
-      const c = hs.categories.find((x) => x.key === cat);
-      return `<fieldset class="hp-fs">
-        <legend>${esc(c?.label || cat)}</legend>
-        <div class="hp-fs-grid">
-          ${items
-            .map((m) => {
-              const cur = have.get(m.code);
-              const v = cur && cur.num !== null && cur.num !== undefined ? num(cur.num) : '';
-              const t = cur ? cur.text || '' : '';
-              return `<label class="hp-in">
-                <span class="hp-in-l">${esc(m.name)}${m.unit ? ` <em>${esc(m.unit)}</em>` : ''}</span>
-                ${
-                  m.valueType === 'num'
-                    ? `<input type="text" inputmode="decimal" data-code="${esc(m.code)}" data-f="num" value="${esc(v)}" placeholder="${esc(m.refText || '')}">`
-                    : `<input type="text" data-code="${esc(m.code)}" data-f="text" value="${esc(t)}" placeholder="${esc(m.refText || '정상 · 음성 …')}">`
-                }
-              </label>`;
-            })
-            .join('')}
-        </div>
-      </fieldset>`;
-    })
-    .join('');
+  const groupHtml = (list) => {
+    const byCat = new Map();
+    for (const m of list) {
+      if (!byCat.has(m.category)) byCat.set(m.category, []);
+      byCat.get(m.category).push(m);
+    }
+    return [...byCat.entries()]
+      .map(([cat, items]) => {
+        const c = hs.categories.find((x) => x.key === cat);
+        return `<fieldset class="hp-fs">
+          <legend>${esc(c?.label || cat)}</legend>
+          <div class="hp-fs-grid">${items.map(fieldHtml).join('')}</div>
+        </fieldset>`;
+      })
+      .join('');
+  };
+
+  const catHtml = groupHtml(pool);
+  const restHtml = rest.length
+    ? `<details class="hp-more">
+         <summary>결과지에 다른 항목이 더 있나요? — 나머지 ${rest.length}개 펼치기</summary>
+         ${groupHtml(rest)}
+       </details>`
+    : '';
 
   dialog(
     `<form method="dialog" class="hp-form hp-form-wide">
       <h2 class="modal-title">${esc(ymd(d.exam.date))} ${esc(d.exam.kindLabel)} — 값 넣기</h2>
       <p class="modal-lead">결과지에 적힌 숫자를 그대로 옮겨 적습니다. 빈칸은 담지 않고, 있던 값을 지우면 그 줄이 사라집니다.</p>
-      <div class="hp-form-body">${catHtml}</div>
+      <div class="hp-form-body">${catHtml}${restHtml}</div>
       <p class="form-error" data-err hidden></p>
       <div class="modal-actions">
         <button type="button" class="btn-secondary" data-close>닫기</button>
@@ -738,7 +776,7 @@ async function openValueDialog(examId) {
           dlg.close();
           toast(`${r.saved}항목 저장${r.removed ? ` · ${r.removed}항목 삭제` : ''}`);
           await loadOverview(true);
-          if (location.hash === '#/health') {
+          if (hs.tab === 'checkup') {
             paintYears();
             await paintDetail();
           } else {
@@ -796,7 +834,7 @@ async function removeExam(id) {
           d.close();
           toast('지웠습니다.');
           await loadOverview(true);
-          if (location.hash === '#/health') {
+          if (hs.tab === 'checkup') {
             const list = checkups();
             hs.examId = list[0]?.id ?? null;
             paintYears();

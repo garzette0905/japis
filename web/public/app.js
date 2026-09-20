@@ -9,7 +9,7 @@ import { $, el, esc, api, toast } from './util.js';
 import { renderWiki, wikiLeaving } from './wiki.js';
 import { renderBookmarks } from './bookmarks.js';
 import { renderPlaylists } from './playlists.js';
-import { renderHealth, renderBodylab } from './health.js';
+import { renderHealth } from './health.js';
 import { ico, serviceIco, brandIco } from './icons.js';
 
 const state = {
@@ -408,7 +408,7 @@ function renderSide() {
     return `<li class="side-row${s.ready ? '' : ' is-soon'}${tab ? ' is-tab' : ''}">
       <button class="side-item" type="button" data-key="${esc(s.key)}"
               title="${esc(s.label)} — ${hint}"${s.ready ? '' : ' disabled'}>
-        <span class="side-ico" aria-hidden="true">${serviceIco(s.key)}</span>
+        <span class="side-ico band-${esc(s.accent || 'sky')}" aria-hidden="true">${serviceIco(s.key)}</span>
         <span class="side-name">${esc(s.label)}</span>
       </button>
       ${
@@ -582,21 +582,20 @@ function route() {
     }
     return renderPlaylists(page);
   }
-  // 헬스정보 — 연 1회 종합검진을 검사항목별 연도 트렌드로. 메모·북마크와 같은 얼개다.
-  if (hash === '#/health') {
+  // 헬스정보 — #/health(종합검진) · #/health/inbody · #/health/blood.
+  // 화면은 하나이고 탭이 셋이다. 갈래를 주소에 두어야 뒤로 가기가 살고, 그 탭을
+  // 눌러 둔 채 새로고침해도 같은 자리에 선다.
+  if (hash === '#/health' || hash.startsWith('#/health/')) {
     if (!state.services.some((s) => s.key === 'healthcheck')) {
       location.hash = '#/';
       return;
     }
-    return renderHealth(page);
+    return renderHealth(page, hash.slice(9));
   }
-  // 인바디·혈액 — 검진과 검진 사이에 잰 것. 표는 헬스정보와 같고 화면만 다르다.
+  // 예전 주소 — '인바디·혈액'은 따로 있던 화면이었다. 지금은 헬스정보의 탭이다.
   if (hash === '#/bodylab') {
-    if (!state.services.some((s) => s.key === 'bodylab')) {
-      location.hash = '#/';
-      return;
-    }
-    return renderBodylab(page);
+    location.hash = '#/health/inbody';
+    return;
   }
   if (hash === '#/me') return renderMe(page);
   if (state.me.role === 'admin') {
@@ -1211,7 +1210,7 @@ function renderDashboard(page) {
 
   const tile = (s) => `<li class="tile-row${s.ready ? '' : ' is-soon'}${opensInTab(s) ? ' is-tab' : ''}">
       <button class="tile" type="button" data-key="${esc(s.key)}"${s.ready ? '' : ' disabled'}>
-        <span class="tile-ico" aria-hidden="true">${serviceIco(s.key)}</span>
+        <span class="tile-ico band-${esc(s.accent || 'sky')}" aria-hidden="true">${serviceIco(s.key)}</span>
         <span class="tile-name">${esc(s.label)}</span>
       </button>
       ${

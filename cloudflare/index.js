@@ -542,31 +542,13 @@ const requireBookmarks = requireScreen('bookmarks');
 const requireMusic = requireScreen('playlists');
 
 /**
- * 문이 **둘 중 하나**면 되는 자리.
+ * 헬스정보 — 종합검진·인바디·혈액이 모두 이 문 하나를 지난다.
  *
- * 헬스정보(연 1회 종합검진)와 인바디·혈액(수시 측정)은 화면이 둘이지만 표는
- * 하나다 — 같은 `/api/health/*` 를 부른다. 그래서 둘 중 아무 화면이라도 열
- * 수 있는 사람이면 통과시킨다. 하나만 켜 둔 사람에게 "권한이 없다"고 하면,
- * 켜 둔 그 화면조차 빈 채로 뜬다.
+ * 한때 '인바디·혈액'을 별도 화면(bodylab)으로 두어 문이 둘이었다. 화면을 탭으로
+ * 합치면서 문도 하나로 돌아왔다 — 같은 표(health_exams · health_results)를 보는
+ * 자리에 열쇠가 둘일 이유가 없다.
  */
-const requireAnyScreen = (...keys) => (request, env, handler) =>
-  requireLogin(request, env, async (user, sess) => {
-    let locked = false;
-    for (const key of keys) {
-      const perm = await permissionFor(env, user, serviceOf(key));
-      if (!perm.allowed) continue;
-      if (perm.reauth && !(await unlockedUntil(env, sess.sid, key))) {
-        locked = true;                       // 열 수는 있는데 잠겨 있다 — 다음 키를 마저 본다
-        continue;
-      }
-      return handler(user, sess);
-    }
-    if (locked) return fail('화면 잠금을 먼저 풀어주세요.', 403, { code: 'locked' });
-    return fail('이 화면을 볼 권한이 없습니다.', 403, { code: 'forbidden' });
-  });
-
-/** 헬스정보 · 인바디·혈액 — 화면은 둘, 표는 하나(health_exams · health_results). */
-const requireHealth = requireAnyScreen('healthcheck', 'bodylab');
+const requireHealth = requireScreen('healthcheck');
 
 // ──────────────────────────────────────────────────────────────
 // 인증 API
