@@ -2,7 +2,7 @@
 //
 //   #/health         종합검진  연 1회. 결과지와 **같은 모양**의 표를 그린다
 //   #/health/inbody  인바디    체성분. 고른 항목 하나를 **선 하나**로 길게 본다
-//   #/health/blood   혈액      콜레스테롤·간·신장. 인바디와 같은 얼개
+//   #/health/blood   혈액검사  콜레스테롤·간·신장. 인바디와 같은 얼개
 //
 // 처음에는 '인바디·혈액'을 옆 메뉴로 따로 뽑았다. 걷었다 — 메뉴에서 나란히 설
 // 이유가 없다. 셋 다 **내 몸의 같은 기록**이고, 보는 사람은 "건강 얘기"를 하러
@@ -220,7 +220,7 @@ const examsOf = (kind) => hs.exams.filter((e) => e.kind === kind);
 const TABS = [
   { key: 'checkup', label: '종합검진', hint: '연 1회 — 결과지 그대로' },
   { key: 'inbody',  label: '인바디',   hint: '체성분 · 부위별 근육' },
-  { key: 'blood',   label: '혈액',     hint: '콜레스테롤 · 간 · 신장' },
+  { key: 'blood',   label: '혈액검사', hint: '콜레스테롤 · 간 · 신장' },
 ];
 const isTab = (k) => TABS.some((t) => t.key === k);
 
