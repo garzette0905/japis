@@ -92,7 +92,7 @@ export const SERVICES = [
     // 이제 **포털 안 화면**이다 — 메모가 D1에 있어 어디서 들어와도 같은 것을 본다.
     // (key 는 그대로 둔다. user_services 의 권한 행이 이 값으로 붙어 있다.)
     key: 'jadenwiki',
-    label: 'Jaden Meno',
+    label: 'Jaden Memo',
     group: 'personal',
     desc: '메모를 쓰고 폴더로 묶고 검색한다 — 사진·html 파일까지',
     url: '/#/wiki',
@@ -337,10 +337,10 @@ export const SERVICES = [
     group: 'collab',
     desc: '할 일 목록을 연다',
     url: googleAs('garzette@gmail.com', 'https://tasks.google.com/'),
-    // 캘린더와 같은 얼개다 — 프레임에서는 '붙여 쓰라고' 내주는 임베드 주소를 쓰고,
-    // ↗(새 탭)는 위의 본 화면으로 나간다.
-    frameUrl: 'https://tasks.google.com/embed/list/~default?fullWidth=1',
-    frame: true,            // 로그인해야 보이는 임베드라 서버 조사로는 판정할 수 없다
+    // Google Tasks 웹 화면은 공식 임베드 화면이 아니며, iframe 안에서는 로그인
+    // 쿠키·계정 확인이 되지 않아 Google 자체 403 화면을 반환한다. API 미리보기는
+    // 계속 포털 안에서 제공하고, 원본 화면은 새 탭에서 연다.
+    frame: false,
     account: 'garzette@gmail.com',
     accent: 'purple',
     icon: '✅',

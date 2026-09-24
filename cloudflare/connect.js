@@ -167,7 +167,12 @@ async function exchange(env, name, params) {
     }),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error_description || data.error || `토큰 교환 실패 (${res.status})`);
+  if (!res.ok) {
+    const e = new Error(data.error_description || data.error || `토큰 교환 실패 (${res.status})`);
+    e.status = res.status;
+    e.body = JSON.stringify(data).slice(0, 400);
+    throw e;
+  }
   return data;
 }
 
@@ -231,11 +236,11 @@ export async function connectionStatus(env, userId) {
  * 쓸 수 있는 액세스 토큰. 만료가 가까우면 조용히 갱신해 둔다.
  * 대시보드의 한 줄 입력칸(ask.js)도 같은 문을 쓴다 — 토큰을 다루는 곳은 여기 하나다.
  */
-export async function accessToken(env, userId, name) {
+export async function accessToken(env, userId, name, { forceRefresh = false } = {}) {
   const row = await getConn(env, userId, name);
   if (!row) return null;
 
-  if (row.expires_at && Number(row.expires_at) - Date.now() > 120000) {
+  if (!forceRefresh && row.expires_at && Number(row.expires_at) - Date.now() > 120000) {
     const live = await unseal(env, row.access_token);
     if (live) return live;
   }
@@ -402,10 +407,21 @@ export async function feedFor(env, ctx, userId, key, { fresh = false } = {}) {
   if (hit) return hit;
 
   try {
-    const token = await accessToken(env, userId, provider);
+    let token = await accessToken(env, userId, provider);
     if (!token) return { state: 'disconnected', items: [], provider };
 
-    const { items, note } = await fetcher(token);
+    let result;
+    try {
+      result = await fetcher(token);
+    } catch (e) {
+      // 저장된 만료 시각보다 Google의 실제 만료가 먼저 온 경우가 있다.
+      // 한 번만 강제 갱신해 재시도하고, 그래도 실패하면 아래에서 재연결을 안내한다.
+      if (e.status !== 401) throw e;
+      token = await accessToken(env, userId, provider, { forceRefresh: true });
+      if (!token) return { state: 'disconnected', items: [], provider };
+      result = await fetcher(token);
+    }
+    const { items, note } = result;
     const out = { state: 'ok', provider, items, note, at: nowIso() };
     // 5분만 들고 있는다. 사진 썸네일 주소가 한 시간이면 만료되기 때문이기도 하다.
     const put = env.SESSIONS.put(cacheKey, JSON.stringify(out), { expirationTtl: 300 });
@@ -416,6 +432,12 @@ export async function feedFor(env, ctx, userId, key, { fresh = false } = {}) {
     console.warn('feed 실패', key, e.message);
     // 스코프를 늘린 뒤 옛 토큰으로 부르면 403이 온다. "불러오지 못했습니다"로 뭉뚱그리면
     // 무엇을 해야 하는지 알 수 없다 — 다시 연결하라고 그대로 말해 준다.
+    if (
+      (e.status === 401 && /expired|revoked|invalid|credential|token/i.test(String(e.body || e.message || ''))) ||
+      (e.status === 400 && /invalid_grant|expired|revoked|invalid/i.test(String(e.body || e.message || '')))
+    ) {
+      return { state: 'reconnect', items: [], provider };
+    }
     if (e.status === 403 && /insufficient|scope/i.test(String(e.body || ''))) {
       return { state: 'reconnect', items: [], provider };
     }
