@@ -16,12 +16,6 @@
   "launch_handler": { "client_mode": "navigate-existing" },
   "icons": [
     {
-      "src": "/favicon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any"
-    },
-    {
       "src": "/icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
@@ -49,7 +43,7 @@
       "icons": [{ "src": "/shortcut-bookmarks.png", "sizes": "96x96", "type": "image/png" }]
     },
     {
-      "name": "Jaden Meno",
+      "name": "Jaden Memo",
       "short_name": "메모",
       "description": "메모를 쓰고 찾는다",
       "url": "/#/wiki",

@@ -67,9 +67,8 @@
   --s-lg: 24px; --s-xl: 30px; --s-xxl: 48px;
 
   --nav-h: 60px;
-  --font: 'Geist', -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', 'Noto Sans KR',
-          Helvetica, Arial, sans-serif;
-  --font-display: 'Geist', -apple-system, BlinkMacSystemFont, system-ui, 'Noto Sans KR', sans-serif;
+  --font: 'Geist', 'Noto Sans KR', sans-serif;
+  --font-display: 'Geist', 'Noto Sans KR', sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -96,7 +95,7 @@ a:hover { text-decoration: underline; }
 
 h1, h2, h3 { margin: 0; font-weight: 700; }
 
-button { font-family: inherit; }
+button, input, select, textarea { font-family: inherit; }
 
 :focus-visible {
   outline: 2px solid var(--primary);
@@ -1150,6 +1149,9 @@ table.data tr:last-child td { border-bottom: none; }
   color: var(--primary);
 }
 .card-icon .ico { width: 21px; height: 21px; }
+.card-icon .ico-brand { width: 30px; height: 30px; }
+.shared-row { display: flex; align-items: center; gap: 12px; }
+.shared-row .feed-row { flex: 1; min-width: 0; }
 .card-title { font-weight: 700; letter-spacing: -.4px; }
 
 .tag {
@@ -1170,7 +1172,7 @@ table.data tr:last-child td { border-bottom: none; }
 
 /* 상단 띠의 로고 — 마크 하나와 글자 하나가 한 덩어리로 선다 */
 .nav-logo { display: inline-flex; align-items: center; gap: 9px; }
-.nav-mark { display: block; width: 26px; height: 26px; border-radius: 6px; flex: none; }
+.nav-mark { display: block; width: 38px; height: 38px; border-radius: 9px; flex: none; }
 /* 로그인 화면의 간판에도 같은 마크를 세운다 */
 .gate-mark { display: block; width: 54px; height: 54px; border-radius: 12px; margin: 0 auto 14px; }
 

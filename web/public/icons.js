@@ -56,6 +56,21 @@ const BRAND_ICONS = {
   japis:
     '<image href="/icon-192.png" x="0" y="0" width="24" height="24" preserveAspectRatio="xMidYMid slice"/>',
 
+  // 메모 — 기존 J 아이콘에서 쓰지 않는 코랄색 종이와 흰 글줄
+  jadenwiki:
+    '<rect width="24" height="24" rx="5.4" fill="#d94f6a"/>' +
+    '<path d="M6 4.3h8.1l3.9 3.9v11.5H6z" fill="#fff"/>' +
+    '<path d="M14.1 4.3v3.9H18" fill="#ffd1dc"/>' +
+    '<path d="M8.5 11.2h7M8.5 14h7M8.5 16.8h4.5" fill="none" stroke="#d94f6a" stroke-width="1.3" stroke-linecap="round"/>',
+
+  // SNS — 서로 다른 두 사람을 한 선으로 연결한 보라색 마크
+  sns:
+    '<rect width="24" height="24" rx="5.4" fill="#7654d9"/>' +
+    '<circle cx="6.7" cy="8" r="2.4" fill="#fff"/>' +
+    '<circle cx="17.3" cy="8" r="2.4" fill="#fff"/>' +
+    '<path d="M3.5 18c.2-3.1 1.4-4.8 3.2-4.8s3 1.7 3.2 4.8M14.1 18c.2-3.1 1.4-4.8 3.2-4.8s3 1.7 3.2 4.8" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round"/>' +
+    '<path d="M9.8 11.8h4.4" stroke="#ffd166" stroke-width="2.4" stroke-linecap="round"/>',
+
   // wepic — 제 favicon 그대로(색 고리 여덟 조각 + 렌즈). 64칸 그림을 24칸으로 줄인다
   wepic:
     '<g transform="scale(.375)">' +
@@ -177,6 +192,13 @@ const SERVICE_ICONS = {
   // 집 — 지붕과 몸통 하나, 아래에 문을 판다
   dashboard:
     '<path d="M11.36 2.3a1 1 0 0 1 1.28 0l8.7 7.3a1 1 0 0 1-.64 1.77H20v9.1a1.6 1.6 0 0 1-1.6 1.6h-4v-6.2h-4.8v6.2h-4A1.6 1.6 0 0 1 4 20.47v-9.1h-.7a1 1 0 0 1-.64-1.77Z"/>',
+
+  birdwatching:
+    '<path d="M21 6.3c-1.5.8-3 1.2-4.5 1.3A6.7 6.7 0 0 0 4.6 13L2 15.1l4.2.5c2.2 4.3 8.6 4.5 11.2.1 1.2-2 1.4-4.1 1.1-5.4Z"/>',
+
+  sharednotes:
+    '<circle cx="18" cy="5.6" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="18.4" r="3"/>' +
+    '<path d="M8.7 10.5 15.2 7M8.7 13.5l6.5 3.5" fill="none" stroke="currentColor" stroke-width="2.2"/>',
 
   // 액자 속 사진 — 해와 산을 파낸다
   wepic:

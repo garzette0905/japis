@@ -558,6 +558,7 @@ function route() {
   if (hash === '#/' || hash === '') return renderDashboard(page);
   if (hash.startsWith('#/g/')) return renderGroup(page, hash.slice(4));
   if (hash === '#/sns') return renderLinks(page, 'sns');
+  if (hash === '#/shared') return renderShared(page);
   // Jaden wiki — 포털 안 메모. #/wiki(목록) · #/wiki/new · #/wiki/<번호>
   if (hash === '#/wiki' || hash.startsWith('#/wiki/')) {
     if (!state.services.some((s) => s.key === 'jadenwiki')) {
@@ -753,7 +754,7 @@ function feedHtml(key, f) {
   // 그 화면 자체를 여는 단추가 된다 — 어느 쪽이든 **눌리지 않는 줄은 없다**.
   return `<ul class="feed-list">${f.items
     .map((i) => {
-      const inner = `<span class="feed-title">${esc(i.title)}</span>
+      const inner = `<span class="feed-title">${key === 'gcalendar' && i.birthday ? '🎂 ' : ''}${esc(i.title)}</span>
         <span class="feed-sub">${esc(i.sub || '')}${i.sub && i.at ? ' · ' : ''}${esc(feedWhen(i.at, i.allDay))}</span>`;
       return `<li>${
         i.link
@@ -1338,6 +1339,38 @@ function renderLinks(page, key) {
       .join('')}</div>`;
 }
 
+async function renderShared(page) {
+  if (!state.services.some((s) => s.key === 'sharednotes')) {
+    location.hash = '#/';
+    return;
+  }
+  page.innerHTML = `<div class="page-head"><h1 class="page-title">공유 화면</h1>
+    <p class="page-lead">현재 공유 중인 Jaden Memo를 확인합니다.</p></div>
+    <div class="panel" id="shared-list"><span class="spinner"></span></div>`;
+  const list = el('shared-list');
+  try {
+    const data = await api('/api/wiki/shared');
+    if (!list.isConnected) return;
+    list.innerHTML = data.notes.length
+      ? `<ul class="feed-list">${data.notes.map((n) => `<li class="shared-row">
+          <a class="feed-row" href="/s/${esc(n.shareToken)}" target="_blank" rel="noopener noreferrer">
+            <span class="feed-title">${esc(n.title || '제목 없음')}</span>
+            <span class="feed-sub">공유 시작 ${esc(n.sharedAt ? new Date(n.sharedAt).toLocaleDateString('ko-KR') : '')}</span>
+          </a>
+          <button class="btn-utility" type="button" data-copy="${esc(n.shareToken)}">주소 복사</button>
+        </li>`).join('')}</ul>`
+      : '<p class="feed-note">공유 중인 메모가 없습니다.</p>';
+    list.querySelectorAll('[data-copy]').forEach((b) => b.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(`${location.origin}/s/${b.dataset.copy}`);
+        toast('공유 주소를 복사했습니다.');
+      } catch { toast('주소를 복사하지 못했습니다.'); }
+    }));
+  } catch (e) {
+    if (list.isConnected) list.innerHTML = `<p class="feed-note">${esc(e.message)}</p>`;
+  }
+}
+
 const emptyHtml = (title, sub) =>
   `<div class="empty"><div class="empty-icon">${ico('empty')}</div><strong>${esc(title)}</strong><p>${esc(sub)}</p></div>`;
 
@@ -1374,7 +1407,7 @@ function renderMe(page) {
       <div class="table-wrap"><table class="data">
         <tbody>
           <tr><th>안드로이드</th><td>
-            홈화면의 <b>JAPIS</b> 아이콘을 <b>길게 누르면</b> 북마크 · Jaden Meno ·
+            홈화면의 <b>JAPIS</b> 아이콘을 <b>길게 누르면</b> 북마크 · Jaden Memo ·
             Play Lists · 대시보드가 뜹니다. 그중 하나를 <b>끌어다 홈화면에 놓으면</b>
             그 화면으로 바로 들어가는 아이콘이 섭니다.
           </td></tr>

@@ -458,6 +458,7 @@ function paintList() {
   list.innerHTML = `<ul class="bm-items">${bm.items
     .map(
       (b) => `<li class="bm-item${b.pinned ? ' is-pinned' : ''}" data-id="${b.id}">
+            <span class="bm-drag" draggable="true" role="button" tabindex="0" aria-label="${esc(b.title)} 순서 옮기기" title="끌어서 순서 변경">${ico('grip')}</span>
             <a class="bm-open" href="${esc(b.url)}" target="_blank" rel="noopener noreferrer" data-open="${b.id}">
               <span class="bm-item-top">
                 <span class="bm-item-title">${esc(b.title)}</span>
@@ -479,6 +480,57 @@ function paintList() {
     .join('')}</ul>`;
 
   const find = (id) => bm.items.find((x) => x.id === Number(id));
+
+  let dragged = null;
+  list.querySelectorAll('.bm-drag').forEach((handle) => {
+    handle.addEventListener('dragstart', (e) => {
+      dragged = handle.closest('.bm-item');
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', dragged.dataset.id);
+      dragged.classList.add('is-dragging');
+    });
+    handle.addEventListener('dragend', () => {
+      dragged?.classList.remove('is-dragging');
+      list.querySelectorAll('.bm-item').forEach((item) => item.classList.remove('is-drop-target'));
+      dragged = null;
+    });
+    handle.addEventListener('keydown', async (e) => {
+      if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+      e.preventDefault();
+      const row = handle.closest('.bm-item');
+      const peer = e.key === 'ArrowUp' ? row.previousElementSibling : row.nextElementSibling;
+      if (!peer) return;
+      peer.insertAdjacentElement(e.key === 'ArrowUp' ? 'beforebegin' : 'afterend', row);
+      await saveOrder();
+      list.querySelector(`.bm-item[data-id="${row.dataset.id}"] .bm-drag`)?.focus();
+    });
+  });
+  list.querySelectorAll('.bm-item').forEach((row) => {
+    row.addEventListener('dragover', (e) => {
+      if (!dragged || row === dragged) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      row.classList.add('is-drop-target');
+    });
+    row.addEventListener('dragleave', () => row.classList.remove('is-drop-target'));
+    row.addEventListener('drop', async (e) => {
+      if (!dragged || row === dragged) return;
+      e.preventDefault();
+      row.classList.remove('is-drop-target');
+      row.insertAdjacentElement('beforebegin', dragged);
+      await saveOrder();
+    });
+  });
+  async function saveOrder() {
+    const ids = [...list.querySelectorAll('.bm-item')].map((row) => Number(row.dataset.id));
+    try {
+      await api('/api/bookmarks/order', { method: 'PUT', body: { ids } });
+      await load();
+    } catch (e) {
+      toast(e.message);
+      await load();
+    }
+  }
 
   // 열었다는 표시만 남긴다(막지 않는다 — 링크는 그대로 새 탭으로 나간다).
   list.querySelectorAll('[data-open]').forEach((a) =>

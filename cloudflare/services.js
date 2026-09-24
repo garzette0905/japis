@@ -66,8 +66,9 @@ const googleAs = (email, target) =>
 export const GROUPS = [
   { key: 'home', label: '대시보드' },
   { key: 'personal', label: '개인서비스' },
+  { key: 'hobby', label: '취미' },
   { key: 'homepage', label: '홈페이지' },
-  { key: 'collab', label: '협업' },
+  { key: 'collab', label: 'Cloud' },
 ];
 
 export const SERVICES = [
@@ -151,7 +152,7 @@ export const SERVICES = [
   {
     key: 'taylor',
     label: 'Taylor Bookshelf',
-    group: 'personal',
+    group: 'hobby',
     desc: '읽은 책과 읽을 책을 꽂아 두는 책장',
     url: 'https://taylor-bookshelf.pages.dev',
     repo: 'garzette0905/taylor-bookshelf',
@@ -211,14 +212,11 @@ export const SERVICES = [
     reauth: false,
     external: false,
   },
-  // ── 홈페이지 ──────────────────────────────────────────────────────────
+  // ── 취미 ──────────────────────────────────────────────────────────────
   {
-    // wepic — **홈페이지 묶음**이다. 개인서비스에 두었던 것을 내렸다.
-    // 개인서비스는 '내가 쓰는 도구'이고, wepic 은 주소를 아는 사람이면 누구나
-    // 여는 **바깥에 서 있는 사이트**다. 줄리·SNS 와 같은 성격이라 같은 칸에 둔다.
     key: 'wepic',
     label: 'wepic',
-    group: 'homepage',
+    group: 'hobby',
     desc: '구글 포토 사진을 감성 슬라이드쇼로 — 웹 사진 액자',
     url: 'https://wepic.kr',
     repo: 'garzette0905/wepic-live',
@@ -227,6 +225,29 @@ export const SERVICES = [
     reauth: false,
     external: true,
   },
+  {
+    key: 'birdwatching',
+    label: '탐조하기',
+    group: 'hobby',
+    desc: '새를 관찰하고 기록하는 공간 — 향후 개발',
+    url: null,
+    accent: 'teal',
+    reauth: false,
+    external: false,
+    always: true,
+  },
+  {
+    key: 'damoang',
+    label: '다모앙',
+    group: 'hobby',
+    desc: '다모앙 커뮤니티',
+    url: 'https://damoang.net',
+    accent: 'gold',
+    reauth: false,
+    external: true,
+    always: true,
+  },
+  // ── 홈페이지 ──────────────────────────────────────────────────────────
   {
     key: 'julie',
     label: 'Julie',
@@ -243,7 +264,7 @@ export const SERVICES = [
     key: 'sns',
     label: 'SNS',
     group: 'homepage',
-    desc: '인스타그램 · Threads · Facebook · Telegram · X · LinkedIn · 다모앙',
+    desc: '인스타그램 · Threads · Facebook · Telegram · X · LinkedIn',
     url: '/#/sns',
     route: '#/sns',
     accent: 'pink',
@@ -260,23 +281,18 @@ export const SERVICES = [
       { label: 'Telegram', ico: 'telegram', url: 'https://web.telegram.org' },
       { label: 'X', ico: 'x', url: 'https://x.com' },
       { label: 'LinkedIn', ico: 'linkedin', url: 'https://www.linkedin.com/feed/' },
-      // 다모앙 — 국내 커뮤니티. 로그인해야 보이는 글이 많아 새 탭으로 나가는 것이 낫다.
-      { label: '다모앙', ico: 'damoang', url: 'https://damoang.net' },
     ],
   },
-
   {
-    key: 'wordwriter',
-    label: 'Word Writer',
+    key: 'sharednotes',
+    label: '공유 화면',
     group: 'homepage',
-    desc: '보고서 종류를 고르면 Prompt Builder 가 열린다',
-    // 배포되면 **Prompt Builder 화면 주소**를 적는다(첫 화면이 곧 Prompt Builder 여야 한다).
-    url: null,
-    repo: 'garzette0905/samsung-word-writer-pro',
-    accent: 'orange',
-    icon: '📄',
+    desc: '공유 중인 Jaden Memo 목록과 주소를 확인한다',
+    url: '/#/shared',
+    route: '#/shared',
+    accent: 'purple',
     reauth: false,
-    external: true,
+    external: false,
   },
 
   // ── 협업 ──────────────────────────────────────────────────────────────

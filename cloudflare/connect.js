@@ -316,21 +316,64 @@ async function gmailFeed(token) {
 }
 
 async function calendarFeed(token) {
+  const now = new Date();
   const q = new URLSearchParams({
-    timeMin: new Date().toISOString(),
+    timeMin: now.toISOString(),
     maxResults: String(FEED_MAX),
     singleEvents: 'true',
     orderBy: 'startTime',
   });
   const data = await askJson(`https://www.googleapis.com/calendar/v3/calendars/primary/events?${q}`, token);
-  const items = (data.items || []).map((e) => ({
+  const eventItem = (e) => ({
     title: e.summary || '(제목 없음)',
     sub: e.location || '',
     at: e.start?.dateTime || e.start?.date || null,
     allDay: !e.start?.dateTime,
     link: e.htmlLink || null,
+    birthday: e.eventType === 'birthday',
+  });
+  const items = (data.items || []).map(eventItem);
+
+  // 오늘부터 14일간의 생일은 일반 일정 개수와 관계없이 따로 가져온다.
+  const day = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(now).map((p) => [p.type, p.value]));
+  const start = new Date(`${day.year}-${day.month}-${day.day}T00:00:00+09:00`);
+  const end = new Date(start.getTime() + 14 * 86400000);
+  const bq = new URLSearchParams({
+    timeMin: start.toISOString(), timeMax: end.toISOString(),
+    maxResults: '250', singleEvents: 'true', orderBy: 'startTime', eventTypes: 'birthday',
+  });
+  const calendars = ['primary'];
+  try {
+    const list = await askJson('https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=250', token);
+    for (const c of list.items || []) {
+      if (c.id && (c.id.includes('#contacts@group.v.calendar.google.com') || /birthdays|생일/i.test(c.summary || ''))) {
+        calendars.push(c.id);
+      }
+    }
+  } catch (e) {
+    // 캘린더 목록 권한이 없는 옛 연결이어도 기본 일정은 보여 준다.
+    console.warn('생일 캘린더 목록 실패', e.message);
+  }
+  const birthdayLists = await Promise.all([...new Set(calendars)].map(async (id) => {
+    try {
+      const r = await askJson(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(id)}/events?${bq}`, token);
+      return (r.items || []).filter((e) => e.eventType === 'birthday').map(eventItem);
+    } catch (e) {
+      console.warn('생일 일정 조회 실패', id, e.message);
+      return [];
+    }
   }));
-  return { items, note: items.length ? null : '앞으로 잡힌 일정이 없습니다.' };
+  const seen = new Set();
+  const birthdays = birthdayLists.flat().filter((e) => {
+    const key = `${e.title}|${e.at}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).sort((a, b) => String(a.at).localeCompare(String(b.at)));
+  const ordered = [...birthdays, ...items.filter((e) => !e.birthday && !seen.has(`${e.title}|${e.at}`))].slice(0, FEED_MAX);
+  return { items: ordered, note: ordered.length ? null : '앞으로 잡힌 일정이 없습니다.' };
 }
 
 async function photosFeed(token) {

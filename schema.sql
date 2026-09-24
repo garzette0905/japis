@@ -209,6 +209,7 @@ CREATE TABLE IF NOT EXISTS bookmarks (
   url            TEXT    NOT NULL,
   memo           TEXT    NOT NULL DEFAULT '',
   pinned         INTEGER NOT NULL DEFAULT 0,
+  sort_order     INTEGER NOT NULL DEFAULT 0,
   opens          INTEGER NOT NULL DEFAULT 0,
   created_at     TEXT    NOT NULL,
   updated_at     TEXT    NOT NULL,

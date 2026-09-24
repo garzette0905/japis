@@ -46,6 +46,7 @@ import {
 } from './music.js';
 import {
   listBookmarks,
+  reorderBookmarks,
   createBookmark,
   updateBookmark,
   deleteBookmark,
@@ -70,6 +71,7 @@ import {
   exportNote,
   importFiles,
   shareNote,
+  listSharedNotes,
   sharedNotePage,
   renderMarkdown,
   reorderFolders,
@@ -534,6 +536,7 @@ const requireScreen = (key) => (request, env, handler) =>
   });
 
 const requireWiki = requireScreen('jadenwiki');
+const requireSharedNotes = requireScreen('sharednotes');
 
 /** 북마크도 같은 얼개다 — 'bookmarks' 권한 하나가 화면과 API를 함께 연다. */
 const requireBookmarks = requireScreen('bookmarks');
@@ -1696,6 +1699,9 @@ export default {
         return requireWiki(request, env, (user) => exportNote(env, user.id, Number(mExport[1])));
       }
       // 공유 켜기(POST) · 끄기(DELETE). 켠 뒤의 주소는 아래 /s/<이름표> 다.
+      if (path === '/api/wiki/shared' && method === 'GET') {
+        return requireSharedNotes(request, env, (user) => listSharedNotes(env, user.id));
+      }
       const mShare = path.match(/^\/api\/wiki\/notes\/(\d+)\/share$/);
       if (mShare && (method === 'POST' || method === 'DELETE')) {
         return requireWiki(request, env, (user) =>
@@ -1728,6 +1734,9 @@ export default {
       }
       if (path === '/api/bookmarks' && method === 'POST') {
         return requireBookmarks(request, env, (user) => createBookmark(request, env, user.id));
+      }
+      if (path === '/api/bookmarks/order' && method === 'PUT') {
+        return requireBookmarks(request, env, (user) => reorderBookmarks(request, env, user.id));
       }
       // 폴더 문은 /bookmarks/<번호> 보다 **먼저** 본다 — 'folders' 는 번호가 아니다.
       if (path === '/api/bookmarks/folders' && method === 'POST') {
