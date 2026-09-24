@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS users (
   -- NULL = 아직 비밀번호가 없다(최초 1회 비밀번호 없이 로그인 → 즉시 설정).
   -- 형식: 'pbkdf2$<반복수>$<salt>$<hash>'
   password_hash  TEXT,
+  session_epoch  INTEGER NOT NULL DEFAULT 0,       -- 전체 기기 로그아웃 시 증가
 
   role           TEXT NOT NULL DEFAULT 'user',       -- 'admin' | 'user'
   status         TEXT NOT NULL DEFAULT 'active',     -- 'active' | 'blocked'

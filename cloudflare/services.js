@@ -66,7 +66,7 @@ const googleAs = (email, target) =>
 export const GROUPS = [
   { key: 'home', label: '대시보드' },
   { key: 'personal', label: '개인서비스' },
-  { key: 'hobby', label: '취미' },
+  { key: 'hobby', label: '취미/트렌드' },
   { key: 'homepage', label: '홈페이지' },
   { key: 'collab', label: 'Cloud' },
 ];
@@ -127,7 +127,7 @@ export const SERVICES = [
 
   {
     key: 'gagyebu',
-    label: '가계부',
+    label: '재테크',
     group: 'personal',
     desc: '카드·계좌 내역을 모아 보는 가계·자산 장부',
     url: 'https://gagyebu.wepiclab.workers.dev/',
@@ -146,18 +146,6 @@ export const SERVICES = [
     repo: 'garzette0905/cardmoa',
     accent: 'orange',
     icon: '💳',
-    reauth: false,
-    external: true,
-  },
-  {
-    key: 'taylor',
-    label: 'Taylor Bookshelf',
-    group: 'hobby',
-    desc: '읽은 책과 읽을 책을 꽂아 두는 책장',
-    url: 'https://taylor-bookshelf.pages.dev',
-    repo: 'garzette0905/taylor-bookshelf',
-    accent: 'teal',
-    icon: '📚',
     reauth: false,
     external: true,
   },
@@ -226,6 +214,18 @@ export const SERVICES = [
     external: true,
   },
   {
+    key: 'taylor',
+    label: 'Taylor Bookshelf',
+    group: 'hobby',
+    desc: '읽은 책과 읽을 책을 꽂아 두는 책장',
+    url: 'https://taylor-bookshelf.pages.dev',
+    repo: 'garzette0905/taylor-bookshelf',
+    accent: 'teal',
+    icon: '📚',
+    reauth: false,
+    external: true,
+  },
+  {
     key: 'birdwatching',
     label: '탐조하기',
     group: 'hobby',
@@ -243,6 +243,7 @@ export const SERVICES = [
     desc: '다모앙 커뮤니티',
     url: 'https://damoang.net',
     accent: 'gold',
+    frame: false,
     reauth: false,
     external: true,
     always: true,
@@ -250,7 +251,7 @@ export const SERVICES = [
   // ── 홈페이지 ──────────────────────────────────────────────────────────
   {
     key: 'julie',
-    label: 'Julie',
+    label: 'Julie English',
     group: 'homepage',
     desc: '줄리영어학원 홈페이지',
     url: 'https://julieenglish.co.kr',
@@ -283,18 +284,6 @@ export const SERVICES = [
       { label: 'LinkedIn', ico: 'linkedin', url: 'https://www.linkedin.com/feed/' },
     ],
   },
-  {
-    key: 'sharednotes',
-    label: '공유 화면',
-    group: 'homepage',
-    desc: '공유 중인 Jaden Memo 목록과 주소를 확인한다',
-    url: '/#/shared',
-    route: '#/shared',
-    accent: 'purple',
-    reauth: false,
-    external: false,
-  },
-
   // ── 협업 ──────────────────────────────────────────────────────────────
   // 계정을 지정한 바로가기 + 카드 앞면의 최근 항목(/api/feed).
   //

@@ -195,10 +195,10 @@ el('setpw-cancel').addEventListener('click', () => logout());
 async function logout() {
   try {
     await api('/api/logout', { method: 'POST' });
-  } catch {
-    /* 실패해도 화면은 로그인으로 되돌린다 */
+    location.href = '/';
+  } catch (e) {
+    toast(`로그아웃하지 못했습니다. ${e.message}`);
   }
-  location.href = '/';
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -558,7 +558,6 @@ function route() {
   if (hash === '#/' || hash === '') return renderDashboard(page);
   if (hash.startsWith('#/g/')) return renderGroup(page, hash.slice(4));
   if (hash === '#/sns') return renderLinks(page, 'sns');
-  if (hash === '#/shared') return renderShared(page);
   // Jaden wiki — 포털 안 메모. #/wiki(목록) · #/wiki/new · #/wiki/<번호>
   if (hash === '#/wiki' || hash.startsWith('#/wiki/')) {
     if (!state.services.some((s) => s.key === 'jadenwiki')) {
@@ -1239,9 +1238,15 @@ function renderDashboard(page) {
     </div>
     ${state.services.some((s) => s.feed) ? askHtml() : ''}
     ${todayHtml()}
+    ${state.services.some((s) => s.key === 'jadenwiki') ? `<section class="section">
+      <h2 class="section-title">공유화면 목록</h2>
+      <p class="page-lead">공유 중인 메모를 확인하고 공유를 해제합니다.</p>
+      <div class="panel" id="shared-list"><span class="spinner"></span></div>
+    </section>` : ''}
     ${sections || emptyHtml('열람할 수 있는 화면이 없습니다.', '관리자에게 화면 권한을 요청해주세요.')}`;
   wireCards(page);
   wireAsk(page);
+  if (el('shared-list')) renderSharedList();
 }
 
 function renderGroup(page, key) {
@@ -1339,15 +1344,9 @@ function renderLinks(page, key) {
       .join('')}</div>`;
 }
 
-async function renderShared(page) {
-  if (!state.services.some((s) => s.key === 'sharednotes')) {
-    location.hash = '#/';
-    return;
-  }
-  page.innerHTML = `<div class="page-head"><h1 class="page-title">공유 화면</h1>
-    <p class="page-lead">현재 공유 중인 Jaden Memo를 확인합니다.</p></div>
-    <div class="panel" id="shared-list"><span class="spinner"></span></div>`;
+async function renderSharedList() {
   const list = el('shared-list');
+  if (!list) return;
   try {
     const data = await api('/api/wiki/shared');
     if (!list.isConnected) return;
@@ -1358,6 +1357,7 @@ async function renderShared(page) {
             <span class="feed-sub">공유 시작 ${esc(n.sharedAt ? new Date(n.sharedAt).toLocaleDateString('ko-KR') : '')}</span>
           </a>
           <button class="btn-utility" type="button" data-copy="${esc(n.shareToken)}">주소 복사</button>
+          <button class="btn-utility danger" type="button" data-unshare="${n.id}">공유 해제</button>
         </li>`).join('')}</ul>`
       : '<p class="feed-note">공유 중인 메모가 없습니다.</p>';
     list.querySelectorAll('[data-copy]').forEach((b) => b.addEventListener('click', async () => {
@@ -1365,6 +1365,18 @@ async function renderShared(page) {
         await navigator.clipboard.writeText(`${location.origin}/s/${b.dataset.copy}`);
         toast('공유 주소를 복사했습니다.');
       } catch { toast('주소를 복사하지 못했습니다.'); }
+    }));
+    list.querySelectorAll('[data-unshare]').forEach((b) => b.addEventListener('click', async () => {
+      if (!confirm('이 메모의 공유를 해제할까요? 기존 공유 주소가 열리지 않게 됩니다.')) return;
+      b.disabled = true;
+      try {
+        await api(`/api/wiki/notes/${b.dataset.unshare}/share`, { method: 'DELETE' });
+        toast('공유를 해제했습니다.');
+        await renderSharedList();
+      } catch (e) {
+        b.disabled = false;
+        toast(e.message);
+      }
     }));
   } catch (e) {
     if (list.isConnected) list.innerHTML = `<p class="feed-note">${esc(e.message)}</p>`;

@@ -265,7 +265,7 @@ async function createSession(env, user) {
   const sid = randomId(24);
   await env.SESSIONS.put(
     `sess:${sid}`,
-    JSON.stringify({ uid: user.id, pwv: pwFingerprint(user.password_hash), at: nowIso() }),
+    JSON.stringify({ uid: user.id, pwv: pwFingerprint(user.password_hash), sev: Number(user.session_epoch) || 0, at: nowIso() }),
     { expirationTtl: SESSION_TTL }
   );
   return { sid, cookie: `${sid}.${await signSid(env, sid)}` };
@@ -500,9 +500,9 @@ async function requireLogin(request, env, handler, { allowPwChange = false } = {
   if (user.status !== 'active') return fail('사용이 중지된 계정입니다.', 403, { code: 'blocked' });
 
   // 비밀번호가 바뀌었으면(또는 지문이 없는 옛 세션이면) 여기서 끊는다.
-  if (sess.pwv !== pwFingerprint(user.password_hash)) {
+  if (sess.pwv !== pwFingerprint(user.password_hash) || (Number(sess.sev) || 0) !== (Number(user.session_epoch) || 0)) {
     await env.SESSIONS.delete(`sess:${sess.sid}`);
-    return fail('비밀번호가 바뀌었습니다. 다시 로그인해주세요.', 401, { code: 'unauthorized' });
+    return fail('로그인 세션이 종료되었습니다. 다시 로그인해주세요.', 401, { code: 'unauthorized' });
   }
 
   if (user.must_change_pw && !allowPwChange) {
@@ -536,7 +536,6 @@ const requireScreen = (key) => (request, env, handler) =>
   });
 
 const requireWiki = requireScreen('jadenwiki');
-const requireSharedNotes = requireScreen('sharednotes');
 
 /** 북마크도 같은 얼개다 — 'bookmarks' 권한 하나가 화면과 API를 함께 연다. */
 const requireBookmarks = requireScreen('bookmarks');
@@ -566,7 +565,8 @@ async function apiStatus(request, env) {
   const sess = configured ? await readSession(request, env) : null;
   const user = sess ? await getUser(env, sess.uid) : null;
 
-  if (!user || user.status !== 'active' || sess.pwv !== pwFingerprint(user.password_hash)) {
+  if (!user || user.status !== 'active' || sess.pwv !== pwFingerprint(user.password_hash) ||
+      (Number(sess.sev) || 0) !== (Number(user.session_epoch) || 0)) {
     return json({ loggedIn: false, configured });
   }
   if (user.must_change_pw) {
@@ -640,6 +640,9 @@ async function apiLogin(request, env, ctx) {
 async function apiLogout(request, env, ctx) {
   const sess = await readSession(request, env);
   if (sess) {
+    // 버전을 올리면 다른 기기에 남아 있는 세션도 다음 요청부터 모두 거절된다.
+    await env.DB.prepare('UPDATE users SET session_epoch = session_epoch + 1 WHERE id = ? AND session_epoch = ?')
+      .bind(sess.uid, Number(sess.sev) || 0).run();
     await env.SESSIONS.delete(`sess:${sess.sid}`);
     // 이 세션으로 열어 둔 화면 잠금해제도 함께 걷어낸다.
     const list = await env.SESSIONS.list({ prefix: `unlock:${sess.sid}:` });
@@ -673,7 +676,7 @@ async function apiSetPassword(request, env, ctx, user) {
 
   // 비밀번호 지문이 바뀌었으니 지금 세션도 끊긴다 → 새 세션을 바로 발급해 이어 준다.
   // (다른 기기에 열려 있던 창은 여기서 끊긴다 — 그게 비밀번호를 바꾸는 이유다.)
-  const { cookie } = await createSession(env, { id: user.id, password_hash: hash });
+  const { cookie } = await createSession(env, { id: user.id, password_hash: hash, session_epoch: user.session_epoch });
   logAccess(env, ctx, request, { userId: user.id, email: user.email, action: 'password_set' });
 
   return json({ ok: true }, 200, { 'Set-Cookie': cookieHeader(cookie, request) });
@@ -1700,7 +1703,7 @@ export default {
       }
       // 공유 켜기(POST) · 끄기(DELETE). 켠 뒤의 주소는 아래 /s/<이름표> 다.
       if (path === '/api/wiki/shared' && method === 'GET') {
-        return requireSharedNotes(request, env, (user) => listSharedNotes(env, user.id));
+        return requireWiki(request, env, (user) => listSharedNotes(env, user.id));
       }
       const mShare = path.match(/^\/api\/wiki\/notes\/(\d+)\/share$/);
       if (mShare && (method === 'POST' || method === 'DELETE')) {

@@ -1150,8 +1150,8 @@ table.data tr:last-child td { border-bottom: none; }
 }
 .card-icon .ico { width: 21px; height: 21px; }
 .card-icon .ico-brand { width: 30px; height: 30px; }
-.shared-row { display: flex; align-items: center; gap: 12px; }
-.shared-row .feed-row { flex: 1; min-width: 0; }
+.shared-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; padding: 6px 0; }
+.shared-row .feed-row { flex: 1 1 220px; min-width: 0; }
 .card-title { font-weight: 700; letter-spacing: -.4px; }
 
 .tag {
