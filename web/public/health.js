@@ -237,9 +237,12 @@ export async function renderHealth(page, sub) {
   hs.tab = isTab(sub) ? sub : TABS[0].key;
 
   page.innerHTML = `
-    <div class="page-head tight">
-      <h1 class="page-title">헬스정보</h1>
-      <p class="page-lead">매일의 활동 · 수면 · 심박과 체성분 · 피검사 · 검진을 항목별로 세워 봅니다. 항목을 누르면 그 항목만 길게 볼 수 있습니다.</p>
+    <div class="page-head tight hx-head">
+      <div>
+        <h1 class="page-title">헬스정보</h1>
+        <p class="page-lead">매일의 활동 · 수면 · 심박과 체성분 · 피검사 · 검진을 항목별로 세워 봅니다. 항목을 누르면 그 항목만 길게 볼 수 있습니다.</p>
+      </div>
+      <button class="btn-secondary btn-sm hx-theme" type="button" id="hx-theme"></button>
     </div>
     <div class="hp">
       <nav class="hp-tabs" id="hp-tabs" aria-label="헬스정보 갈래"></nav>
@@ -247,6 +250,7 @@ export async function renderHealth(page, sub) {
     </div>`;
 
   paintTabs();
+  paintTheme();
   // 삼성헬스는 표가 따로다(health_daily) — 검진 목록을 기다릴 까닭이 없다.
   if (hs.tab === 'samsung') {
     await renderSamsung(el('hp-tabbody'));
@@ -259,6 +263,39 @@ export async function renderHealth(page, sub) {
     return;
   }
   await paintTabBody();
+}
+
+// ── 밝은 모드 / 다크 모드 ─────────────────────────────────────────────
+// 기본은 밝은 바탕이다. 다크 모드는 고르는 사람만 — 이 브라우저에 기억한다.
+// 표시는 body 에 단다: 대화창(<dialog>)이 본문 밖(body)에 붙기 때문이다.
+const THEME_KEY = 'japis.health.theme';
+let themeNow = null;   // 저장이 막힌 창(사생활 보호 모드 등)에서도 이번 방문 동안은 지킨다
+const readTheme = () => {
+  if (themeNow) return themeNow;
+  try {
+    themeNow = localStorage.getItem(THEME_KEY) === 'dark' ? 'dark' : 'light';
+  } catch {
+    themeNow = 'light';
+  }
+  return themeNow;
+};
+
+function paintTheme() {
+  const dark = readTheme() === 'dark';
+  document.body.classList.toggle('hx-dark', dark);
+  const btn = el('hx-theme');
+  if (!btn) return;
+  btn.innerHTML = `<span aria-hidden="true">◐</span> ${dark ? '밝은 모드' : '다크 모드'}`;
+  btn.setAttribute('aria-pressed', String(dark));
+  btn.onclick = () => {
+    themeNow = dark ? 'light' : 'dark';
+    try {
+      localStorage.setItem(THEME_KEY, themeNow);
+    } catch {
+      /* 저장이 막혀도 이번 방문 동안은 고른 대로 보인다 */
+    }
+    paintTheme();
+  };
 }
 
 /**

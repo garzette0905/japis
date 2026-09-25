@@ -554,6 +554,9 @@ function route() {
   const page = el('page');
   page.scrollTop = 0;
   window.scrollTo(0, 0);
+  // 헬스정보만 검은 바탕 + 노랑 한 벌이다(health.css 머리말). 본문 칸 전체를 칠하려고
+  // 화면 안이 아니라 body 에 표시를 단다 — 다른 화면으로 가면 곧바로 걷힌다.
+  document.body.classList.toggle('route-health', hash === '#/health' || hash.startsWith('#/health/'));
 
   if (hash === '#/' || hash === '') return renderDashboard(page);
   if (hash.startsWith('#/g/')) return renderGroup(page, hash.slice(4));
