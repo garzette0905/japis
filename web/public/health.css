@@ -1,5 +1,5 @@
 /* ============================================================================
-   헬스정보 · 인바디·혈액 — 검사 결과 화면의 스타일
+   헬스정보 — 삼성헬스 · 인바디 · 혈액 · 건강검진 화면의 스타일
    ----------------------------------------------------------------------------
    본 화면의 규칙(styles.css)을 그대로 따른다: 담는 것은 각지게, 누르는 것은 알약,
    그림자 없이 1px 실선 하나로 깊이를 낸다.
@@ -257,6 +257,66 @@
 .hp-more[open] > summary { margin-bottom: var(--s-sm); }
 .hp-more .hp-fs { margin-bottom: var(--s-xs); }
 
+/* ── 삼성헬스 탭 — 매일의 기록 ──────────────────────────────────────────
+   검사표와 규칙이 하나 다르다: 여기 값에는 참고범위가 없어 **빨강이 서지 않는다.**
+   막대·선은 먹색 하나, 괜찮다고 널리 쓰이는 구간(수면 7~9시간 · 산소 95% 이상)만
+   초록 띠로 깐다. 평균은 점선 하나 — 눈이 먼저 찾는 것은 '평소보다 어땠나'다. */
+.sh { display: flex; flex-direction: column; gap: var(--s-lg); }
+.sh-bar { display: flex; align-items: center; justify-content: space-between; gap: var(--s-sm); flex-wrap: wrap; }
+.sh-ranges { display: flex; gap: var(--s-xxs); }
+.sh-range {
+  padding: 7px 14px; border: 1px solid var(--hairline); background: var(--surface);
+  border-radius: var(--r-pill); cursor: pointer; font: inherit; font-size: 13px; color: var(--ink-secondary);
+}
+.sh-range:hover { border-color: var(--ink); }
+.sh-range.is-on { background: var(--ink); border-color: var(--ink); color: #fff; }
+.sh-src { display: flex; align-items: center; gap: var(--s-xs); }
+.sh-src-t { font-size: 12px; color: var(--ink-muted); }
+
+/* 요약 타일은 단추다 — 누르면 그 항목이 아래 그래프로 온다 */
+.sh-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; background: var(--hairline); border: 1px solid var(--hairline); }
+.sh-tile {
+  display: flex; flex-direction: column; gap: 2px; text-align: left;
+  padding: var(--s-sm) var(--s-md); border: 0; background: var(--surface);
+  font: inherit; color: var(--ink); cursor: pointer;
+}
+.sh-tile:hover { background: var(--canvas-soft); }
+.sh-tile.is-on { box-shadow: inset 0 -3px 0 var(--ink); }
+.sh-tile .hp-tile-v { font-size: 22px; }
+.sh-tile .hp-delta { margin-left: 2px; }
+
+.sh-stats { margin-top: var(--s-md); grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.sh-stat-v { font-size: 18px; letter-spacing: -.3px; }
+
+.sh-plot { position: relative; margin-top: var(--s-md); }
+.sh-chart { width: 100%; height: auto; aspect-ratio: 860 / 280; display: block; overflow: visible; touch-action: pan-y; }
+.sh-bar-r { fill: var(--ink); opacity: .82; }
+.sh-yax { font-size: 10px; fill: var(--ink-faint); text-anchor: end; font-variant-numeric: tabular-nums; }
+.sh-avg { stroke: var(--a-orange); stroke-width: 1.2; stroke-dasharray: 5 4; }
+.sh-avg-t { font-size: 11px; fill: var(--a-orange); text-anchor: end; font-weight: 600; paint-order: stroke; stroke: var(--surface); stroke-width: 3px; }
+.sh-guide { stroke: var(--ink-muted); stroke-width: 1; stroke-dasharray: 2 3; }
+.sh-hit { fill: transparent; cursor: crosshair; }
+.sh-tip {
+  position: absolute; top: 0; transform: translateX(-50%);
+  display: flex; flex-direction: column; gap: 1px; pointer-events: none;
+  padding: 6px 10px; border: 1px solid var(--hairline); background: var(--surface);
+  font-size: 12px; white-space: nowrap; box-shadow: var(--sh-2);
+}
+.sh-tip span { color: var(--ink-muted); }
+.sh-tip b { font-size: 15px; font-variant-numeric: tabular-nums; }
+.sh-tip em { font-style: normal; font-size: 11px; color: var(--ink-faint); }
+
+.sh-blank { display: flex; flex-direction: column; gap: var(--s-xs); }
+.sh-blank-act { margin-top: var(--s-xs); }
+.sh-howto { margin: var(--s-xs) 0 0; padding-left: 20px; font-size: 13px; line-height: 1.7; color: var(--ink-secondary); }
+.sh-howto code { font-size: 12px; background: var(--canvas-soft); padding: 0 4px; }
+.sh-check { display: flex; align-items: center; gap: 6px; font-size: 13px; flex-wrap: wrap; }
+.sh-prog { display: flex; flex-direction: column; gap: 6px; }
+.sh-prog-bar { height: 6px; background: var(--canvas-soft); overflow: hidden; }
+.sh-prog-bar span { display: block; height: 100%; width: 0; background: var(--ink); transition: width .2s ease; }
+.sh-prog p { margin: 0; font-size: 12px; color: var(--ink-muted); }
+.sh-actions { flex-wrap: wrap; }
+
 /* ── 좁은 화면 ────────────────────────────────────────────────────────
    휴대폰에서는 기둥을 접어 위아래로 세운다. 표는 가로로 굴린다 —
    글자를 줄여 억지로 넣으면 숫자가 안 읽힌다. */
@@ -275,4 +335,7 @@
   .hp-table .hp-n { min-width: 150px; }
   .hp-fs-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
   .hp-year { min-width: 66px; padding: 7px 11px; }
+  .sh-tiles, .sh-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sh-tile .hp-tile-v { font-size: 18px; }
+  .sh-range { padding: 6px 11px; }
 }

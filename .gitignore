@@ -19,3 +19,8 @@ dist/
 
 # 아이콘 후보 원본은 로컬에만 두고 커밋하지 않는다(용량/중간 산출물).
 design/
+
+# 삼성헬스 '개인 데이터 다운로드' 원본(수면·심박 기록). 개인 건강 기록이라 절대 커밋하지 않는다.
+# 화면의 '가져오기' 또는 tools/samsung-health-import.mjs 가 여기서 읽어 하루 한 값만 D1 에 올린다.
+Samsung Health/
+samsunghealth_*/

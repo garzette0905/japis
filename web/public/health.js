@@ -1,8 +1,12 @@
-// 헬스정보 — 검사 결과를 **항목별로 세워 보는** 화면 하나, 탭 셋.
+// 헬스정보 — 내 몸의 기록을 **항목별로 세워 보는** 화면 하나, 탭 넷.
 //
-//   #/health         종합검진  연 1회. 결과지와 **같은 모양**의 표를 그린다
-//   #/health/inbody  인바디    체성분. 고른 항목 하나를 **선 하나**로 길게 본다
-//   #/health/blood   혈액검사  콜레스테롤·간·신장. 인바디와 같은 얼개
+//   #/health          삼성헬스  매일 — 걸음 · 수면 · 심박 · 체중 (health-samsung.js)
+//   #/health/inbody   인바디    체성분. 고른 항목 하나를 **선 하나**로 길게 본다
+//   #/health/blood    혈액검사  콜레스테롤·간·신장. 인바디와 같은 얼개
+//   #/health/checkup  건강검진  연 1회. 결과지와 **같은 모양**의 표를 그린다
+//
+// 차례는 **자주 보는 것부터**다. 매일 쌓이는 삼성헬스가 맨 앞, 한 해에 한 번인
+// 건강검진이 맨 뒤.
 //
 // 처음에는 '인바디·혈액'을 옆 메뉴로 따로 뽑았다. 걷었다 — 메뉴에서 나란히 설
 // 이유가 없다. 셋 다 **내 몸의 같은 기록**이고, 보는 사람은 "건강 얘기"를 하러
@@ -15,6 +19,7 @@
 
 import { el, esc, api, toast } from './util.js';
 import { ico } from './icons.js';
+import { renderSamsung } from './health-samsung.js';
 
 const hs = {
   loaded: false,
@@ -23,7 +28,7 @@ const hs = {
   metrics: [],          // 이름표 전부
   metricMap: new Map(),
   exams: [],            // 전 종류
-  tab: 'checkup',       // 'checkup' | 'inbody' | 'blood'
+  tab: 'samsung',       // 'samsung' | 'inbody' | 'blood' | 'checkup'
   // 종합검진 탭
   examId: null,
   detail: null,
@@ -218,22 +223,23 @@ const examsOf = (kind) => hs.exams.filter((e) => e.kind === kind);
 // ══════════════════════════════════════════════════════════════
 
 const TABS = [
-  { key: 'checkup', label: '종합검진', hint: '연 1회 — 결과지 그대로' },
+  { key: 'samsung', label: '삼성헬스', hint: '걸음 · 수면 · 심박 · 체중' },
   { key: 'inbody',  label: '인바디',   hint: '체성분 · 부위별 근육' },
   { key: 'blood',   label: '혈액검사', hint: '콜레스테롤 · 간 · 신장' },
+  { key: 'checkup', label: '건강검진', hint: '연 1회 — 결과지 그대로' },
 ];
 const isTab = (k) => TABS.some((t) => t.key === k);
 
-/** 탭의 주소. 종합검진은 맨 주소(#/health)다 — 들어오면 먼저 보이는 것이 그것이다. */
-const tabHash = (key) => (key === 'checkup' ? '#/health' : `#/health/${key}`);
+/** 탭의 주소. 첫 탭(삼성헬스)은 맨 주소(#/health)다 — 들어오면 먼저 보이는 것이 그것이다. */
+const tabHash = (key) => (key === TABS[0].key ? '#/health' : `#/health/${key}`);
 
 export async function renderHealth(page, sub) {
-  hs.tab = isTab(sub) ? sub : 'checkup';
+  hs.tab = isTab(sub) ? sub : TABS[0].key;
 
   page.innerHTML = `
     <div class="page-head tight">
       <h1 class="page-title">헬스정보</h1>
-      <p class="page-lead">검진 · 체성분 · 피검사를 검사항목별로 세워 봅니다. 항목 이름을 누르면 그 항목만 길게 볼 수 있습니다.</p>
+      <p class="page-lead">매일의 활동 · 수면 · 심박과 체성분 · 피검사 · 검진을 항목별로 세워 봅니다. 항목을 누르면 그 항목만 길게 볼 수 있습니다.</p>
     </div>
     <div class="hp">
       <nav class="hp-tabs" id="hp-tabs" aria-label="헬스정보 갈래"></nav>
@@ -241,6 +247,11 @@ export async function renderHealth(page, sub) {
     </div>`;
 
   paintTabs();
+  // 삼성헬스는 표가 따로다(health_daily) — 검진 목록을 기다릴 까닭이 없다.
+  if (hs.tab === 'samsung') {
+    await renderSamsung(el('hp-tabbody'));
+    return;
+  }
   try {
     await loadOverview();
   } catch (e) {

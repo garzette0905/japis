@@ -33,3 +33,4 @@ npx wrangler d1 execute japis-db --remote --file=./migrations/00X_....sql
 | `015_health_2025_spring.sql` | 스캔한 종이 결과지에서 옮겨 적은 인바디 5회(2025-03-28·04-29·07-16·08-13, 2026-07-03)와 2025-04-08 혈액검사(GC Labs — 참고범위를 행마다 기록) |
 | `016_bookmark_order_and_shared_notes.sql` | 북마크 드래그 순서 컬럼과 공유 화면 메뉴 권한 |
 | `017_global_logout.sql` | 전체 기기 로그아웃용 세션 버전과 옛 공유 메뉴 권한 정리 |
+| `018_health_daily.sql` | 헬스정보 → 삼성헬스 탭 — `health_daily`(날짜 × 항목, 하루 한 값)와 가져온 기록 `health_daily_imports` |

@@ -34,6 +34,7 @@ import {
   deleteExam,
   putResults,
 } from './health.js';
+import { samsungOverview, samsungSeries, samsungImport } from './samsung.js';
 import {
   listMusic,
   createArtist,
@@ -1824,6 +1825,16 @@ export default {
       }
       if (mHealthExam && method === 'DELETE') {
         return requireHealth(request, env, (user) => deleteExam(env, user.id, Number(mHealthExam[1])));
+      }
+      // 삼성헬스 — 하루 한 값(걸음 · 잠 · 심박 · 체중). 같은 헬스정보 문을 지난다.
+      if (path === '/api/health/daily' && method === 'GET') {
+        return requireHealth(request, env, async (user) => json(await samsungOverview(env, user.id)));
+      }
+      if (path === '/api/health/daily/series' && method === 'GET') {
+        return requireHealth(request, env, (user) => samsungSeries(env, user.id, url.searchParams.get('code') || ''));
+      }
+      if (path === '/api/health/daily/import' && method === 'POST') {
+        return requireHealth(request, env, (user) => samsungImport(request, env, user.id));
       }
 
       // ---- 관리자 ----

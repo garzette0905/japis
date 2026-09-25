@@ -191,8 +191,9 @@ export const SERVICES = [
     group: 'personal',
     // 인바디·혈액은 한때 옆에 따로 선 메뉴였다. 걷었다 — 메뉴에서 나란히 설
     // 이유가 없다. 셋 다 내 몸의 같은 기록이고, 보는 사람은 "건강 얘기"를 하러
-    // 한 번 들어온다. 지금은 이 화면 안의 탭 셋이다(#/health/inbody · /blood).
-    desc: '검진 · 인바디 · 피검사를 검사항목별 추이로 본다',
+    // 한 번 들어온다. 지금은 이 화면 안의 탭 넷이다 — 삼성헬스(#/health) ·
+    // 인바디(/inbody) · 혈액검사(/blood) · 건강검진(/checkup).
+    desc: '삼성헬스 · 인바디 · 피검사 · 검진을 항목별 추이로 본다',
     url: '/#/health',
     route: '#/health',
     accent: 'red',

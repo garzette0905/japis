@@ -582,8 +582,8 @@ function route() {
     }
     return renderPlaylists(page);
   }
-  // 헬스정보 — #/health(종합검진) · #/health/inbody · #/health/blood.
-  // 화면은 하나이고 탭이 셋이다. 갈래를 주소에 두어야 뒤로 가기가 살고, 그 탭을
+  // 헬스정보 — #/health(삼성헬스) · #/health/inbody · #/health/blood · #/health/checkup(건강검진).
+  // 화면은 하나이고 탭이 넷이다. 갈래를 주소에 두어야 뒤로 가기가 살고, 그 탭을
   // 눌러 둔 채 새로고침해도 같은 자리에 선다.
   if (hash === '#/health' || hash.startsWith('#/health/')) {
     if (!state.services.some((s) => s.key === 'healthcheck')) {

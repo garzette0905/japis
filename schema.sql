@@ -314,3 +314,26 @@ CREATE TABLE IF NOT EXISTS health_results (
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_health_results_one   ON health_results (exam_id, code);
 CREATE INDEX IF NOT EXISTS        idx_health_results_trend ON health_results (user_id, code);
+
+-- ── 헬스정보 · 삼성헬스 (하루 한 값) ──────────────────────────────────
+-- 자세한 설계는 migrations/018_health_daily.sql 참고. 항목 이름표는 cloudflare/samsung.js.
+CREATE TABLE IF NOT EXISTS health_daily (
+  user_id    INTEGER NOT NULL,
+  code       TEXT    NOT NULL,
+  day        TEXT    NOT NULL,                  -- 'YYYY-MM-DD'
+  value      REAL    NOT NULL,
+  updated_at TEXT    NOT NULL,
+  PRIMARY KEY (user_id, code, day)
+) WITHOUT ROWID;
+CREATE INDEX IF NOT EXISTS idx_health_daily_day ON health_daily (user_id, day);
+
+CREATE TABLE IF NOT EXISTS health_daily_imports (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id     INTEGER NOT NULL,
+  imported_at TEXT    NOT NULL,
+  source      TEXT    NOT NULL DEFAULT '',
+  rows        INTEGER NOT NULL DEFAULT 0,
+  first_day   TEXT,
+  last_day    TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_health_daily_imports ON health_daily_imports (user_id, id DESC);
