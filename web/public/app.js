@@ -1285,8 +1285,8 @@ async function loadMuse() {
     const { briefing: b } = await api('/api/wiki/briefing');
     if (!box.isConnected) return;
     if (!b) {
-      box.innerHTML = `<p class="feed-note">최근 3일 안의 Muse 브리핑이 없습니다.
-        Jaden Memo 의 <b>Muse</b> 폴더(또는 제목이 '데일리 브리핑'으로 시작하는 메모)에 넣으면 여기에 표시됩니다.</p>
+      box.innerHTML = `<p class="feed-note">Muse 브리핑이 아직 없습니다.
+        Jaden Memo 의 <b>Muse Daily</b> 폴더에 메모를 넣으면 가장 최근에 고친 것이 여기에 표시됩니다.</p>
         <a class="btn-utility" href="#/wiki/new">메모 쓰기</a>`;
       return;
     }
