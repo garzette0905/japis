@@ -44,9 +44,30 @@ export function latestCard(n) {
       ${url ? `<div class="sns-metrics"><a href="${esc(url)}" target="_blank" rel="noopener noreferrer">원문 ↗</a></div>` : ''}</div></article>`;
 }
 
+// Top 10 칸. AI NEWS 화면과 대시보드가 같은 마크업·같은 /api/news 를 쓴다.
+const topSectionHtml = (more = false) => `<section class="sns-top" aria-labelledby="news-top-title"><div class="sns-section-head"><span class="sns-eyebrow">THE AI PULSE</span><h2 id="news-top-title">${more ? '<a href="#/news">지금의 AI Top 10 <span>↗</span></a>' : '지금의 AI Top 10 <span>↗</span>'}</h2><p class="news-built">최신 순위를 불러오는 중입니다…</p></div><div class="sns-top-items news-top-items" aria-live="polite"><p class="sns-empty">기사를 모으고 있습니다…</p></div></section>`;
+function paintTop(root, data) {
+  root.querySelector('.news-built').textContent = `${date(data.builtAt)} 기준 · ${data.scanned}건에서 선정 · 매시 정각 무렵 자동 갱신`;
+  root.querySelector('.news-top-items').innerHTML = data.top.map(topCard).join('') || '<div class="sns-empty"><h3>순위를 만들 기사가 부족합니다</h3><p>잠시 후 새로고침해주세요.</p></div>';
+}
+
+/** 대시보드 맨 위 칸. 붙일 자리만 받고, 실패해도 대시보드의 나머지는 그대로 둔다. */
+export const newsDashHtml = () => `<div class="sns-app news-app news-dash" id="news-dash">${topSectionHtml(true)}</div>`;
+export async function loadNewsDash(root) {
+  if (!root) return;
+  try {
+    const data = await api('/api/news');
+    if (root.isConnected) paintTop(root, data);
+  } catch (e) {
+    if (!root.isConnected) return;
+    root.querySelector('.news-built').textContent = '';
+    root.querySelector('.news-top-items').innerHTML = `<p class="sns-empty">AI 뉴스를 불러오지 못했습니다: ${esc(e.message)}</p>`;
+  }
+}
+
 export async function renderNews(page) {
   page.innerHTML = `<div class="sns-app news-app"><header class="sns-header"><div class="sns-title-icon">${serviceIco('sns')}</div><div><h1>Jaden AI NEWS</h1><p>지금 가장 중요한 AI 뉴스 Top 10 · 1시간마다 갱신</p></div><div class="sns-refresh-group"><button class="sns-refresh" type="button" data-refresh>새로고침 ↻</button></div></header>
-    <main class="sns-main"><section class="sns-top" aria-labelledby="news-top-title"><div class="sns-section-head"><span class="sns-eyebrow">THE AI PULSE</span><h2 id="news-top-title">지금의 AI Top 10 <span>↗</span></h2><p class="news-built">최신 순위를 불러오는 중입니다…</p></div><div class="sns-top-items news-top-items" aria-live="polite"><p class="sns-empty">기사를 모으고 있습니다…</p></div></section>
+    <main class="sns-main">${topSectionHtml()}
     <section class="sns-timeline" aria-label="매체별 최신 기사"><div class="sns-tabs" role="group" aria-label="매체 필터">${FILTERS.map(([k, v], i) => `<button data-filter="${k}" aria-pressed="${i === 0}">${v}</button>`).join('')}</div>
       <div class="sns-toolbar"><span>최근 36시간 · 매체별 최신 AI 기사</span><span>최신순 ↓</span></div>
       <div class="sns-feed-items" aria-live="polite"><p class="sns-empty">기사를 불러오는 중입니다…</p></div><button class="sns-more" hidden>더 보기</button></section>
@@ -66,8 +87,7 @@ export async function renderNews(page) {
     $('.sns-more').hidden = list.length <= limit;
   }
   function paint() {
-    $('.news-built').textContent = `${date(data.builtAt)} 기준 · ${data.scanned}건에서 선정 · 매시 정각 무렵 자동 갱신`;
-    $('.news-top-items').innerHTML = data.top.map(topCard).join('') || '<div class="sns-empty"><h3>순위를 만들 기사가 부족합니다</h3><p>잠시 후 새로고침해주세요.</p></div>';
+    paintTop(root, data);
     $('.news-sources').textContent = '수집 상태: ' + data.sources.map((s) => `${s.name} ${s.ok ? `${s.count}건` : '실패'}`).join(' · ');
     paintLatest();
   }

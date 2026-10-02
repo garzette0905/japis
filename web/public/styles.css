@@ -1368,3 +1368,14 @@ table.data tr:last-child td { border-bottom: none; }
  body.side-compact .side-ico{flex:none;margin:0}
  body.side-compact .side-nav{gap:12px}
 }
+
+/* 대시보드 '오늘의 Muse 요약' — Jaden Memo 본문(.wiki-view)을 접어서 보여준다. */
+.muse-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.muse-head a{color:inherit;text-decoration:none}.muse-head a:hover{text-decoration:underline}
+.muse-body{font-size:14px;max-height:420px;overflow:hidden;position:relative;overflow-wrap:anywhere}
+.muse-body.is-open{max-height:none}
+.muse-body.is-clamped:not(.is-open)::after{content:'';position:absolute;left:0;right:0;bottom:0;height:64px;background:linear-gradient(transparent,var(--surface,#fff))}
+.muse-body table{border-collapse:collapse;width:100%;font-size:13px;display:block;overflow-x:auto}
+.muse-body th,.muse-body td{border:1px solid var(--hairline-soft,#ebe9f2);padding:5px 8px;text-align:left;vertical-align:top}
+.muse-body h1,.muse-body h2,.muse-body h3{font-size:16px;margin:14px 0 6px}
+.muse-more{margin-top:10px}

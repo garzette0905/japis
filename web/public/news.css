@@ -14,3 +14,6 @@
 .news-about{margin-top:24px}.news-sources{padding-top:12px;border-top:1px solid var(--sns-line)}
 @media(max-width:760px){.news-app .sns-tabs{padding:0 12px;gap:6px}.news-title{font-size:14px}}
 @media(max-width:480px){.news-app .sns-header{grid-template-columns:40px minmax(0,1fr)}.news-app .sns-refresh-group{grid-column:1/-1}}
+.news-app .sns-section-head h2 a{color:inherit!important;text-decoration:none!important}.news-app .sns-section-head h2 a:hover span{color:#2563eb}
+/* 대시보드 맨 위 칸 — 같은 카드, 바깥 여백만 대시보드에 맞춘다. */
+.news-dash .sns-top{margin-bottom:0}

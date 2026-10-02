@@ -75,6 +75,7 @@ import {
   importFiles,
   shareNote,
   listSharedNotes,
+  museBriefing,
   sharedNotePage,
   renderMarkdown,
   reorderFolders,
@@ -1747,6 +1748,10 @@ export default {
         return requireWiki(request, env, (user) => exportNote(env, user.id, Number(mExport[1])));
       }
       // 공유 켜기(POST) · 끄기(DELETE). 켠 뒤의 주소는 아래 /s/<이름표> 다.
+      // 대시보드 '오늘의 Muse 요약' — Muse 폴더(또는 '데일리 브리핑' 제목)의 최근 메모 하나.
+      if (path === '/api/wiki/briefing' && method === 'GET') {
+        return requireWiki(request, env, async (user) => json(await museBriefing(env, user.id)));
+      }
       if (path === '/api/wiki/shared' && method === 'GET') {
         return requireWiki(request, env, (user) => listSharedNotes(env, user.id));
       }

@@ -11,7 +11,7 @@ import { renderBookmarks } from './bookmarks.js';
 import { renderPlaylists } from './playlists.js';
 import { renderHealth } from './health.js';
 import { renderSns } from './sns.js';
-import { renderNews } from './news.js';
+import { renderNews, newsDashHtml, loadNewsDash } from './news.js';
 import { ico, serviceIco, brandIco } from './icons.js';
 
 const state = {
@@ -1245,45 +1245,68 @@ function renderDashboard(page) {
     greetHour < 6 ? '늦은 밤이네요' : greetHour < 12 ? '좋은 아침입니다' : greetHour < 18 ? '좋은 오후입니다' : '좋은 저녁입니다';
   const who = state.me.name || state.me.email.split('@')[0];
 
-  const tile = (s) => `<li class="tile-row${s.ready ? '' : ' is-soon'}${opensInTab(s) ? ' is-tab' : ''}">
-      <button class="tile" type="button" data-key="${esc(s.key)}"${s.ready ? '' : ' disabled'}>
-        <span class="tile-ico band-${esc(s.accent || 'sky')}" aria-hidden="true">${serviceIco(s.key)}</span>
-        <span class="tile-name">${esc(s.label)}</span>
-      </button>
-      ${
-        s.ready && s.external
-          ? `<button class="tile-pop" type="button" data-pop="${esc(s.key)}"
-               title="새 탭에서 열기" aria-label="${esc(s.label)} 새 탭에서 열기">${ico('pop')}</button>`
-          : ''
-      }
-    </li>`;
-
-  const sections = menuGroups()
-    .map((g) => {
-      const items = state.services.filter((s) => s.group === g.key);
-      if (!items.length) return '';
-      return `<section class="section">
-          <h2 class="section-title sm">${esc(g.label)}</h2>
-          <ul class="tiles">${items.map(tile).join('')}</ul>
-        </section>`;
-    })
-    .join('');
+  // 순서: AI 뉴스 Top 10 → 메일·할 일·일정 → 오늘의 Muse 요약.
+  // 화면 바로가기 타일은 두지 않는다 — 상단 메뉴가 같은 일을 한다.
+  // 공유화면 목록은 '내 계정'으로 옮겼다.
+  const hasNews = state.services.some((s) => s.key === 'sns');
+  const hasWiki = state.services.some((s) => s.key === 'jadenwiki');
+  const hasFeeds = state.services.some((s) => s.feed);
 
   page.innerHTML = `
     <div class="page-head tight">
       <h1 class="page-title">${esc(greet)}, ${esc(who)}님</h1>
     </div>
-    ${state.services.some((s) => s.feed) ? askHtml() : ''}
+    ${hasNews ? `<section class="section">${newsDashHtml()}</section>` : ''}
+    ${hasFeeds ? askHtml() : ''}
     ${todayHtml()}
-    ${state.services.some((s) => s.key === 'jadenwiki') ? `<section class="section">
-      <h2 class="section-title">공유화면 목록</h2>
-      <p class="page-lead">공유 중인 메모를 확인하고 공유를 해제합니다.</p>
-      <div class="panel" id="shared-list"><span class="spinner"></span></div>
-    </section>` : ''}
-    ${sections || emptyHtml('열람할 수 있는 화면이 없습니다.', '관리자에게 화면 권한을 요청해주세요.')}`;
+    ${hasWiki ? museHtml() : ''}
+    ${hasNews || hasFeeds || hasWiki ? '' : emptyHtml('열람할 수 있는 화면이 없습니다.', '관리자에게 화면 권한을 요청해주세요.')}`;
   wireCards(page);
   wireAsk(page);
-  if (el('shared-list')) renderSharedList();
+  if (hasNews) loadNewsDash(el('news-dash'));
+  if (hasWiki) loadMuse();
+}
+
+// ---------- 오늘의 Muse 요약 ----------
+//
+// Muse 가 아침 7시에 보내는 데일리 브리핑을 Jaden Memo 에 넣어 두면(폴더 이름에 'Muse',
+// 또는 제목이 '데일리 브리핑…') 가장 새 것 하나를 여기 그대로 펼친다. 본문은 메모 저장 때
+// 씻은 html 이다(서버가 한 번 더 씻어 보낸다).
+
+const museHtml = () => `<section class="section">
+  <h2 class="section-title">오늘의 Muse 요약</h2>
+  <div class="panel muse-panel" id="muse-brief"><span class="spinner"></span></div>
+</section>`;
+
+async function loadMuse() {
+  const box = el('muse-brief');
+  if (!box) return;
+  try {
+    const { briefing: b } = await api('/api/wiki/briefing');
+    if (!box.isConnected) return;
+    if (!b) {
+      box.innerHTML = `<p class="feed-note">최근 3일 안의 Muse 브리핑이 없습니다.
+        Jaden Memo 의 <b>Muse</b> 폴더(또는 제목이 '데일리 브리핑'으로 시작하는 메모)에 넣으면 여기에 표시됩니다.</p>
+        <a class="btn-utility" href="#/wiki/new">메모 쓰기</a>`;
+      return;
+    }
+    box.innerHTML = `<div class="panel-title muse-head"><a href="#/wiki/${encodeURIComponent(b.id)}">${esc(b.title || '데일리 브리핑')}</a>
+        <span class="faint">${esc(fmt(b.updatedAt))}</span></div>
+      <div class="muse-body wiki-view">${b.html}</div>
+      <button class="btn-utility muse-more" type="button" hidden>전체 보기</button>`;
+    const body = box.querySelector('.muse-body');
+    const more = box.querySelector('.muse-more');
+    if (body.scrollHeight > body.clientHeight + 8) {
+      body.classList.add('is-clamped');
+      more.hidden = false;
+      more.addEventListener('click', () => {
+        const open = body.classList.toggle('is-open');
+        more.textContent = open ? '접기' : '전체 보기';
+      });
+    }
+  } catch (e) {
+    if (box.isConnected) box.innerHTML = `<p class="feed-note">${esc(e.message)}</p>`;
+  }
 }
 
 function renderGroup(page, key) {
@@ -1415,6 +1438,11 @@ function renderMe(page) {
         </tbody>
       </table></div>
     </div>
+    ${state.services.some((s) => s.key === 'jadenwiki') ? `<div class="panel">
+      <div class="panel-title">공유화면 목록</div>
+      <p class="field-hint" style="margin:0 0 12px">공유 중인 메모를 확인하고 공유를 해제합니다.</p>
+      <div id="shared-list"><span class="spinner"></span></div>
+    </div>` : ''}
     <div class="panel">
       <div class="panel-title">홈 화면 · 위젯</div>
       <p class="field-hint" id="pwa-state" style="margin:0 0 12px"></p>
@@ -1479,6 +1507,7 @@ function renderMe(page) {
 
   wireBio();
   paintPwaState();
+  if (el('shared-list')) renderSharedList();
 
   $('#form-mypw').addEventListener('submit', async (e) => {
     e.preventDefault();
