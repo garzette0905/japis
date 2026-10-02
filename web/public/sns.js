@@ -70,7 +70,7 @@ export async function renderSns(page) {
       const input = $('#sns-profiles');
       if (input.disabled) input.value = data.settings.profiles.map((p) => `@${p}`).join('\n');
       input.disabled = false; $('.sns-profile-form button').disabled = false;
-      $('.sns-fetched').textContent = `${date(data.fetchedAt)} 조회 · ${data.scanned}건 확인. X 최대 300건, Threads 계정당 최대 50건.`;
+      $('.sns-fetched').textContent = `${date(data.fetchedAt)} 조회 · ${data.scanned}건 확인. X 최대 50건, Threads 계정당 최대 50건.`;
     } catch (e) {
       if (!active() || generation !== id) return;
       $('.sns-global-status').textContent = `새로고침 실패: ${e.message}`;
