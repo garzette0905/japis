@@ -97,6 +97,15 @@ test('한 플랫폼이 실패해도 다른 플랫폼 피드를 유지하고 토�
   assert.ok(data.sources[0].error.includes('한도')); assert.equal(data.top.length, 0);
   assert.ok(!JSON.stringify(data).includes('private-token'));
 });
+test('플랫폼을 지정하면 해당 플랫폼만 조회한다', async (t) => {
+  const env = mockEnv();
+  for (const name of ['x', 'threads']) env.rows.set(`1:sns_${name}`, { access_token: await seal(env, 'private-token'), refresh_token: await seal(env, 'refresh'), expires_at: Date.now() + 30 * 86400000, account: JSON.stringify({ id: 'me', username: name }) });
+  const calls = [];
+  t.mock.method(globalThis, 'fetch', async (url) => { calls.push(String(url)); return Response.json({ data: [{ id: '1', text: 'AI models', username: 'choi.openai', timestamp: new Date().toISOString() }] }); });
+  const data = await snsFeed(env, 1, 'threads');
+  assert.ok(calls.length > 0); assert.ok(calls.every((u) => !u.includes('api.x.com')));
+  assert.deepEqual(data.sources.map((s) => s.platform), ['threads']);
+});
 test('Threads 연속 글을 시간순으로 정렬하고 잘린 응답을 표시한다', async (t) => {
   const env = mockEnv();
   env.rows.set('1:sns_threads', { access_token: await seal(env, 'token'), expires_at: Date.now() + 30 * 86400000 });

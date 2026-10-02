@@ -1621,7 +1621,7 @@ export default {
 
       // ---- Jaden AI SNS — existing SNS screen permission applies to every endpoint ----
       if (path === '/api/sns/feed' && method === 'GET') {
-        return requireScreen('sns')(request, env, async (user) => json(await snsFeed(env, user.id)));
+        return requireScreen('sns')(request, env, async (user) => json(await snsFeed(env, user.id, url.searchParams.get('platform'))));
       }
       if (path === '/api/sns/settings' && method === 'PUT') {
         return requireScreen('sns')(request, env, async (user) => {

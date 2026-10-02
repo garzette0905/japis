@@ -154,8 +154,8 @@ export function buildFeed(posts, now = Date.now()) {
 async function xPosts(token, id) {
   const posts = [];
   let next;
-  for (let page = 0; page < 3; page++) {
-    const q = new URLSearchParams({ max_results: '100', 'tweet.fields': 'created_at,public_metrics,conversation_id,referenced_tweets,note_tweet',
+  for (let page = 0; page < 1; page++) {
+    const q = new URLSearchParams({ max_results: '50', 'tweet.fields': 'created_at,public_metrics,conversation_id,referenced_tweets,note_tweet',
       expansions: 'author_id', 'user.fields': 'name,username', ...(next ? { pagination_token: next } : {}) });
     const data = await get(`https://api.x.com/2/users/${encodeURIComponent(id)}/timelines/reverse_chronological?${q}`, token);
     posts.push(...normalizeX(data));
@@ -185,9 +185,10 @@ async function threadsPosts(token, profiles, account) {
     truncated: results.some((r) => r.status === 'fulfilled' && r.value.truncated),
     warnings: results.flatMap((r, i) => r.status === 'rejected' ? [`@${profiles[i]}: ${r.reason.message}`] : []) };
 }
-export async function snsFeed(env, uid) {
+export async function snsFeed(env, uid, only = null) {
   const settings = await snsSettings(env, uid);
-  const results = await Promise.all(Object.keys(providers).map(async (name) => {
+  const names = Object.hasOwn(providers, only ?? '') ? [only] : Object.keys(providers);
+  const results = await Promise.all(names.map(async (name) => {
     const status = { platform: name, configured: ready(env, name), connected: false, account: null, warnings: [] };
     try {
       const row = await conn(env, uid, name);
