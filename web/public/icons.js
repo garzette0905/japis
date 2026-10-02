@@ -63,12 +63,11 @@ const BRAND_ICONS = {
     '<path d="M14.1 4.3v3.9H18" fill="#ffd1dc"/>' +
     '<path d="M8.5 11.2h7M8.5 14h7M8.5 16.8h4.5" fill="none" stroke="#d94f6a" stroke-width="1.3" stroke-linecap="round"/>',
 
-  // Jaden AI SNS — connected nodes inside a microchip.
+  // Jaden AI SNS — a conversation with a spark of intelligence.
   sns:
-    '<rect width="24" height="24" rx="5.4" fill="#0f172a"/>' +
-    '<g fill="none" stroke="#38bdf8" stroke-width="1.3"><rect x="6" y="6" width="12" height="12" rx="3"/>' +
-    '<path d="M9 3v3m6-3v3M9 18v3m6-3v3M3 9h3m-3 6h3m12-6h3m-3 6h3M9 14l3-5 3 5H9"/></g>' +
-    '<g fill="#fff"><circle cx="9" cy="14" r="1.4"/><circle cx="12" cy="9" r="1.4"/><circle cx="15" cy="14" r="1.4"/></g>',
+    '<rect width="24" height="24" rx="7" fill="#2563eb"/>' +
+    '<path d="M5 6.5h14v9H11l-4 3v-3H5z" fill="white"/>' +
+    '<path d="m13 7 .9 2.6 2.6.9-2.6.9L13 14l-.9-2.6-2.6-.9 2.6-.9z" fill="#2563eb"/>',
 
   // wepic — 제 favicon 그대로(색 고리 여덟 조각 + 렌즈). 64칸 그림을 24칸으로 줄인다
   wepic:

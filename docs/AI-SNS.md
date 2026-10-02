@@ -49,3 +49,12 @@ X 앱은 타임라인 API 사용 권한/이용 한도가 필요하다. 가입·�
 - https://docs.x.com/x-api/posts/timelines/introduction
 - https://www.postman.com/meta/threads/documentation/dht3nzz/threads-api
 - https://developers.facebook.com/docs/threads
+
+## 2026-10-03 화면 및 Threads 조회 개선
+
+- SNS 메인 화면은 Top 5 카드, Threads 원문 바로가기, 통합 피드로 구성한다.
+- 계정 연결·해제와 관심 계정 관리는 `/#/sns/settings`에서 한다.
+- 포털 왼쪽 위 메뉴 버튼은 데스크톱에서 전체 메뉴/72px 아이콘 메뉴를 전환하며 브라우저에 선택을 저장한다. 모바일에서는 기존 서랍 메뉴를 연다.
+- Threads HTTP 400 중 제공자 코드 100은 최소 게시물 필드로 한 번 재시도한다. 코드 10/200(권한), 190(토큰)은 재시도 없이 필요한 조치를 안내한다. 제공자 원문 오류나 토큰은 노출하지 않는다.
+- 본인의 관심 계정은 `/me/threads`, 다른 공개 계정은 `/profile_posts`로 조회한다. API 조회 실패 시에도 등록한 프로필을 Threads 원문에서 열 수 있다.
+- 운영 확인: Threads 앱 시크릿과 만료 전 연결 레코드는 존재했다. 사용자가 보고한 `@choi.openai` HTTP 400의 세부 제공자 코드는 기존 응답에 없으므로 실제 계정의 복구 여부는 로그인 후 재조회로 확인해야 한다. 앱 권한·심사 문제는 코드만으로 승인할 수 없다.

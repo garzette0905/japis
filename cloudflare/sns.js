@@ -17,11 +17,18 @@ async function requestJson(url, options = {}) {
   const res = await fetch(url, { ...options, signal: AbortSignal.timeout(15000) });
   const data = await res.json().catch(() => ({}));
   if (!res.ok || data.error) {
-    const e = new Error(res.status === 429 ? '요청 한도에 도달했습니다. 잠시 후 새로고침해주세요.'
+    const code = Number(data.error?.code);
+    const isThreads = new URL(url).hostname === 'graph.threads.net';
+    const detail = isThreads && code === 190 ? 'Threads 연결 토큰이 유효하지 않습니다. 설정에서 다시 연결해주세요.'
+      : isThreads && [10, 200].includes(code) ? 'Threads 조회 권한이 부족합니다. Meta 앱의 threads_profile_discovery 권한과 테스터 승인을 확인한 뒤 다시 연결해주세요.'
+      : isThreads && code === 100 ? 'Threads 공개 계정의 사용자명 또는 프로필 조회 권한을 확인해주세요. (코드 100)'
+      : null;
+    const e = new Error(detail || (res.status === 429 ? '요청 한도에 도달했습니다. 잠시 후 새로고침해주세요.'
       : res.status === 401 ? '연결이 만료되었습니다. 계정을 다시 연결해주세요.'
       : res.status === 403 ? '앱의 읽기 권한 또는 API 이용 권한을 확인해주세요.'
-      : `SNS 요청에 실패했습니다 (${res.status}). 연결과 앱 권한을 확인해주세요.`);
+      : `SNS 요청에 실패했습니다 (${res.status}). 연결과 앱 권한을 확인해주세요.`));
     e.status = res.status;
+    e.providerCode = code;
     throw e;
   }
   return data;
@@ -158,9 +165,20 @@ async function xPosts(token, id) {
   return { posts, truncated: !!next };
 }
 const fields = 'id,text,username,timestamp,permalink,has_replies';
-async function threadsPosts(token, profiles) {
+async function threadsPosts(token, profiles, account) {
   const results = await Promise.allSettled(profiles.map(async (username) => {
-    const data = await get(`${THREADS}/profile_posts?${new URLSearchParams({ username, fields, limit: '50' })}`, token);
+    const own = username.toLowerCase() === account.username.toLowerCase();
+    const endpoint = own ? 'me/threads' : 'profile_posts';
+    const params = new URLSearchParams({ ...(!own ? { username } : {}), fields, limit: '50' });
+    let data;
+    try { data = await get(`${THREADS}/${endpoint}?${params}`, token); }
+    catch (e) {
+      // Public profile fields can differ from owned-post fields. On a parameter
+      // error retry minimal text fields, without masking authentication errors.
+      if (e.providerCode !== 100) throw e;
+      params.set('fields', 'id,text,username,timestamp,permalink');
+      data = await get(`${THREADS}/${endpoint}?${params}`, token);
+    }
     return { posts: normalizeThreads(data), truncated: !!data.paging?.next };
   }));
   return { posts: results.flatMap((r) => r.status === 'fulfilled' ? r.value.posts : []),
@@ -177,7 +195,7 @@ export async function snsFeed(env, uid) {
       if (row) status.account = JSON.parse(row.account).username;
       if (!status.configured || !row) return { status, posts: [] };
       const token = await tokenFor(env, uid, name, row);
-      const result = name === 'x' ? await xPosts(token, JSON.parse(row.account).id) : await threadsPosts(token, settings.profiles);
+      const result = name === 'x' ? await xPosts(token, JSON.parse(row.account).id) : await threadsPosts(token, settings.profiles, JSON.parse(row.account));
       status.warnings = result.warnings || [];
       status.truncated = result.truncated;
       status.fetchedAt = new Date().toISOString();

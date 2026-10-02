@@ -363,6 +363,7 @@ function menuGroups() {
 }
 
 function renderNav() {
+  renderNav.cleanup?.();
   el('nav').innerHTML = `
     <button class="nav-toggle" id="nav-toggle" type="button" aria-label="메뉴 열기" aria-expanded="false">${ico('menu')}</button>
     <a class="nav-logo" href="#/" aria-label="JAPIS 대시보드">
@@ -380,10 +381,28 @@ function renderNav() {
     </div>`;
 
   el('nav-logout').addEventListener('click', logout);
+  try { document.body.classList.toggle('side-compact', localStorage.getItem('japis:sidebar') === 'compact'); } catch {}
+  const syncToggle = () => {
+    const mobile = matchMedia('(max-width: 760px)').matches;
+    const expanded = mobile ? document.body.classList.contains('side-open') : !document.body.classList.contains('side-compact');
+    el('nav-toggle').setAttribute('aria-expanded', String(expanded));
+    el('nav-toggle').setAttribute('aria-controls', 'side');
+    el('nav-toggle').title = el('nav-toggle').ariaLabel = mobile ? (expanded ? '메뉴 닫기' : '메뉴 열기') : (expanded ? '아이콘만 보기' : '전체 메뉴 보기');
+  };
   el('nav-toggle').addEventListener('click', () => {
-    const open = document.body.classList.toggle('side-open');
-    el('nav-toggle').setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (matchMedia('(max-width: 760px)').matches) document.body.classList.toggle('side-open');
+    else {
+      const compact = document.body.classList.toggle('side-compact');
+      try { localStorage.setItem('japis:sidebar', compact ? 'compact' : 'full'); } catch {}
+    }
+    syncToggle();
   });
+  const observer = new MutationObserver(syncToggle);
+  observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  const breakpoint = matchMedia('(max-width: 760px)');
+  breakpoint.addEventListener('change', syncToggle);
+  renderNav.cleanup = () => { observer.disconnect(); breakpoint.removeEventListener('change', syncToggle); };
+  syncToggle();
   paintNow();
 }
 
@@ -476,6 +495,10 @@ function renderSide() {
     .querySelectorAll('a')
     .forEach((a) => a.addEventListener('click', () => document.body.classList.remove('side-open')));
 
+  el('side').querySelectorAll('.side-item').forEach((item) => {
+    const name = item.querySelector('.side-name')?.textContent;
+    if (name) { item.setAttribute('aria-label', name); if (!item.title) item.title = name; }
+  });
   if (framed) markHere(framed.key);
 }
 
@@ -561,10 +584,10 @@ function route() {
 
   if (hash === '#/' || hash === '') return renderDashboard(page);
   if (hash.startsWith('#/g/')) return renderGroup(page, hash.slice(4));
-  document.title = hash === '#/sns' ? 'Jaden AI SNS · JAPIS' : 'JAPIS';
-  if (hash === '#/sns') {
+  document.title = hash.startsWith('#/sns') ? 'Jaden AI SNS · JAPIS' : 'JAPIS';
+  if (hash === '#/sns' || hash === '#/sns/settings') {
     if (!state.services.some((s) => s.key === 'sns')) { location.hash = '#/'; return; }
-    return renderSns(page);
+    return renderSns(page, { settings: hash === '#/sns/settings' });
   }
   // Jaden wiki — 포털 안 메모. #/wiki(목록) · #/wiki/new · #/wiki/<번호>
   if (hash === '#/wiki' || hash.startsWith('#/wiki/')) {

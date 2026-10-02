@@ -165,3 +165,45 @@ test('만료 직전 X 토큰을 갱신해 팔로우 타임라인을 읽는다', 
   assert.equal(feed.top[0].score, 13);
   assert.ok(calls[1].url.includes('/users/user-id/timelines/reverse_chronological'));
 });
+
+test('Threads 400 필드 오류는 최소 필드로 재시도해 공개 글을 표시한다', async (t) => {
+  const env = mockEnv();
+  env.rows.set('1:sns_threads', { access_token: await seal(env, 'token'), expires_at: Date.now() + 30 * 86400000, account: JSON.stringify({ id: 'me', username: 'reader' }) });
+  const calls = [];
+  t.mock.method(globalThis, 'fetch', async (url) => {
+    const u = new URL(url); calls.push(u);
+    if (u.searchParams.get('fields').includes('has_replies')) return Response.json({ error: { code: 100, message: 'unsupported field' } }, { status: 400 });
+    return Response.json({ data: [{ id: 'public', text: 'AI news', username: 'choi.openai', timestamp: new Date().toISOString() }] });
+  });
+  const result = await snsFeed(env, 1);
+  assert.equal(calls.length, 2);
+  assert.equal(calls[1].searchParams.get('username'), 'choi.openai');
+  assert.equal(result.items[0].id, 'public');
+  assert.deepEqual(result.sources[1].warnings, []);
+});
+
+test('Threads 권한/토큰 오류는 재시도하지 않고 조치 방법을 안내한다', async (t) => {
+  const env = mockEnv();
+  env.rows.set('1:sns_threads', { access_token: await seal(env, 'token'), expires_at: Date.now() + 30 * 86400000, account: JSON.stringify({ id: 'me', username: 'reader' }) });
+  let calls = 0, code = 10;
+  t.mock.method(globalThis, 'fetch', async () => { calls++; return Response.json({ error: { code, message: 'private diagnostic' } }, { status: 400 }); });
+  let result = await snsFeed(env, 1);
+  assert.match(result.sources[1].warnings[0], /threads_profile_discovery/);
+  assert.equal(calls, 1);
+  code = 190;
+  result = await snsFeed(env, 1);
+  assert.match(result.sources[1].warnings[0], /다시 연결/);
+  assert.equal(calls, 2);
+  assert.ok(!JSON.stringify(result).includes('private diagnostic'));
+});
+
+test('자신의 Threads 계정은 공개 프로필 검색 권한 없이 본인 글 API를 사용한다', async (t) => {
+  const env = mockEnv();
+  env.rows.set('1:sns_threads', { access_token: await seal(env, 'token'), expires_at: Date.now() + 30 * 86400000, account: JSON.stringify({ id: 'me', username: 'choi.openai' }) });
+  t.mock.method(globalThis, 'fetch', async (url) => {
+    assert.equal(new URL(url).pathname, '/v1.0/me/threads');
+    assert.equal(new URL(url).searchParams.has('username'), false);
+    return Response.json({ data: [] });
+  });
+  assert.deepEqual((await snsFeed(env, 1)).sources[1].warnings, []);
+});
