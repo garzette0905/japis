@@ -264,26 +264,15 @@ export const SERVICES = [
   },
   {
     key: 'sns',
-    label: 'SNS',
+    label: 'Jaden AI SNS',
     group: 'homepage',
-    desc: '인스타그램 · Threads · Facebook · Telegram · X · LinkedIn',
+    desc: 'X · Threads에서 모아 보는 AI와 IT Trends',
     url: '/#/sns',
     route: '#/sns',
-    accent: 'pink',
-    icon: '💬',
+    accent: 'blue',
+    icon: '🧠',
     reauth: false,
     external: false,
-    // 본인 계정 주소(프로필·채널)가 정해지면 여기만 고친다.
-    // ico 는 icons.js 의 그림 이름이다. SNS 는 **그 회사의 공식 마크**를 쓴다
-    // (BRAND_ICONS) — 링크 목록에서 눈이 찾는 것은 이름이 아니라 그 동그란 마크다.
-    links: [
-      { label: '인스타그램', ico: 'instagram', url: 'https://www.instagram.com' },
-      { label: 'Threads', ico: 'threads', url: 'https://www.threads.net' },
-      { label: 'Facebook', ico: 'facebook', url: 'https://www.facebook.com' },
-      { label: 'Telegram', ico: 'telegram', url: 'https://web.telegram.org' },
-      { label: 'X', ico: 'x', url: 'https://x.com' },
-      { label: 'LinkedIn', ico: 'linkedin', url: 'https://www.linkedin.com/feed/' },
-    ],
   },
   // ── 협업 ──────────────────────────────────────────────────────────────
   // 계정을 지정한 바로가기 + 카드 앞면의 최근 항목(/api/feed).

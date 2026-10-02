@@ -8,6 +8,9 @@ wepic·가계부와 **같은 얼개**입니다: Cloudflare Worker 하나가 백�
 
 ## 구성
 
+**Jaden AI SNS**: X 팔로우 피드와 Threads 관심 계정의 AI·IT 글을 모읍니다.
+앱 키 등록, 계정 연결, Top 5 집계 범위와 Threads API 제한은 [운영 안내](docs/AI-SNS.md)를 참고하세요.
+
 | 폴더 · 파일 | 내용 |
 |---|---|
 | `web/public/` | 화면 (HTML·CSS·JS) — Worker의 정적 자산으로 그대로 서빙 |

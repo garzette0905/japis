@@ -25,6 +25,7 @@ import {
   feedFor,
 } from './connect.js';
 import { apiAsk } from './ask.js';
+import { snsStart, snsCallback, snsFeed, snsSettings, snsDisconnect, snsConversation } from './sns.js';
 import {
   healthOverview,
   examDetail,
@@ -1616,6 +1617,39 @@ export default {
       // ---- 상단 메뉴의 '지금' (날짜·시간은 브라우저가, 날씨만 여기서) ----
       if (path === '/api/weather' && method === 'GET') {
         return requireLogin(request, env, () => apiWeather(env, ctx));
+      }
+
+      // ---- Jaden AI SNS — existing SNS screen permission applies to every endpoint ----
+      if (path === '/api/sns/feed' && method === 'GET') {
+        return requireScreen('sns')(request, env, async (user) => json(await snsFeed(env, user.id)));
+      }
+      if (path === '/api/sns/settings' && method === 'PUT') {
+        return requireScreen('sns')(request, env, async (user) => {
+          try {
+            const body = await request.json();
+            if (typeof body.profiles !== 'string' || body.profiles.length > 4000) return fail('관심 계정 입력을 확인해주세요.');
+            return json(await snsSettings(env, user.id, body.profiles));
+          } catch (e) { return fail(e.message); }
+        });
+      }
+      const snsAuth = path.match(/^\/api\/sns\/(x|threads)\/(start|callback|disconnect)$/);
+      if (snsAuth && ((method === 'GET' && snsAuth[2] !== 'disconnect') || (method === 'DELETE' && snsAuth[2] === 'disconnect'))) {
+        return requireScreen('sns')(request, env, async (user) => {
+          const [, name, action] = snsAuth;
+          try {
+            if (action === 'start') return redirect(await snsStart(env, user.id, name));
+            if (action === 'disconnect') { await snsDisconnect(env, user.id, name); return json({ ok: true }); }
+            await snsCallback(env, user.id, name, url);
+            return redirect('/?sns=connected#/sns');
+          } catch (e) { return action === 'disconnect' ? fail('연결을 해제하지 못했습니다.', 500) : redirect(`/?sns=${encodeURIComponent(e.message)}#/sns`); }
+        });
+      }
+      const snsThread = path.match(/^\/api\/sns\/threads\/conversation\/(\d{1,40})$/);
+      if (snsThread && method === 'GET') {
+        return requireScreen('sns')(request, env, async (user) => {
+          try { return json(await snsConversation(env, user.id, snsThread[1])); }
+          catch { return fail('이 글의 이어지는 글은 API로 읽을 수 없습니다. 원문에서 전체 글을 확인해주세요.', 422); }
+        });
       }
 
       // ---- 협업 연동 ----

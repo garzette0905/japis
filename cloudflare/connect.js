@@ -102,7 +102,7 @@ async function aesKey(env) {
   return crypto.subtle.importKey('raw', raw, { name: 'AES-GCM' }, false, ['encrypt', 'decrypt']);
 }
 
-async function seal(env, plain) {
+export async function seal(env, plain) {
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await aesKey(env), enc.encode(plain)));
   const packed = new Uint8Array(iv.length + ct.length);
@@ -111,7 +111,7 @@ async function seal(env, plain) {
   return b64url(packed);
 }
 
-async function unseal(env, packed) {
+export async function unseal(env, packed) {
   try {
     const bytes = b64urlToBytes(packed);
     const plain = await crypto.subtle.decrypt(

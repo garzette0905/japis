@@ -12,3 +12,9 @@ SESSION_SECRET="여기에-충분히-긴-임의의-문자열을-넣는다"
 # [선택] 최초 관리자 이메일. 비워두면 garzette@paran.com 으로 만들어진다.
 #        users 표가 비어 있을 때 한 번만 쓰인다.
 # ADMIN_EMAIL="garzette@paran.com"
+
+# Jaden AI SNS — 앱 생성 및 callback 설정: docs/AI-SNS.md
+# X_CLIENT_ID=""
+# X_CLIENT_SECRET=""
+# THREADS_CLIENT_ID=""
+# THREADS_CLIENT_SECRET=""

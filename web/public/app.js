@@ -10,6 +10,7 @@ import { renderWiki, wikiLeaving } from './wiki.js';
 import { renderBookmarks } from './bookmarks.js';
 import { renderPlaylists } from './playlists.js';
 import { renderHealth } from './health.js';
+import { renderSns } from './sns.js';
 import { ico, serviceIco, brandIco } from './icons.js';
 
 const state = {
@@ -560,7 +561,11 @@ function route() {
 
   if (hash === '#/' || hash === '') return renderDashboard(page);
   if (hash.startsWith('#/g/')) return renderGroup(page, hash.slice(4));
-  if (hash === '#/sns') return renderLinks(page, 'sns');
+  document.title = hash === '#/sns' ? 'Jaden AI SNS · JAPIS' : 'JAPIS';
+  if (hash === '#/sns') {
+    if (!state.services.some((s) => s.key === 'sns')) { location.hash = '#/'; return; }
+    return renderSns(page);
+  }
   // Jaden wiki — 포털 안 메모. #/wiki(목록) · #/wiki/new · #/wiki/<번호>
   if (hash === '#/wiki' || hash.startsWith('#/wiki/')) {
     if (!state.services.some((s) => s.key === 'jadenwiki')) {
@@ -1317,34 +1322,6 @@ async function renderConnectBar() {
       }
     })
   );
-}
-
-/** 링크만 묶어 둔 화면(SNS). 주소가 공개된 사이트라 목록 API가 그대로 싣고 온다. */
-function renderLinks(page, key) {
-  const s = state.services.find((x) => x.key === key);
-  if (!s || !s.links) {
-    location.hash = '#/';
-    return;
-  }
-  page.innerHTML = `
-    <div class="page-head">
-      <h1 class="page-title">${esc(s.label)}</h1>
-      <p class="page-lead">${esc(s.desc || '')}</p>
-    </div>
-    <div class="cards">${s.links
-      .map(
-        (l) => `<a class="card" href="${esc(l.url)}" target="_blank" rel="noopener noreferrer">
-          <span class="card-band band-${esc(s.accent || 'sky')}"></span>
-          <span class="card-body">
-            <span class="card-top">
-              <span class="card-icon" aria-hidden="true">${brandIco(l.ico) || ico(l.ico || 'link')}</span>
-              <span class="card-title">${esc(l.label)}</span>
-            </span>
-            <span class="card-foot"><span class="tag open">바로 열기</span></span>
-          </span>
-        </a>`
-      )
-      .join('')}</div>`;
 }
 
 async function renderSharedList() {
