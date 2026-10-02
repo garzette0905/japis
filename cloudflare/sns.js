@@ -167,9 +167,10 @@ async function threadsPosts(token, profiles) {
     truncated: results.some((r) => r.status === 'fulfilled' && r.value.truncated),
     warnings: results.flatMap((r, i) => r.status === 'rejected' ? [`@${profiles[i]}: ${r.reason.message}`] : []) };
 }
-export async function snsFeed(env, uid) {
+export async function snsFeed(env, uid, only = null) {
   const settings = await snsSettings(env, uid);
-  const results = await Promise.all(Object.keys(providers).map(async (name) => {
+  const names = Object.hasOwn(providers, only ?? '') ? [only] : Object.keys(providers);
+  const results = await Promise.all(names.map(async (name) => {
     const status = { platform: name, configured: ready(env, name), connected: false, account: null, warnings: [] };
     try {
       const row = await conn(env, uid, name);
