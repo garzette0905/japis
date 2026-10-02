@@ -147,8 +147,8 @@ export function buildFeed(posts, now = Date.now()) {
 async function xPosts(token, id) {
   const posts = [];
   let next;
-  for (let page = 0; page < 3; page++) {
-    const q = new URLSearchParams({ max_results: '100', 'tweet.fields': 'created_at,public_metrics,conversation_id,referenced_tweets,note_tweet',
+  for (let page = 0; page < 1; page++) {
+    const q = new URLSearchParams({ max_results: '50', 'tweet.fields': 'created_at,public_metrics,conversation_id,referenced_tweets,note_tweet',
       expansions: 'author_id', 'user.fields': 'name,username', ...(next ? { pagination_token: next } : {}) });
     const data = await get(`https://api.x.com/2/users/${encodeURIComponent(id)}/timelines/reverse_chronological?${q}`, token);
     posts.push(...normalizeX(data));
