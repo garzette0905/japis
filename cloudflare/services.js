@@ -264,11 +264,12 @@ export const SERVICES = [
   },
   {
     key: 'sns',
-    label: 'Jaden AI SNS',
+    // 키는 'sns' 그대로 둔다 — 이미 준 화면 권한·사용 기록이 이 키에 걸려 있다.
+    label: 'Jaden AI NEWS',
     group: 'homepage',
-    desc: 'X · Threads에서 모아 보는 AI와 IT Trends',
-    url: '/#/sns',
-    route: '#/sns',
+    desc: 'AI타임스 · TechCrunch · The Information 등에서 고른 AI 뉴스 Top 10',
+    url: '/#/news',
+    route: '#/news',
     accent: 'blue',
     icon: '🧠',
     reauth: false,

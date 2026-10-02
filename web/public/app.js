@@ -11,6 +11,7 @@ import { renderBookmarks } from './bookmarks.js';
 import { renderPlaylists } from './playlists.js';
 import { renderHealth } from './health.js';
 import { renderSns } from './sns.js';
+import { renderNews } from './news.js';
 import { ico, serviceIco, brandIco } from './icons.js';
 
 const state = {
@@ -584,7 +585,12 @@ function route() {
 
   if (hash === '#/' || hash === '') return renderDashboard(page);
   if (hash.startsWith('#/g/')) return renderGroup(page, hash.slice(4));
-  document.title = hash.startsWith('#/sns') ? 'Jaden AI SNS · JAPIS' : 'JAPIS';
+  document.title = hash.startsWith('#/news') ? 'Jaden AI NEWS · JAPIS' : hash.startsWith('#/sns') ? 'Jaden AI SNS · JAPIS' : 'JAPIS';
+  // Jaden AI NEWS — 메뉴 카드(키 'sns')의 새 화면. 예전 SNS 화면은 #/sns 로 계속 열린다.
+  if (hash === '#/news') {
+    if (!state.services.some((s) => s.key === 'sns')) { location.hash = '#/'; return; }
+    return renderNews(page);
+  }
   if (hash === '#/sns' || hash === '#/sns/settings') {
     if (!state.services.some((s) => s.key === 'sns')) { location.hash = '#/'; return; }
     return renderSns(page, { settings: hash === '#/sns/settings' });

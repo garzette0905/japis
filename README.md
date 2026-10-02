@@ -8,8 +8,9 @@ wepic·가계부와 **같은 얼개**입니다: Cloudflare Worker 하나가 백�
 
 ## 구성
 
-**Jaden AI SNS**: X 팔로우 피드와 Threads 관심 계정의 AI·IT 글을 모읍니다.
-앱 키 등록, 계정 연결, Top 5 집계 범위와 Threads API 제한은 [운영 안내](docs/AI-SNS.md)를 참고하세요.
+**Jaden AI NEWS** (`#/news`): AI타임스 · TechCrunch · The Information · Google 뉴스 · AI 기업 블로그 · Hacker News에서
+AI 기사 Top 10을 매시 골라 보여줍니다. 순위 기준과 데이터 범위는 [운영 안내](docs/AI-NEWS.md)를 참고하세요.
+예전 **Jaden AI SNS**(X·Threads, `#/sns`)는 메뉴에서 내렸지만 코드와 화면은 그대로 남아 있습니다([안내](docs/AI-SNS.md)).
 
 | 폴더 · 파일 | 내용 |
 |---|---|

@@ -1,0 +1,16 @@
+/* Jaden AI NEWS — sns.css 의 카드·타임라인 모양을 그대로 쓰고 기사용 차이만 더한다. */
+.news-card{display:flex!important;flex-direction:column}.news-card-head{display:flex;align-items:center;gap:10px;margin-bottom:4px}.news-card-head strong{font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.news-card-head .news-move{margin-left:auto;flex-shrink:0}
+.news-app .sns-top-card .sns-rank{position:static;margin:0;font-size:26px;line-height:1;color:#abbbe0;flex-shrink:0}.news-app .sns-post-meta{flex-wrap:wrap}.news-app .sns-top-card:first-child .sns-rank{color:#2563eb}
+.news-move{font-size:10px;font-weight:700;color:var(--sns-muted);background:#f1f5f9;border-radius:5px;padding:2px 6px}.news-move.is-new{color:#b45309;background:#fff4dc}.news-move.is-up{color:#0f8a5f;background:#e6f6ef}.news-move.is-down{color:#b4452c;background:#fdeeea}
+.news-app .news-paywall{color:#8a5f12!important;background:#fff6df!important;border-color:#f3e2b5!important}
+.news-title{font-size:15px;line-height:1.55;letter-spacing:-.3px;margin:12px 0 0;font-weight:750;overflow-wrap:anywhere}.news-title a{color:#18243b!important}.news-title a:hover{color:var(--sns-blue)!important}
+.news-original{font-size:11px;line-height:1.6;color:var(--sns-muted);margin:6px 0 0;overflow-wrap:anywhere}
+.news-app .sns-top-card .sns-text{min-height:0;-webkit-line-clamp:4;margin:10px 0 0;font-size:12.5px;line-height:1.8;color:#3b4a63}
+.news-note{font-size:11px;line-height:1.7;color:#8a5f12;margin:8px 0 0}
+.news-related{margin-top:10px;font-size:11.5px}.news-related summary{cursor:pointer;color:var(--sns-blue);font-weight:600}.news-related ul{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:7px}.news-related li a{color:#425a81!important;line-height:1.55;display:block}.news-related b{color:#18243b;margin-right:4px}
+.news-card .sns-metrics{margin-top:auto;padding-top:12px}.news-card .sns-metrics a{font-weight:600}
+.news-row .news-title{font-size:15px;margin-top:8px}.news-row .sns-text{margin:8px 0 12px;font-size:13px;color:#3b4a63;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.news-app .sns-tabs{overflow-x:auto;gap:18px;scrollbar-width:none}.news-app .sns-tabs button{white-space:nowrap}
+.news-about{margin-top:24px}.news-sources{padding-top:12px;border-top:1px solid var(--sns-line)}
+@media(max-width:760px){.news-app .sns-tabs{padding:0 12px;gap:6px}.news-title{font-size:14px}}
+@media(max-width:480px){.news-app .sns-header{grid-template-columns:40px minmax(0,1fr)}.news-app .sns-refresh-group{grid-column:1/-1}}

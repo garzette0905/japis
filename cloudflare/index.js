@@ -26,6 +26,7 @@ import {
 } from './connect.js';
 import { apiAsk } from './ask.js';
 import { snsStart, snsCallback, snsFeed, snsSettings, snsDisconnect, snsConversation } from './sns.js';
+import { newsFeed, buildNews } from './news.js';
 import {
   healthOverview,
   examDetail,
@@ -86,6 +87,9 @@ const nowIso = () => new Date().toISOString();
 // ──────────────────────────────────────────────────────────────
 // 공통 응답
 // ──────────────────────────────────────────────────────────────
+
+// wrangler.toml [triggers] 의 매시 작업과 같은 문자열이어야 한다.
+const NEWS_CRON = '3 * * * *';
 
 const json = (obj, status = 200, headers = {}) =>
   new Response(JSON.stringify(obj), {
@@ -1619,7 +1623,13 @@ export default {
         return requireLogin(request, env, () => apiWeather(env, ctx));
       }
 
-      // ---- Jaden AI SNS — existing SNS screen permission applies to every endpoint ----
+      // ---- Jaden AI NEWS — SNS 화면 권한('sns')을 그대로 이어 쓴다 ----
+      if (path === '/api/news' && method === 'GET') {
+        return requireScreen('sns')(request, env, async () =>
+          json(await newsFeed(env, { refresh: url.searchParams.get('refresh') === '1', ctx })));
+      }
+
+      // ---- Jaden AI SNS (메뉴에서는 내렸지만 #/sns 로 계속 열 수 있다) ----
       if (path === '/api/sns/feed' && method === 'GET') {
         return requireScreen('sns')(request, env, async (user) => json(await snsFeed(env, user.id, url.searchParams.get('platform'))));
       }
@@ -1915,6 +1925,11 @@ export default {
   },
 
   async scheduled(event, env, ctx) {
+    // 매시 정각 근처: AI NEWS Top 10 스냅숏만 새로 만든다.
+    if (event.cron === NEWS_CRON) {
+      ctx.waitUntil(buildNews(env).catch((e) => console.warn('AI NEWS 갱신 실패:', e.message)));
+      return;
+    }
     // 클릭은 그때그때 세기만 하고 이 예약 작업에서만 표시 순위를 바꾼다.
     // 접속 기록은 90일만 둔다. 오래된 것을 계속 쌓아 둘 이유가 없고,
     // IP가 섞인 기록을 무기한 보관하고 싶지도 않다.
