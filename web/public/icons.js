@@ -63,8 +63,14 @@ const BRAND_ICONS = {
     '<path d="M14.1 4.3v3.9H18" fill="#ffd1dc"/>' +
     '<path d="M8.5 11.2h7M8.5 14h7M8.5 16.8h4.5" fill="none" stroke="#d94f6a" stroke-width="1.3" stroke-linecap="round"/>',
 
-  // Jaden AI NEWS (키는 예전 SNS 그대로) — 신문 한 장에 AI 반짝임.
+  // Jaden AI SNS — a conversation with a spark of intelligence.
   sns:
+    '<rect width="24" height="24" rx="7" fill="#2563eb"/>' +
+    '<path d="M5 6.5h14v9H11l-4 3v-3H5z" fill="white"/>' +
+    '<path d="m13 7 .9 2.6 2.6.9-2.6.9L13 14l-.9-2.6-2.6-.9 2.6-.9z" fill="#2563eb"/>',
+
+  // Jaden AI NEWS — 신문 한 장에 AI 반짝임.
+  news:
     '<rect width="24" height="24" rx="7" fill="#2563eb"/>' +
     '<path d="M5.5 5.5h11v12.2a1.3 1.3 0 0 0 1.3 1.3H6.8a1.3 1.3 0 0 1-1.3-1.3z" fill="white"/>' +
     '<path d="M16.5 9h2v8.7a1.3 1.3 0 0 1-1.3 1.3" fill="none" stroke="white" stroke-width="1.3"/>' +
@@ -247,8 +253,12 @@ const SERVICE_ICONS = {
   julie:
     '<path d="M3.8 4.2h16.4A1.8 1.8 0 0 1 22 6v12a1.8 1.8 0 0 1-1.8 1.8H3.8A1.8 1.8 0 0 1 2 18V6a1.8 1.8 0 0 1 1.8-1.8ZM3.6 10.4v7.6h16.8v-7.6ZM5.5 6.3a1 1 0 1 0 0 2 1 1 0 0 0 0-2Zm3.2 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2Z"/>',
 
-  // 신문 — 기사 줄을 판다 (Jaden AI NEWS)
+  // 말풍선
   sns:
+    '<path d="M4.8 3.4h14.4A2.8 2.8 0 0 1 22 6.2v7.6a2.8 2.8 0 0 1-2.8 2.8h-8.3l-4.2 4.1a.8.8 0 0 1-1.36-.57V16.6A2.8 2.8 0 0 1 2 13.8V6.2a2.8 2.8 0 0 1 2.8-2.8Z"/>',
+
+  // 신문 — 기사 줄을 판다 (Jaden AI NEWS)
+  news:
     '<path fill-rule="evenodd" d="M4.6 3h12.2A1.6 1.6 0 0 1 18.4 4.6V7h1.8A1.8 1.8 0 0 1 22 8.8v9.4a2.8 2.8 0 0 1-2.8 2.8H5.8A2.8 2.8 0 0 1 3 18.2V4.6A1.6 1.6 0 0 1 4.6 3Zm13.8 6v9.2a.9.9 0 0 0 1.8 0V9ZM6 6.4v4.2h4.2V6.4Zm6 0v1.4h3.4V6.4Zm0 2.8v1.4h3.4V9.2ZM6 12.6V14h9.4v-1.4Zm0 3V17h9.4v-1.4Z"/>',
 
   // 카메라 — 렌즈를 고리로 판다

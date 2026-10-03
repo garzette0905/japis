@@ -370,6 +370,7 @@ function renderNav() {
     <a class="nav-logo" href="#/" aria-label="JAPIS 대시보드">
       <span class="nav-mark" aria-hidden="true">${brandIco('japis')}</span><span>JAPIS</span>
     </a>
+    <span class="nav-tagline">Jaden Personal Intelligence Service</span>
     <div class="nav-now" id="nav-now" aria-live="off">
       <span class="now-date" id="now-date"></span>
       <span class="now-time" id="now-time"></span>
@@ -586,9 +587,9 @@ function route() {
   if (hash === '#/' || hash === '') return renderDashboard(page);
   if (hash.startsWith('#/g/')) return renderGroup(page, hash.slice(4));
   document.title = hash.startsWith('#/news') ? 'Jaden AI NEWS · JAPIS' : hash.startsWith('#/sns') ? 'Jaden AI SNS · JAPIS' : 'JAPIS';
-  // Jaden AI NEWS — 메뉴 카드(키 'sns')의 새 화면. 예전 SNS 화면은 #/sns 로 계속 열린다.
+  // Jaden AI NEWS — 개인서비스의 'news' 화면.
   if (hash === '#/news') {
-    if (!state.services.some((s) => s.key === 'sns')) { location.hash = '#/'; return; }
+    if (!state.services.some((s) => s.key === 'news')) { location.hash = '#/'; return; }
     return renderNews(page);
   }
   if (hash === '#/sns' || hash === '#/sns/settings') {
@@ -1248,7 +1249,7 @@ function renderDashboard(page) {
   // 순서: AI 뉴스 Top 10 → 메일·할 일·일정 → 오늘의 Muse 요약.
   // 화면 바로가기 타일은 두지 않는다 — 상단 메뉴가 같은 일을 한다.
   // 공유화면 목록은 '내 계정'으로 옮겼다.
-  const hasNews = state.services.some((s) => s.key === 'sns');
+  const hasNews = state.services.some((s) => s.key === 'news');
   const hasWiki = state.services.some((s) => s.key === 'jadenwiki');
   const hasFeeds = state.services.some((s) => s.feed);
 

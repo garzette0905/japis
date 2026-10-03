@@ -34,3 +34,4 @@ npx wrangler d1 execute japis-db --remote --file=./migrations/00X_....sql
 | `016_bookmark_order_and_shared_notes.sql` | 북마크 드래그 순서 컬럼과 공유 화면 메뉴 권한 |
 | `017_global_logout.sql` | 전체 기기 로그아웃용 세션 버전과 옛 공유 메뉴 권한 정리 |
 | `018_health_daily.sql` | 헬스정보 → 삼성헬스 탭 — `health_daily`(날짜 × 항목, 하루 한 값)와 가져온 기록 `health_daily_imports` |
+| `019_news_service.sql` | Jaden AI NEWS 를 개인서비스의 새 화면(`news`)으로 분리 — `sns` 권한이 있던 사용자에게 `news` 권한 부여 |

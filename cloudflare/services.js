@@ -88,6 +88,20 @@ export const SERVICES = [
   },
   // ── 개인서비스 ────────────────────────────────────────────────────────
   {
+    // 최근 24시간 AI 주요 뉴스 Top 10(cloudflare/news.js). 2026-10-03 한때 'sns' 카드 자리를 빌렸다가
+    // 따로 섰다 — 'sns' 권한이 있던 사람에게는 migrations/019 가 이 권한을 같이 준다.
+    key: 'news',
+    label: 'Jaden AI NEWS',
+    group: 'personal',
+    desc: '국내외 언론 보도로 고른 최근 24시간 AI 주요 뉴스 Top 10',
+    url: '/#/news',
+    route: '#/news',
+    accent: 'blue',
+    icon: '📰',
+    reauth: false,
+    external: false,
+  },
+  {
     // 예전에는 이 자리가 옵시디언(obsidian://open?vault=Jaden)이었다. 그 주소는 이 컴퓨터의
     // 프로그램을 부르는 것이라 휴대폰에서도, 남의 컴퓨터에서도 열리지 않았다.
     // 이제 **포털 안 화면**이다 — 메모가 D1에 있어 어디서 들어와도 같은 것을 본다.
@@ -264,12 +278,11 @@ export const SERVICES = [
   },
   {
     key: 'sns',
-    // 키는 'sns' 그대로 둔다 — 이미 준 화면 권한·사용 기록이 이 키에 걸려 있다.
-    label: 'Jaden AI NEWS',
+    label: 'Jaden AI SNS',
     group: 'homepage',
-    desc: 'AI타임스 · TechCrunch · The Information 등에서 고른 AI 뉴스 Top 10',
-    url: '/#/news',
-    route: '#/news',
+    desc: 'X · Threads에서 모아 보는 AI와 IT Trends',
+    url: '/#/sns',
+    route: '#/sns',
     accent: 'blue',
     icon: '🧠',
     reauth: false,

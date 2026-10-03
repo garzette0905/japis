@@ -15,5 +15,11 @@
 @media(max-width:760px){.news-app .sns-tabs{padding:0 12px;gap:6px}.news-title{font-size:14px}}
 @media(max-width:480px){.news-app .sns-header{grid-template-columns:40px minmax(0,1fr)}.news-app .sns-refresh-group{grid-column:1/-1}}
 .news-app .sns-section-head h2 a{color:inherit!important;text-decoration:none!important}.news-app .sns-section-head h2 a:hover span{color:#2563eb}
+/* 선정 이유 · 데이터 경고 · 주요 뉴스/커뮤니티 탭 */
+.news-why{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:5px}.news-why li{font-size:10.5px;line-height:1.4;color:#33507f;background:#eef3ff;border-radius:5px;padding:2px 7px}
+.news-warn{margin-top:12px;padding:10px 14px;border:1px solid #f3d38a;background:#fff8e6;border-radius:10px;color:#7a4b00;font-size:12px;line-height:1.7}.news-warn ul{margin:2px 0 0;padding-left:18px}
+.news-top-tabs{display:flex;gap:8px;margin:0 0 14px;flex-wrap:wrap}.news-top-tabs button{border:1px solid #c9d6f2;background:#fff;color:#425a81;border-radius:999px;padding:7px 14px;font-size:12.5px!important;font-weight:700!important;cursor:pointer}.news-top-tabs button[aria-pressed=true]{background:#2563eb;border-color:#2563eb;color:#fff}
+.news-talk .sns-metrics{display:flex;gap:14px}
+.news-about ul{margin:0 0 12px;padding-left:18px;font-size:12.5px;line-height:1.85;color:#3b4a63}
 /* 대시보드 맨 위 칸 — 같은 카드, 바깥 여백만 대시보드에 맞춘다. */
 .news-dash .sns-top{margin-bottom:0}

@@ -1379,3 +1379,9 @@ table.data tr:last-child td { border-bottom: none; }
 .muse-body th,.muse-body td{border:1px solid var(--hairline-soft,#ebe9f2);padding:5px 8px;text-align:left;vertical-align:top}
 .muse-body h1,.muse-body h2,.muse-body h3{font-size:16px;margin:14px 0 6px}
 .muse-more{margin-top:10px}
+
+/* 로고 옆 풀이름 — JAPIS 와 날짜·날씨 사이. 이름이 길어 작은 글자로 조용히 둔다. */
+.nav-tagline{flex:none;font-size:12px;font-weight:500;line-height:1.3;letter-spacing:.1px;color:var(--ink-muted);white-space:nowrap;border-left:1px solid var(--hairline);padding:2px 0 2px 12px}
+@media(max-width:1000px){.nav-tagline{white-space:normal;max-width:118px;font-size:10.5px}}
+/* 좁은 화면: 로고 줄 아래에 한 줄로 따로 세우고, 날짜·날씨는 그 아래. 띠 높이도 그만큼 올린다. */
+@media(max-width:760px){:root{--nav-h:108px}.nav-tagline{order:3;flex:1 0 100%;max-width:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:10.5px;border-left:0;padding:0 2px}.nav-now{order:4}}

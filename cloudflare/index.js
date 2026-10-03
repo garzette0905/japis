@@ -1624,13 +1624,13 @@ export default {
         return requireLogin(request, env, () => apiWeather(env, ctx));
       }
 
-      // ---- Jaden AI NEWS — SNS 화면 권한('sns')을 그대로 이어 쓴다 ----
+      // ---- Jaden AI NEWS — 개인서비스의 'news' 화면 권한 ----
       if (path === '/api/news' && method === 'GET') {
-        return requireScreen('sns')(request, env, async () =>
+        return requireScreen('news')(request, env, async () =>
           json(await newsFeed(env, { refresh: url.searchParams.get('refresh') === '1', ctx })));
       }
 
-      // ---- Jaden AI SNS (메뉴에서는 내렸지만 #/sns 로 계속 열 수 있다) ----
+      // ---- Jaden AI SNS — existing SNS screen permission applies to every endpoint ----
       if (path === '/api/sns/feed' && method === 'GET') {
         return requireScreen('sns')(request, env, async (user) => json(await snsFeed(env, user.id, url.searchParams.get('platform'))));
       }
