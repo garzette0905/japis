@@ -11,7 +11,7 @@ const FILTERS = [['all', '전체'], ['ko', '국내 매체'], ['en', '해외 매�
 const inFilter = (f, n) => f === 'all' || (f === 'official' ? n.kind === 'official' : n.kind !== 'official' && n.lang === f);
 
 function movement(t) {
-  if (!t.previousRank) return '<span class="news-move is-new" title="지난 갱신 Top 10에 없던 기사">NEW</span>';
+  if (!t.previousRank) return '<span class="news-move is-new" title="지난 갱신 Top 5에 없던 기사">NEW</span>';
   const d = t.previousRank - t.rank;
   return d > 0 ? `<span class="news-move is-up" title="지난 갱신 ${t.previousRank}위">▲${d}</span>`
     : d < 0 ? `<span class="news-move is-down" title="지난 갱신 ${t.previousRank}위">▼${-d}</span>` : '<span class="news-move" title="지난 갱신과 같은 순위">–</span>';
@@ -72,9 +72,9 @@ export function builtLine(data) {
 export const warningHtml = (data) => ((data.warnings || []).length
   ? `<div class="news-warn" role="alert"><b>⚠ 데이터 경고</b><ul>${data.warnings.map((w) => `<li>${esc(w)}</li>`).join('')}</ul></div>` : '');
 
-// Top 10 칸. AI NEWS 화면과 대시보드가 같은 마크업·같은 /api/news 를 쓴다.
-// 대시보드(dash=true)는 뉴스 Top 10만, AI NEWS 화면은 '커뮤니티 화제' 탭을 함께 둔다.
-const topSectionHtml = (dash = false) => `<section class="sns-top" aria-labelledby="news-top-title"><div class="sns-section-head"><span class="sns-eyebrow">THE AI PULSE · 최근 24시간</span><h2 id="news-top-title">${dash ? '<a href="#/news">AI 주요 뉴스 Top 10 <span>↗</span></a>' : 'AI 주요 뉴스 Top 10'}</h2><p class="news-built">최신 순위를 불러오는 중입니다…</p><div class="news-warn-slot"></div></div>
+// Top 5 칸. AI NEWS 화면과 대시보드가 같은 마크업·같은 /api/news 를 쓴다.
+// 대시보드(dash=true)는 뉴스 Top 5만, AI NEWS 화면은 '커뮤니티 화제' 탭을 함께 둔다.
+const topSectionHtml = (dash = false) => `<section class="sns-top" aria-labelledby="news-top-title"><div class="sns-section-head"><span class="sns-eyebrow">THE AI PULSE · 최근 24시간</span><h2 id="news-top-title">${dash ? '<a href="#/news" data-open-news>AI 주요 뉴스 Top 5 <span>↗</span></a>' : 'AI 주요 뉴스 Top 5'}</h2><p class="news-built">최신 순위를 불러오는 중입니다…</p><div class="news-warn-slot"></div></div>
   ${dash ? '' : '<div class="news-top-tabs" role="group" aria-label="목록 선택"><button type="button" data-top="news" aria-pressed="true">주요 뉴스</button><button type="button" data-top="talk" aria-pressed="false">커뮤니티 화제 · Hacker News</button></div>'}
   <div class="sns-top-items news-top-items" aria-live="polite"><p class="sns-empty">기사를 모으고 있습니다…</p></div></section>`;
 
@@ -93,6 +93,8 @@ function paintTop(root, data, view = 'news') {
 export const newsDashHtml = () => `<div class="sns-app news-app news-dash" id="news-dash">${topSectionHtml(true)}</div>`;
 export async function loadNewsDash(root) {
   if (!root) return;
+  // 대시보드에서 AI NEWS 로 넘어가는 것도 메뉴를 누른 것과 같이 센다(개인서비스 사용 순위).
+  root.querySelector('[data-open-news]')?.addEventListener('click', () => api('/api/services/news/open', { method: 'POST' }).catch(() => {}));
   try {
     const data = await api('/api/news');
     if (root.isConnected) paintTop(root, data);
@@ -104,7 +106,7 @@ export async function loadNewsDash(root) {
 }
 
 export async function renderNews(page) {
-  page.innerHTML = `<div class="sns-app news-app"><header class="sns-header"><div class="sns-title-icon">${serviceIco('news')}</div><div><h1>Jaden AI NEWS</h1><p>최근 24시간 가장 중요한 AI 뉴스 Top 10 · 1시간마다 갱신</p></div><div class="sns-refresh-group"><button class="sns-refresh" type="button" data-refresh>새로고침 ↻</button></div></header>
+  page.innerHTML = `<div class="sns-app news-app"><header class="sns-header"><div class="sns-title-icon">${serviceIco('news')}</div><div><h1>Jaden AI NEWS</h1><p>최근 24시간 가장 중요한 AI 뉴스 Top 5 · 1시간마다 갱신</p></div><div class="sns-refresh-group"><button class="sns-refresh" type="button" data-refresh>새로고침 ↻</button></div></header>
     <main class="sns-main">${topSectionHtml()}
     <section class="sns-timeline" aria-label="매체별 최신 기사"><div class="sns-tabs" role="group" aria-label="분류 필터">${FILTERS.map(([k, v], i) => `<button data-filter="${k}" aria-pressed="${i === 0}">${v}</button>`).join('')}</div>
       <div class="sns-toolbar"><span>최근 24시간 · 매체별 최신 AI 기사</span><span>최신순 ↓</span></div>
@@ -112,10 +114,11 @@ export async function renderNews(page) {
     <section class="sns-panel sns-about news-about"><h2>순위를 매기는 기준</h2>
       <p><b>조회수 순위가 아닙니다.</b> 언론사는 조회수를 공개하지 않아, 공개 피드로 확인할 수 있는 신호로 중요도를 매깁니다. 매체별 가중치는 두지 않습니다.</p>
       <ul>
-        <li><b>대상</b>: 최초 보도가 최근 24시간 안인 이야기만. 수정 시각 때문에 오래된 기사가 새 기사가 되지 않도록 처음 본 시각을 기억합니다.</li>
+        <li><b>대상</b>: 최초 보도가 최근 24시간 안이고 제목이 AI 를 다루는 이야기만. 칼럼·사설·행사·교육 모집·주가 시황 글은 뺍니다. 수정 시각 때문에 오래된 기사가 새 기사가 되지 않도록 처음 본 시각을 기억합니다.</li>
         <li><b>묶기</b>: 같은 사건을 다룬 기사는 하나의 이야기로 묶고, 가장 먼저 나온 무료 기사를 대표로 보여줍니다.</li>
         <li><b>점수</b>: 독립 매체 보도 수(가장 큰 비중) · Techmeme 편집 선정 · 전자신문 많이 본 기사 · 공식 발표 확인 · 영향 범위(주요 기업, 보안·규제·소송, 대규모 투자) · Hacker News 반응(보조). 최신성은 24시간 반감기로 반영합니다.</li>
-        <li><b>편중 방지</b>: 한 매체는 대표 기사로 Top 10에 2건까지만 오릅니다.</li>
+        <li><b>편집 판정</b>: 점수 상위 후보 20개를 AI 편집자가 'AI 가 주제인가'와 중요도(1~5)로 다시 봅니다. 중요도 3 미만(작은 회사 홍보·행사·지역 도입 소식·해설)은 빼고, 신제품·새 모델 발표와 업계 판도를 바꾸는 소식을 앞에 둡니다.</li>
+        <li><b>편중 방지</b>: 한 매체는 대표 기사로 Top 5에 2건까지만 오릅니다.</li>
         <li><b>분리</b>: 언론 보도 없이 Hacker News에서만 화제인 글은 '커뮤니티 화제' 탭에 따로 보여줍니다. 언론 보도 없이 공식 발표만 있는 소식은 최신 목록에만 둡니다.</li>
         <li>Google 뉴스 검색 결과는 어떤 매체가 보도했는지 세는 데만 쓰고, 검색 순위는 점수에 쓰지 않습니다.</li>
       </ul>

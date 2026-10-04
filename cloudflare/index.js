@@ -1930,7 +1930,7 @@ export default {
   },
 
   async scheduled(event, env, ctx) {
-    // 매시 정각 근처: AI NEWS Top 10 스냅숏만 새로 만든다.
+    // 매시 정각 근처: AI NEWS Top 5 스냅숏만 새로 만든다.
     if (event.cron === NEWS_CRON) {
       ctx.waitUntil(buildNews(env).catch((e) => console.warn('AI NEWS 갱신 실패:', e.message)));
       return;

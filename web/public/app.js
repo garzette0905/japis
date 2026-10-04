@@ -1246,7 +1246,7 @@ function renderDashboard(page) {
     greetHour < 6 ? '늦은 밤이네요' : greetHour < 12 ? '좋은 아침입니다' : greetHour < 18 ? '좋은 오후입니다' : '좋은 저녁입니다';
   const who = state.me.name || state.me.email.split('@')[0];
 
-  // 순서: AI 뉴스 Top 10 → 메일·할 일·일정 → 오늘의 Muse 요약.
+  // 순서: AI 뉴스 Top 5 → 메일·할 일·일정 → 오늘의 Muse 요약.
   // 화면 바로가기 타일은 두지 않는다 — 상단 메뉴가 같은 일을 한다.
   // 공유화면 목록은 '내 계정'으로 옮겼다.
   const hasNews = state.services.some((s) => s.key === 'news');

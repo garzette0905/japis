@@ -88,12 +88,12 @@ export const SERVICES = [
   },
   // ── 개인서비스 ────────────────────────────────────────────────────────
   {
-    // 최근 24시간 AI 주요 뉴스 Top 10(cloudflare/news.js). 2026-10-03 한때 'sns' 카드 자리를 빌렸다가
+    // 최근 24시간 AI 주요 뉴스 Top 5(cloudflare/news.js). 2026-10-03 한때 'sns' 카드 자리를 빌렸다가
     // 따로 섰다 — 'sns' 권한이 있던 사람에게는 migrations/019 가 이 권한을 같이 준다.
     key: 'news',
     label: 'Jaden AI NEWS',
     group: 'personal',
-    desc: '국내외 언론 보도로 고른 최근 24시간 AI 주요 뉴스 Top 10',
+    desc: '국내외 언론 보도로 고른 최근 24시간 AI 주요 뉴스 Top 5',
     url: '/#/news',
     route: '#/news',
     accent: 'blue',
@@ -241,17 +241,6 @@ export const SERVICES = [
     external: true,
   },
   {
-    key: 'birdwatching',
-    label: '탐조하기',
-    group: 'hobby',
-    desc: '새를 관찰하고 기록하는 공간 — 향후 개발',
-    url: null,
-    accent: 'teal',
-    reauth: false,
-    external: false,
-    always: true,
-  },
-  {
     key: 'damoang',
     label: '다모앙',
     group: 'hobby',
@@ -261,6 +250,17 @@ export const SERVICES = [
     frame: false,
     reauth: false,
     external: true,
+    always: true,
+  },
+  {
+    key: 'birdwatching',
+    label: '탐조하기',
+    group: 'hobby',
+    desc: '새를 관찰하고 기록하는 공간 — 향후 개발',
+    url: null,
+    accent: 'teal',
+    reauth: false,
+    external: false,
     always: true,
   },
   // ── 홈페이지 ──────────────────────────────────────────────────────────
