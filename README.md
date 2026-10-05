@@ -14,8 +14,7 @@ wepic·가계부와 **같은 얼개**입니다: Cloudflare Worker 하나가 백�
 이 문구는 복사용이며 포털이 직접 메일을 발송하지 않습니다. 관리자는 기본으로 접근하고,
 일반 사용자는 **관리 → 화면 권한 → SWW-pro**를 허용해야 합니다.
 
-**Jaden AI NEWS** (`#/news`, 개인서비스): 국내외 언론 RSS · Google 뉴스 · Techmeme · AI 기업 공식 발표 · Hacker News로
-최근 24시간 AI 주요 뉴스 Top 10을 매시 골라 보여줍니다(매체 가중치 없음, 커뮤니티 화제는 별도 탭). 순위 기준과 데이터 범위는 [운영 안내](docs/AI-NEWS.md)를 참고하세요.
+**Jaden AI NEWS** (`#/news`, 개인서비스): TechCrunch · AI타임스 · The Information · Reuters · Bloomberg의 최근 24시간 AI 기사만 수집합니다. Google News 동일 사건 보도 수로 Top 5를 매시 선정하고, 영문 제목은 한국어로 번역합니다. 국내·해외 참고 기사는 각각 최대 10개입니다. [운영 안내](docs/AI-NEWS.md)를 참고하세요.
 **Jaden AI SNS**(X·Threads, `#/sns`)는 홈페이지 메뉴에 그대로 있습니다([안내](docs/AI-SNS.md)).
 
 | 폴더 · 파일 | 내용 |
