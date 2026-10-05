@@ -1,10 +1,12 @@
-// 지정한 5개 매체에서만 원문을 수집하고 Google News 동일 사건 보도 확산도로 Top 5를 선정한다.
+// 지정한 5개 매체에서 국내·해외 각 3개를 선정한다. 중요도·Google News 확산도·최신성을 함께 반영한다.
 const KEY = 'news:snapshot';
 const SEEN_KEY = 'news:seen';           // 기사 주소 → 처음 본 시각. 수정 시각으로 오래된 기사가 '신규'가 되지 않게 한다.
 const STALE_MS = 65 * 60 * 1000;      // 예약 작업이 한 번 빠져도 버티는 한도
 const MANUAL_MIN_MS = 10 * 60 * 1000; // 수동 갱신은 10분에 한 번까지만 다시 수집
 const H = 3600000;
-const TOP_WINDOW_MS = 24 * H;         // Top 5·최신 목록: 최초 보도가 이 안이어야 한다
+const TOP_WINDOW_MS = 24 * H;         // 지역별 순위의 기본 발행 기간
+const BACKFILL_WINDOW_MS = 72 * H;    // 주말·휴일: 3건 미만인 지역만 보완하고 화면에 표시한다
+const REGION_SIZE = 3;
 const CLUSTER_WINDOW_MS = 48 * H;     // 묶기는 더 넓게 본다(어제 처음 나온 이야기를 오늘 '새 이야기'로 잘못 보지 않게)
 const SEEN_TTL_MS = 4 * 24 * H;
 const HALF_LIFE_H = 24;
@@ -12,12 +14,13 @@ const PER_PUBLISHER = 2;              // 한 매체가 대표 기사로 오를 �
 const FETCH_TIMEOUT_MS = 10000;
 const FETCH_CONCURRENCY = 6;          // Workers 는 동시 연결이 6개라 그 이상은 줄을 서다 타임아웃에 걸린다
 const AI_MODEL = '@cf/zai-org/glm-4.7-flash';
+const TRANSLATION_MODEL = '@cf/meta/m2m100-1.2b';
 const TOP_SIZE = 5;
 const JUDGE_LIMIT = 20;               // 편집 판정에 보일 상위 후보 수
 const GOOGLE_GAP_MS = 1500;           // Google 뉴스는 한꺼번에 부르면 503 으로 막는다. 한 번에 하나씩, 이만큼 띄워 부른다
-const SNAPSHOT_VERSION = 3;           // 순위 방식이 바뀌면 올린다(예전 스냅숏은 바로 다시 만든다)
+const SNAPSHOT_VERSION = 4;           // 국내·해외 각 3개, 혼합 점수, 번역 복구
 
-const gnews = (q, lang) => `https://news.google.com/rss/search?q=${encodeURIComponent(`${q} when:1d`)}&` +
+const gnews = (q, lang, days = 1) => `https://news.google.com/rss/search?q=${encodeURIComponent(`${q} when:${days}d`)}&` +
   (lang === 'ko' ? 'hl=ko&gl=KR&ceid=KR:ko' : 'hl=en-US&gl=US&ceid=US:en');
 
 // kind
@@ -202,10 +205,11 @@ export async function settledPool(tasks, limit = FETCH_CONCURRENCY) {
 // ──────────────────────────────────────────────────────────────
 
 const AI_RE = /\b(ai|a\.i\.|agi|llms?|gpt[-\w.]*|chatgpt|openai|anthropic|claude|gemini|deepmind|copilot|llama|mistral|nvidia|gpus?|machine learning|neural|chatbots?|generative|agents?|agentic|xai|grok|perplexity|hugging ?face|transformer|inference|datacenters?|data centers?)\b|인공지능|생성형|챗GPT|챗봇|오픈AI|엔비디아|딥마인드|앤트로픽|에이전트|데이터센터|(?<![a-z])(?:ai|llm|gpu|sllm)(?![a-z])/i;
-export const isAi = (text) => AI_RE.test(text);
+const KOREAN_MODEL_RE = /제미나이|클로드|챗지피티|코파일럿/;
+export const isAi = (text) => AI_RE.test(text) || KOREAN_MODEL_RE.test(text);
 // 순위에 오를 이야기는 제목 자체가 AI 를 말해야 한다. 엔비디아·GPU·데이터센터만 나오는 주가·실적 기사는 여기서 빠진다.
 const AI_CORE_RE = /\b(ai|a\.i\.|agi|asi|llms?|gpt[-\w.]*|chatgpt|openai|anthropic|claude|gemini|deepmind|copilot|llama|mistral|machine learning|neural|chatbots?|generative|agentic|xai|grok|perplexity|hugging ?face|inference|superintelligen\w*|frontier models?|reasoning models?|foundation models?|language models?)\b|인공지능|생성형|챗GPT|챗봇|오픈AI|딥마인드|앤트로픽|초지능|파운데이션\s?모델|언어\s?모델|(?<![a-z])(?:ai|llm|sllm|agi)(?![a-z])/i;
-export const aboutAi = (title) => AI_CORE_RE.test(title);
+export const aboutAi = (title) => AI_CORE_RE.test(title) || KOREAN_MODEL_RE.test(title);
 // 뉴스가 아닌 글(칼럼·사설·기고·사진·행사·교육 모집·주가 시황·뉴스레터 묶음)은 순위 후보에서 뺀다.
 const LOW_QUALITY_RE = /\b(opinion|op-ed|editorial|commentary|podcast|newsletter|webinar|sponsored|livestream|quiz|coupon|stocks? to (buy|watch)|buy (the|this) (stock|dip)|price target|motley fool|morning download)\b|\| (opinion|technology for)\b|^how to\b|^(what|who) is\b|\[(?:[^\]]*칼럼|사설|기고|오피니언|시론|기자수첩|데스크|포토|사진|영상|카드뉴스|광고|인사|부고|알림|게시판|채용|AD)[^\]]*\]|특징주|목표\s?주가|주가\s?(급등|급락|강세|약세)|(세미나|웨비나|포럼|설명회|공모전|교육생|수강생|참가자)\s?(개최|모집|성료|연다|열어)|(모집|개최|성료)$/i;
 export const lowQuality = (title) => LOW_QUALITY_RE.test(title);
@@ -245,7 +249,15 @@ export function features(title) {
 // 같은 매체가 피드와 Google 뉴스에서 다른 이름으로 들어온다.
 const ALIAS = { 지디넷코리아: 'zdnetkorea', zdnetkorea: 'zdnetkorea', etnews: '전자신문', 연합뉴스tv: '연합뉴스', yna: '연합뉴스', aitimes: 'ai타임스', ftcom: 'financialtimes', thewallstreetjournal: 'wsj' };
 export const pubKey = (p) => { const k = String(p).toLowerCase().replace(/^www\.|\.(com|co\.kr|net|org)$|\s+/g, ''); return ALIAS[k] || k; };
-const normUrl = (u) => { try { const x = new URL(u); return `${x.hostname.replace(/^www\./, '')}${x.pathname.replace(/\/$/, '')}`; } catch { return u; } };
+const normUrl = (u) => {
+  try {
+    const x = new URL(u);
+    // AI타임스는 모든 기사가 articleView.html?idxno=기사번호다. 쿼리를 지우면 서로 다른 기사가 하나로 합쳐진다.
+    for (const key of [...x.searchParams.keys()]) if (/^(utm_.+|fbclid|gclid|dclid|mc_cid|mc_eid)$/i.test(key)) x.searchParams.delete(key);
+    x.searchParams.sort();
+    return `${x.hostname.replace(/^www\./, '')}${x.pathname.replace(/\/$/, '')}${x.search}`;
+  } catch { return u; }
+};
 // 포털은 다른 언론사 기사를 다시 싣는 곳이라 독립 보도로 세지 않는다.
 const PORTAL_RE = /^(v\.)?daum(\.net)?$|naver|msn|zum|nate|yahoo(뉴스)?$/i;
 
@@ -352,10 +364,10 @@ const byScore = (a, b) => b.score - a.score || b.newest - a.newest;
  * 순위 후보: 독립 보도가 있고, 최초 보도가 24시간 안이고, 보도 제목이 AI 를 말하는 이야기만. 점수순.
  * 칼럼·행사·주가 같은 글은 묶기 전에 빼서 다른 기사 묶음에도 끼지 않게 한다.
  */
-export function storyGroups(items, now) {
-  const recent = items.filter((i) => i.at <= now + H && now - i.at <= CLUSTER_WINDOW_MS && !lowQuality(i.title));
+export function storyGroups(items, now, windowMs = TOP_WINDOW_MS) {
+  const recent = items.filter((i) => i.at <= now + H && now - i.at <= Math.max(CLUSTER_WINDOW_MS, windowMs) && !lowQuality(i.title));
   return cluster(recent).map((g) => scored(g, now))
-    .filter((g) => now - g.firstAt <= TOP_WINDOW_MS && g.items.some((i) => isReport(i) && aboutAi(i.title)))
+    .filter((g) => now - g.firstAt <= windowMs && g.items.some((i) => isReport(i) && aboutAi(i.title)))
     .sort(byScore);
 }
 
@@ -460,11 +472,9 @@ export async function judgeImportance(env, groups, limit = JUDGE_LIMIT) {
       temperature: 0, max_tokens: 1500, chat_template_kwargs: { enable_thinking: false },
     });
     const result = await withTimeout(run, 25000);
-    const raw = result?.response && typeof result.response === 'object' ? result.response : null;
-    const text = raw ? '' : String(result?.choices?.[0]?.message?.content ?? result?.response ?? '');
-    const parsed = raw || JSON.parse((text.match(/\{[\s\S]*\}/) || ['{}'])[0]);
-    if (!Array.isArray(parsed.items)) throw new Error('판정 응답 형식 오류');
-    return applyJudgement(head, parsed.items);
+    const verdicts = translationRows(result).filter((v) => Number.isInteger(v?.i) && typeof v.ai === 'boolean' && Number.isFinite(Number(v.importance)));
+    if (!verdicts.length) throw new Error('판정 응답 형식 오류');
+    return applyJudgement(head, verdicts);
   } catch (e) {
     console.warn('news 중요도 판정 실패, 규칙 필터만 사용', e.message);
     return head;
@@ -520,6 +530,34 @@ export function community(items, now, previous = null, size = 10) {
 // 영어 기사 한국어 제목 (Workers AI · 실패하면 원문만 보여준다)
 // ──────────────────────────────────────────────────────────────
 
+const koreanTitle = (value) => typeof value === 'string' && /[가-힣]/.test(value) && value.trim().length <= 200;
+
+/** 모델이 객체 여러 개·JSON 배열·코드블록으로 답해도 문자열 내부의 괄호와 구분해서 읽는다. */
+export function translationRows(result) {
+  const raw = result?.response;
+  if (raw && typeof raw === 'object') return Array.isArray(raw) ? raw : Array.isArray(raw.items) ? raw.items : [raw];
+  const text = String(result?.choices?.[0]?.message?.content ?? raw ?? '');
+  const rows = [];
+  let start = -1, depth = 0, quoted = false, escaped = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (start < 0) { if (c === '{') { start = i; depth = 1; } continue; }
+    if (quoted) {
+      if (escaped) escaped = false;
+      else if (c === '\\') escaped = true;
+      else if (c === '"') quoted = false;
+      continue;
+    }
+    if (c === '"') quoted = true;
+    else if (c === '{') depth++;
+    else if (c === '}' && --depth === 0) {
+      try { const parsed = JSON.parse(text.slice(start, i + 1)); rows.push(...(Array.isArray(parsed.items) ? parsed.items : [parsed])); } catch { /* 손상된 조각만 무시 */ }
+      start = -1;
+    }
+  }
+  return rows;
+}
+
 async function translateChunk(env, targets) {
   const input = targets.map((t, i) => ({ i, title: t.title }));
   const run = env.AI.run(AI_MODEL, {
@@ -530,26 +568,42 @@ async function translateChunk(env, targets) {
     temperature: 0.1, max_tokens: 2500, chat_template_kwargs: { enable_thinking: false },
   });
   const result = await withTimeout(run, 25000);
-  const raw = result?.response && typeof result.response === 'object' ? result.response : null;
-  const text = raw ? '' : String(result?.choices?.[0]?.message?.content ?? result?.response ?? '');
-  const parsed = raw || JSON.parse((text.match(/\{[\s\S]*\}/) || ['{}'])[0]);
-  if (!Array.isArray(parsed.items)) throw new Error('번역 응답 형식 오류');
-  for (const row of parsed.items || []) {
-    const t = targets[Number(row?.i)];
+  for (const row of translationRows(result)) {
+    if (!Number.isInteger(row?.i)) continue;
+    const t = targets[row.i];
     if (!t) continue;
-    if (typeof row.title_ko === 'string' && row.title_ko.trim()) t.titleKo = row.title_ko.trim().slice(0, 160);
+    if (koreanTitle(row.title_ko)) t.titleKo = row.title_ko.trim().slice(0, 160);
   }
   if (targets.some((t) => !t.titleKo)) throw new Error('일부 제목 번역 누락');
 }
 
-export async function translate(env, list) {
-  const targets = list.filter((t) => t.lang !== 'ko' && !t.titleKo);
+export async function translate(env, list, previous = null) {
+  const cache = new Map();
+  for (const t of [...(previous?.top || []), ...(previous?.top || []).flatMap((t) => t.related || []), ...(previous?.latest || []), ...list]) {
+    if (koreanTitle(t.titleKo)) cache.set(t.title, t.titleKo);
+  }
+  const byTitle = new Map();
+  for (const t of list) {
+    if (t.lang === 'ko') { t.titleKo = t.title; continue; }
+    t.titleKo = cache.get(t.title) || null;
+    if (t.titleKo) continue;
+    const copies = byTitle.get(t.title) || []; copies.push(t); byTitle.set(t.title, copies);
+  }
+  const targets = [...byTitle.values()].map((copies) => copies[0]);
   if (!env?.AI?.run || !targets.length) return list;
   const chunks = [];
   for (let i = 0; i < targets.length; i += 5) chunks.push(targets.slice(i, i + 5));
-  // JSON 이 가끔 깨져 온다. 한 번 더 시도하고, 그래도 안 되면 원문 제목을 쓴다.
-  await Promise.all(chunks.map((c) => translateChunk(env, c).catch(() => translateChunk(env, c))
-    .catch((e) => console.warn('news 번역 실패, 원문 제목 사용', e.message))));
+  // 배치 응답 누락·실패를 한 번에 재요청하지 않고 빠진 제목만 개별 재시도한다. 동시 AI 호출은 2개로 제한.
+  await settledPool(chunks.map((c) => () => translateChunk(env, c)), 2);
+  await settledPool(targets.filter((t) => !t.titleKo).map((t) => async () => {
+    try { await translateChunk(env, [t]); } catch {
+      try {
+        const result = await withTimeout(env.AI.run(TRANSLATION_MODEL, { text: t.title, source_lang: 'en', target_lang: 'ko' }), 20000);
+        if (koreanTitle(result?.translated_text)) t.titleKo = result.translated_text.trim().slice(0, 160);
+      } catch (e) { console.warn('news 전용 번역 실패', e.message); }
+    }
+  }), 2);
+  for (const copies of byTitle.values()) for (const t of copies) t.titleKo = copies[0].titleKo;
   return list;
 }
 
@@ -571,14 +625,21 @@ function applySeen(items, seen, now) {
 }
 
 /** Google News에는 조회수가 없다. 동일 사건의 서로 다른 보도 URL 수를 확산도 지표로 사용한다. */
-export async function googlePopularity(env, groups, now) {
+export function popularityQuery(title, lang) {
+  // 긴 문장 전체를 AND 검색하면 조사·표현 차이 때문에 0건이 된다. 핵심 단어 5개만 사용한다.
+  const words = title.replace(/[‘’'"“”()\[\]…]/g, ' ').split(/[^\p{L}\p{N}.$]+/u)
+    .filter((w) => w.length > 1 && !STOP.has(w.toLowerCase()) && !KSTOP.has(w));
+  return [...new Set(words)].slice(0, 5).join(' ') || title.slice(0, 100);
+}
+
+export async function googlePopularity(env, groups, now, windowMs = TOP_WINDOW_MS) {
   const gap = env.NEWS_GOOGLE_GAP_MS != null ? Number(env.NEWS_GOOGLE_GAP_MS) || 0 : GOOGLE_GAP_MS;
   const queries = groups.map((g, i) => ({ id: 'popularity-' + i, name: 'Google News', kind: 'google', lang: g.lead.lang, core: true, retryDelay: gap ? 3000 : 0,
-    url: gnews(g.lead.title.replace(/["()]/g, ' ').slice(0, 180), g.lead.lang) }));
+    url: gnews(popularityQuery(g.lead.title, g.lead.lang), g.lead.lang, Math.ceil(windowMs / (24 * H))) }));
   const results = await fetchAll(queries, now, { gap });
   return groups.map((g, i) => {
     const result = results[i];
-    const matches = result.status === 'fulfilled' ? result.value.filter((x) => x.at <= now + H && now - x.at <= TOP_WINDOW_MS && !lowQuality(x.title)) : [];
+    const matches = result.status === 'fulfilled' ? result.value.filter((x) => x.at <= now + H && now - x.at <= windowMs && !lowQuality(x.title)) : [];
     // 같은 회사의 다른 사건은 세지 않는다. 기존 제목 유사도 묶기로 같은 사건만 확인한다.
     const matched = cluster([g.lead, ...matches]).find((x) => x.items.includes(g.lead)).items.filter((x) => x !== g.lead);
     const reports = new Set(matched.map((x) => normUrl(x.url))).size;
@@ -587,14 +648,52 @@ export async function googlePopularity(env, groups, now) {
   }).sort((a, b) => b.score - a.score || b.newest - a.newest);
 }
 
-export function latestArticles(items, now) {
+export function latestArticles(items, now, windowMs = TOP_WINDOW_MS) {
   const counts = new Map(), seen = new Set();
-  return items.filter((i) => allowedArticle(i) && aboutAi(i.title) && !lowQuality(i.title) && now - i.at <= TOP_WINDOW_MS && i.at <= now + H)
+  return items.filter((i) => allowedArticle(i) && aboutAi(i.title) && !lowQuality(i.title) && now - i.at <= windowMs && i.at <= now + H)
     .sort((a, b) => b.at - a.at).filter((i) => {
       const key = normUrl(i.url), n = counts.get(i.lang) || 0;
       if (seen.has(key) || n >= 10) return false;
       seen.add(key); counts.set(i.lang, n + 1); return true;
     }).map((i) => ({ ...i, titleKo: i.lang === 'ko' ? i.title : null, summary: '', at: new Date(i.at).toISOString() }));
+}
+
+/** 같은 지역 안에서만 정규화한다. Google 미등재는 탈락 조건이 아니며 편집 중요도·최신성이 보완한다. */
+export function regionalSelection(groups, now, previous = null) {
+  const selected = [], regions = [];
+  for (const lang of ['ko', 'en']) {
+    const candidates = groups.filter((g) => g.lead.lang === lang && now - g.firstAt <= BACKFILL_WINDOW_MS);
+    const recent = candidates.filter((g) => now - g.firstAt <= TOP_WINDOW_MS);
+    const pool = recent.length >= REGION_SIZE ? recent : candidates;
+    const maxPopularity = Math.max(1, ...pool.map((g) => Math.log1p(g.popularity?.reports || 0)));
+    const ranked = pool.map((g) => {
+      const importance = g.judge?.importance ?? (EVENT_RE.test(g.lead.title) || IMPACT_RE.test(g.lead.title) ? 4 : 3);
+      const parts = { importance: importance / 5 * 50, popularity: Math.log1p(g.popularity?.reports || 0) / maxPopularity * 30,
+        freshness: Math.pow(0.5, Math.max(0, now - g.firstAt) / (24 * H)) * 20 };
+      return { ...g, score: Math.round(Object.values(parts).reduce((a, b) => a + b, 0) * 100) / 100, rankingParts: parts };
+    }).sort(byScore);
+    // 해외는 상위 기사 중 서로 다른 매체를 먼저 고르고, 매체가 부족할 때만 같은 매체로 채운다.
+    const diverse = [], publishers = new Set();
+    for (const g of ranked) {
+      const key = pubKey(g.lead.publisher);
+      if (lang === 'en' && publishers.has(key)) continue;
+      diverse.push(g); publishers.add(key);
+      if (diverse.length === REGION_SIZE) break;
+    }
+    for (const g of ranked) { if (diverse.length === REGION_SIZE) break; if (!diverse.includes(g)) diverse.push(g); }
+    diverse.sort(byScore);
+    const priorRegion = { top: (previous?.top || []).filter((t) => t.lang === lang) };
+    const cards = selectTop(diverse, priorRegion, REGION_SIZE).map((t) => {
+      const g = diverse.find((g) => g.lead.url === t.url);
+      const backfill = now - g.firstAt > TOP_WINDOW_MS;
+      return { ...t, region: lang, regionRank: t.rank, summary: '', summaryKo: null, backfill, rankingParts: g.rankingParts, googlePopularity: g.popularity,
+        reasons: ['중요도 ' + (g.judge?.importance ?? '규칙 판정'), g.popularity?.ok ? 'Google News 동일 사건 보도 ' + g.popularity.reports + '건' : 'Google News 확인 실패 · 중요도와 최신성 반영',
+          ...(backfill ? ['최근 72시간 기사로 보완'] : [])] };
+    });
+    selected.push(...cards);
+    regions.push({ lang, count: cards.length, backfilled: cards.filter((t) => t.backfill).length, windowHours: cards.some((t) => t.backfill) ? 72 : 24 });
+  }
+  return { top: selected, regions };
 }
 
 export async function buildNews(env, now = Date.now()) {
@@ -611,28 +710,33 @@ export async function buildNews(env, now = Date.now()) {
     sources.push({ id: source.id, name: source.name, kind: 'news', ok: r.status === 'fulfilled', count: got.length, error: r.status === 'rejected' ? '수집 실패(' + (r.reason?.message || '오류') + ')' : null });
   });
   const nextSeen = applySeen(items, seen, now);
-  const groups = await mergeSameEvents(env, storyGroups(items, now), now);
-  const popular = await googlePopularity(env, groups, now);
+  // 국내 기사가 해외 대표 기사에 흡수되지 않도록 지역별로 사건을 묶는다.
+  const groups = [];
+  for (const lang of ['ko', 'en']) groups.push(...await mergeSameEvents(env, storyGroups(items.filter((i) => i.lang === lang), now, BACKFILL_WINDOW_MS), now));
   const judged = [];
-  for (let i = 0; i < popular.length; i += JUDGE_LIMIT) {
-    judged.push(...await judgeImportance(env, popular.slice(i, i + JUDGE_LIMIT)));
+  for (let i = 0; i < groups.length; i += JUDGE_LIMIT) {
+    judged.push(...await judgeImportance(env, groups.slice(i, i + JUDGE_LIMIT)));
   }
-  // 편집 AI는 관련성 필터로만 쓴다. 판정 가중치가 Google 확산도 순위를 바꾸지 않게 한다.
-  const eligible = judged.map((g) => ({ ...g, score: g.popularity.reports })).sort((a, b) => b.score - a.score || b.newest - a.newest);
-  const top = selectTop(eligible, previous).map((t) => {
-    const g = eligible.find((g) => g.lead.url === t.url);
-    return { ...t, summary: '', summaryKo: null, googlePopularity: g.popularity,
-      reasons: [g.popularity.ok ? 'Google News 동일 사건 보도 ' + g.popularity.reports + '건' : 'Google News 인기도 확인 실패'] };
-  });
-  const latest = latestArticles(items, now);
-  await translate(env, [...top, ...top.flatMap((t) => t.related), ...latest]);
+  // 관련성 판정과 실제 선정 기간을 먼저 적용해 오래된 기사·탈락 기사로 Google 요청을 낭비하지 않는다.
+  const popular = [];
+  for (const lang of ['ko', 'en']) {
+    const candidates = judged.filter((g) => g.lead.lang === lang);
+    const recent = candidates.filter((g) => now - g.firstAt <= TOP_WINDOW_MS);
+    const windowMs = recent.length >= REGION_SIZE ? TOP_WINDOW_MS : BACKFILL_WINDOW_MS;
+    popular.push(...await googlePopularity(env, windowMs === TOP_WINDOW_MS ? recent : candidates, now, windowMs));
+  }
+  const { top, regions } = regionalSelection(popular, now, previous);
+  const latest = regions.flatMap((r) => latestArticles(items.filter((i) => i.lang === r.lang), now, r.windowHours * H));
+  await translate(env, [...top, ...top.flatMap((t) => t.related), ...latest], previous);
   const warnings = [];
   const missing = SOURCES.filter((s) => !sources.some((r) => r.name === s.name && r.ok && r.count));
   if (missing.length) warnings.push(missing.map((s) => s.name).join(' · ') + ' 기사 수집 실패 또는 최근 AI 기사 없음.');
-  if (popular.some((g) => !g.popularity.ok)) warnings.push('Google News 인기도 일부 확인 실패 — 확인된 보도 수와 최신순으로 정렬했습니다.');
+  if (popular.some((g) => !g.popularity.ok)) warnings.push('Google News 인기도 일부 확인 실패 — 기사 중요도와 최신성으로 보완했습니다.');
+  for (const r of regions) if (r.count < REGION_SIZE) warnings.push((r.lang === 'ko' ? '국내' : '해외') + ' 최근 72시간의 조건에 맞는 기사가 ' + r.count + '개뿐입니다.');
   if ([...top, ...top.flatMap((t) => t.related), ...latest].some((t) => t.lang === 'en' && !t.titleKo)) warnings.push('일부 영문 제목 번역 실패 — 원문 제목을 표시합니다.');
-  const snapshot = { version: SNAPSHOT_VERSION, builtAt: new Date(now).toISOString(), windowHours: 24, top, community: [], latest, sources, warnings, degraded: warnings.length > 0,
-    stats: { articles: items.filter((i) => now - i.at <= TOP_WINDOW_MS).length, stories: groups.length }, scanned: items.length };
+  const snapshot = { version: SNAPSHOT_VERSION, builtAt: new Date(now).toISOString(), windowHours: Math.max(...regions.map((r) => r.windowHours)), primaryWindowHours: 24,
+    top, regions, community: [], latest, sources, warnings, degraded: warnings.length > 0,
+    stats: { articles: items.filter((i) => now - i.at <= BACKFILL_WINDOW_MS).length, stories: groups.length }, scanned: items.length };
   if (items.length) await Promise.all([
     env.SESSIONS.put(KEY, JSON.stringify(snapshot), { expirationTtl: 7 * 86400 }),
     env.SESSIONS.put(SEEN_KEY, JSON.stringify(nextSeen), { expirationTtl: 7 * 86400 }),

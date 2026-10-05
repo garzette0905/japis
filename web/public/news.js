@@ -11,7 +11,7 @@ const FILTERS = [['all', '전체'], ['ko', '국내 매체'], ['en', '해외 매�
 const inFilter = (f, n) => f === 'all' || n.lang === f;
 
 function movement(t) {
-  if (!t.previousRank) return '<span class="news-move is-new" title="지난 갱신 Top 5에 없던 기사">NEW</span>';
+  if (!t.previousRank) return '<span class="news-move is-new" title="지난 갱신의 지역별 순위에 없던 기사">NEW</span>';
   const d = t.previousRank - t.rank;
   return d > 0 ? `<span class="news-move is-up" title="지난 갱신 ${t.previousRank}위">▲${d}</span>`
     : d < 0 ? `<span class="news-move is-down" title="지난 갱신 ${t.previousRank}위">▼${-d}</span>` : '<span class="news-move" title="지난 갱신과 같은 순위">–</span>';
@@ -72,16 +72,24 @@ export function builtLine(data) {
 export const warningHtml = (data) => ((data.warnings || []).length
   ? `<div class="news-warn" role="alert"><b>⚠ 데이터 경고</b><ul>${data.warnings.map((w) => `<li>${esc(w)}</li>`).join('')}</ul></div>` : '');
 
-// Top 5 칸. AI NEWS 화면과 대시보드가 같은 마크업·같은 /api/news 를 쓴다.
-// 대시보드와 AI NEWS 모두 같은 Top 5를 표시한다.
-const topSectionHtml = (dash = false) => `<section class="sns-top" aria-labelledby="news-top-title"><div class="sns-section-head"><span class="sns-eyebrow">THE AI PULSE · 최근 24시간</span><h2 id="news-top-title">${dash ? '<a href="#/news" data-open-news>AI 주요 뉴스 Top 5 <span>↗</span></a>' : 'AI 주요 뉴스 Top 5'}</h2><p class="news-built">최신 순위를 불러오는 중입니다…</p><div class="news-warn-slot"></div></div>
+// 대시보드와 AI NEWS 모두 국내·해외 각 3개를 표시한다.
+const topSectionHtml = (dash = false) => `<section class="sns-top" aria-labelledby="news-top-title"><div class="sns-section-head"><span class="sns-eyebrow">THE AI PULSE · 국내 3 / 해외 3</span><h2 id="news-top-title">${dash ? '<a href="#/news" data-open-news>AI 주요 뉴스 · 국내 3 / 해외 3 <span>↗</span></a>' : 'AI 주요 뉴스 · 국내 3 / 해외 3'}</h2><p class="news-built">최신 순위를 불러오는 중입니다…</p><div class="news-warn-slot"></div></div>
   <div class="sns-top-items news-top-items" aria-live="polite"><p class="sns-empty">기사를 모으고 있습니다…</p></div></section>`;
+
+export function topListsHtml(data) {
+  return [['ko', '국내 인기 뉴스 Top 3'], ['en', '해외 주요 뉴스 Top 3']].map(([lang, title]) => {
+    const list = data.top.filter((t) => t.lang === lang).slice(0, 3);
+    const region = data.regions?.find((r) => r.lang === lang);
+    const note = region?.backfilled ? '<p class="news-window-note">24시간 내 기사 부족으로 최근 72시간 기사 ' + esc(region.backfilled) + '개를 보완했습니다.</p>' : '';
+    return `<section class="news-region" aria-label="${title}"><h3 class="news-region-title">${title}</h3>${note}<div class="news-region-items">${list.map(topCard).join('') || '<p class="sns-empty">조건에 맞는 기사를 확보하지 못했습니다.</p>'}</div></section>`;
+  }).join('');
+}
 
 function paintTop(root, data) {
   root.querySelector('.news-built').textContent = builtLine(data);
   root.querySelector('.news-warn-slot').innerHTML = warningHtml(data);
   const box = root.querySelector('.news-top-items');
-  box.innerHTML = data.top.slice(0, 5).map(topCard).join('') || '<div class="sns-empty"><h3>순위를 만들 기사가 부족합니다</h3><p>잠시 후 새로고침해주세요.</p></div>';
+  box.innerHTML = topListsHtml(data);
 }
 
 /** 대시보드 맨 위 칸. 붙일 자리만 받고, 실패해도 대시보드의 나머지는 그대로 둔다. */
@@ -101,14 +109,15 @@ export async function loadNewsDash(root) {
 }
 
 export async function renderNews(page) {
-  page.innerHTML = `<div class="sns-app news-app"><header class="sns-header"><div class="sns-title-icon">${serviceIco('news')}</div><div><h1>Jaden AI NEWS</h1><p>최근 24시간 가장 중요한 AI 뉴스 Top 5 · 1시간마다 갱신</p></div><div class="sns-refresh-group"><button class="sns-refresh" type="button" data-refresh>새로고침 ↻</button></div></header>
+  page.innerHTML = `<div class="sns-app news-app"><header class="sns-header"><div class="sns-title-icon">${serviceIco('news')}</div><div><h1>Jaden AI NEWS</h1><p>국내 인기 뉴스 3개 · 해외 주요 뉴스 3개 · 1시간마다 갱신</p></div><div class="sns-refresh-group"><button class="sns-refresh" type="button" data-refresh>새로고침 ↻</button></div></header>
     <main class="sns-main">${topSectionHtml()}
     <section class="sns-timeline" aria-label="매체별 최신 기사"><div class="sns-tabs" role="group" aria-label="분류 필터">${FILTERS.map(([k, v], i) => `<button data-filter="${k}" aria-pressed="${i === 0}">${v}</button>`).join('')}</div>
-      <div class="sns-toolbar"><span>최근 24시간 · 매체별 최신 AI 기사</span><span>최신순 ↓</span></div>
+      <div class="sns-toolbar"><span>지역별 참고 기사 최대 10개 · 부족하면 72시간까지 보완</span><span>최신순 ↓</span></div>
       <div class="sns-feed-items" aria-live="polite"><p class="sns-empty">기사를 불러오는 중입니다…</p></div></section>
     <section class="sns-panel sns-about news-about"><h2>순위를 매기는 기준</h2>
-      <p>TechCrunch · AI타임스 · The Information · Reuters · Bloomberg 원문만 수집합니다. 최초 보도 24시간 이내 AI 기사 중 칼럼·행사·주가 기사를 제외하고, 같은 사건은 하나로 묶습니다.</p>
-      <p>Google News에서 같은 사건을 다룬 보도 수로 인기도를 비교해 Top 5를 선정합니다. 조회수 지표는 아니며, 보도 수가 같으면 최신순으로 정렬합니다. 인기도 확인 실패는 경고로 표시합니다.</p>
+      <p>TechCrunch · AI타임스 · The Information · Reuters · Bloomberg 원문만 수집합니다. 국내·해외에서 각각 3개를 고릅니다. 칼럼·행사·주가 기사를 제외하고 같은 사건은 지역별로 묶습니다.</p>
+      <p>기사 중요도 50% · Google News 보도 확산도 30% · 최신성 20%를 반영합니다. Google News 미등재 기사도 중요도와 최신성으로 평가하며, 해외는 서로 다른 매체를 우선 선정합니다. 보도 수는 조회수 지표가 아닙니다.</p>
+      <p>최근 24시간 기사를 우선하고, 지역별 3개가 부족할 때 최근 72시간 기사로 보완해 표시합니다.</p>
       <p>영문 제목은 한국어로 간결하게 번역합니다. 참고 기사는 국내·해외 각각 최대 10개입니다.</p>
       <p class="news-sources"></p></section></main><p class="sns-global-status" role="status"></p></div>`;
   const root = page.querySelector('.news-app');
