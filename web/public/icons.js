@@ -51,6 +51,10 @@ const brandImage = (src) =>
  *   · 그림 안의 id 에는 접두어(bi-)를 붙여 서로 밟지 않게 한다.
  */
 const BRAND_ICONS = {
+  // AI 커뮤니티 — 각 사이트에서 제공하는 아이콘을 정적 자산으로 보관한다.
+  thesingularity: brandImage('/service-icons/dcinside.png'),
+  gpters: brandImage('/service-icons/gpters.png'),
+
   // ── 우리 것 ─────────────────────────────────────────────────────────
   // JAPIS — 상단 띠에서도 앱 아이콘과 같은 라벤더 그레이·청록 J를 쓴다.
   japis:
