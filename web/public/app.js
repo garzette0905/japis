@@ -932,6 +932,7 @@ function openFrame(s) {
     <iframe class="frame-view" id="frame-view" title="${esc(s.label)}"
             src="/go/${encodeURIComponent(s.key)}?in=frame"
             referrerpolicy="no-referrer"
+            allow="clipboard-write"
             sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-modals allow-top-navigation-by-user-activation"></iframe>
     <div class="frame-fallback" id="frame-fallback" hidden>
       <p class="feed-note">이 사이트는 다른 화면 안에 담기지 않도록 막아 두었습니다(제공자 정책).</p>

@@ -277,6 +277,17 @@ export const SERVICES = [
     external: true,
   },
   {
+    key: 'sww-pro',
+    label: 'SWW-pro',
+    group: 'homepage',
+    desc: '삼성형 Word 보고서 프롬프트 작성',
+    url: '/sww-pro/prompt-builder.html',
+    accent: 'gold',
+    frame: true,
+    reauth: false,
+    external: true,
+  },
+  {
     key: 'sns',
     label: 'Jaden AI SNS',
     group: 'homepage',

@@ -1918,6 +1918,19 @@ export default {
 
       // ---- 정적 자산 ----
       if (method === 'GET' || method === 'HEAD') {
+        if (path.startsWith('/sww-pro/')) {
+          return requireLogin(request, env, async (user, sess) => {
+            const perm = await permissionFor(env, user, serviceOf('sww-pro'));
+            if (!perm.allowed) return fail('이 화면을 볼 권한이 없습니다.', 403);
+            if (perm.reauth && !(await unlockedUntil(env, sess.sid, 'sww-pro'))) {
+              return fail('잠금해제가 필요합니다.', 403);
+            }
+            const asset = await env.ASSETS.fetch(request);
+            const headers = new Headers(asset.headers);
+            headers.set('Cache-Control', 'private, no-store');
+            return new Response(asset.body, { status: asset.status, headers });
+          });
+        }
         if (ASSET_RE.test(path)) return env.ASSETS.fetch(request);
         return shell(request, env);
       }
