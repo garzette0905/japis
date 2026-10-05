@@ -769,8 +769,9 @@ export async function buildNews(env, now = Date.now()) {
   const warnings = [];
   const missing = SOURCES.filter((s) => !sources.some((r) => r.name === s.name && r.ok && r.count));
   if (missing.length) warnings.push(missing.map((s) => s.name).join(' · ') + ' 기사 수집 실패 또는 최근 AI 기사 없음.');
-  if (popular.some((g) => !g.popularity.ok)) warnings.push('Google News 인기도 일부 확인 실패 — 기사 중요도와 최신성으로 보완했습니다.');
-  if (popular.some((g) => g.popularity.status === 'stale')) warnings.push('Google News 응답 지연으로 최근 6시간 내 확인 결과를 재사용했습니다.');
+  // 화면에 실린 기사 기준으로만 알린다. 탈락 후보의 확인 실패까지 경고하면 늘 경고가 뜬다(진단은 googleDiagnostics).
+  if (top.some((t) => t.googlePopularity && !t.googlePopularity.ok)) warnings.push('Google News 인기도 일부 확인 실패 — 기사 중요도와 최신성으로 보완했습니다.');
+  if (top.some((t) => t.googlePopularity?.status === 'stale')) warnings.push('Google News 응답 지연으로 최근 6시간 내 확인 결과를 재사용했습니다.');
   for (const r of regions) if (r.count < REGION_SIZE) warnings.push((r.lang === 'ko' ? '국내' : '해외') + ' 최근 72시간의 조건에 맞는 기사가 ' + r.count + '개뿐입니다.');
   if ([...top, ...top.flatMap((t) => t.related), ...latest].some((t) => t.lang === 'en' && !t.titleKo)) warnings.push('일부 영문 제목 번역 실패 — 원문 제목을 표시합니다.');
   const snapshot = { version: SNAPSHOT_VERSION, builtAt: new Date(now).toISOString(), windowHours: Math.max(...regions.map((r) => r.windowHours)), primaryWindowHours: 24,

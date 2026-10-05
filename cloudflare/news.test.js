@@ -556,10 +556,11 @@ test('카드 HTML은 이스케이프하고 스크립트 링크를 만들지 않�
   assert.ok(warningHtml({ warnings: ['<b>'] }).includes('&lt;b&gt;')); assert.equal(warningHtml({ warnings: [] }), '');
 });
 
-test('메뉴: AI NEWS 는 개인서비스에, 예전 Jaden AI SNS 는 다시 제자리에', () => {
+test('메뉴: AI NEWS 는 개인서비스에, SNS 는 링크 모음으로', () => {
   const news = SERVICES.find((s) => s.key === 'news'), sns = SERVICES.find((s) => s.key === 'sns');
   assert.equal(news.group, 'personal'); assert.equal(news.route, '#/news');
-  assert.equal(sns.label, 'Jaden AI SNS'); assert.equal(sns.route, '#/sns');
+  assert.equal(sns.label, 'SNS'); assert.equal(sns.route, '#/sns');
+  assert.ok(sns.links.some((l) => l.url.includes('linkedin.com')) && sns.links.some((l) => l.url === 'https://x.com'));
 });
 
 test('AI NEWS API는 로그인 없이 열리지 않는다', async () => {

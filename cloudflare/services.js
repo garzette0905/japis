@@ -242,10 +242,10 @@ export const SERVICES = [
   },
   {
     key: 'damoang',
-    label: '다모앙',
+    label: '다모앙 AI당',
     group: 'hobby',
-    desc: '다모앙 커뮤니티',
-    url: 'https://damoang.net',
+    desc: '다모앙 AI당 커뮤니티',
+    url: 'https://damoang.net/ai',
     accent: 'gold',
     frame: false,
     reauth: false,
@@ -289,15 +289,27 @@ export const SERVICES = [
   },
   {
     key: 'sns',
-    label: 'Jaden AI SNS',
+    label: 'SNS',
     group: 'homepage',
-    desc: 'X · Threads에서 모아 보는 AI와 IT Trends',
+    desc: '인스타그램 · Threads · Facebook · Telegram · X · LinkedIn',
     url: '/#/sns',
     route: '#/sns',
-    accent: 'blue',
-    icon: '🧠',
+    accent: 'pink',
+    icon: '💬',
     reauth: false,
     external: false,
+    // Jaden AI SNS(X·Threads 리더, sns.js)는 끄고 링크 모음으로 되돌렸다(2026-10-05).
+    // 본인 계정 주소(프로필·채널)가 정해지면 여기만 고친다.
+    // ico 는 icons.js 의 그림 이름이다. SNS 는 **그 회사의 공식 마크**를 쓴다
+    // (BRAND_ICONS) — 링크 목록에서 눈이 찾는 것은 이름이 아니라 그 동그란 마크다.
+    links: [
+      { label: '인스타그램', ico: 'instagram', url: 'https://www.instagram.com' },
+      { label: 'Threads', ico: 'threads', url: 'https://www.threads.net' },
+      { label: 'Facebook', ico: 'facebook', url: 'https://www.facebook.com' },
+      { label: 'Telegram', ico: 'telegram', url: 'https://web.telegram.org' },
+      { label: 'X', ico: 'x', url: 'https://x.com' },
+      { label: 'LinkedIn', ico: 'linkedin', url: 'https://www.linkedin.com/feed/' },
+    ],
   },
   // ── 협업 ──────────────────────────────────────────────────────────────
   // 계정을 지정한 바로가기 + 카드 앞면의 최근 항목(/api/feed).
