@@ -18,7 +18,10 @@ const TRANSLATION_MODEL = '@cf/meta/m2m100-1.2b';
 const TOP_SIZE = 5;
 const JUDGE_LIMIT = 20;               // 편집 판정에 보일 상위 후보 수
 const GOOGLE_GAP_MS = 1500;           // Google 뉴스는 한꺼번에 부르면 503 으로 막는다. 한 번에 하나씩, 이만큼 띄워 부른다
-const SNAPSHOT_VERSION = 4;           // 국내·해외 각 3개, 혼합 점수, 번역 복구
+const SNAPSHOT_VERSION = 5;           // Google 검증 상태·캐시 복구
+const GOOGLE_CACHE_KEY = 'news:google-results:v1';
+const GOOGLE_FRESH_MS = H;
+const GOOGLE_STALE_MS = 6 * H;
 
 const gnews = (q, lang, days = 1) => `https://news.google.com/rss/search?q=${encodeURIComponent(`${q} when:${days}d`)}&` +
   (lang === 'ko' ? 'hl=ko&gl=KR&ceid=KR:ko' : 'hl=en-US&gl=US&ceid=US:en');
@@ -151,7 +154,11 @@ async function fetchSource(source, now) {
     const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (compatible; JAPIS-News/1.1)', Accept: 'application/rss+xml, application/atom+xml, application/xml, application/json;q=0.9, */*;q=0.5' },
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return source.kind === 'hn' ? parseHn(await res.json()) : parseFeed(await res.text(), source);
+    if (source.kind === 'hn') return parseHn(await res.json());
+    const xml = await res.text();
+    // 차단/동의 HTML을 정상 검색 0건으로 오인하지 않는다.
+    if (isGoogleUrl(source) && !/<rss\b[\s\S]*<\/rss\s*>/i.test(xml)) throw new Error('invalid RSS');
+    return parseFeed(xml, source);
   };
   // 핵심 출처는 잠깐 쉬었다가 한 번 더 시도한다(일시적인 429/503·타임아웃).
   try { return await attempt(); } catch (e) { if (!source.core) throw e; await sleep(source.retryDelay ?? 0); return attempt(); }
@@ -636,14 +643,45 @@ export async function googlePopularity(env, groups, now, windowMs = TOP_WINDOW_M
   const gap = env.NEWS_GOOGLE_GAP_MS != null ? Number(env.NEWS_GOOGLE_GAP_MS) || 0 : GOOGLE_GAP_MS;
   const queries = groups.map((g, i) => ({ id: 'popularity-' + i, name: 'Google News', kind: 'google', lang: g.lead.lang, core: true, retryDelay: gap ? 3000 : 0,
     url: gnews(popularityQuery(g.lead.title, g.lead.lang), g.lead.lang, Math.ceil(windowMs / (24 * H))) }));
-  const results = await fetchAll(queries, now, { gap });
+  const cached = await env.SESSIONS?.get(GOOGLE_CACHE_KEY, 'json').catch(() => null) || {};
+  const next = Object.fromEntries(Object.entries(cached).filter(([, v]) => v && now - v.at >= 0 && now - v.at <= GOOGLE_STALE_MS && Array.isArray(v.items)));
+  const results = [], states = [];
+  let blocked = null, requested = false;
+  // 정상 결과(0건 포함)는 한 시간 재사용한다. 차단이 반복되면 남은 검색은 중단한다.
+  for (const q of queries) {
+    const entry = next[q.url];
+    let result, error = null;
+    if (entry && now - entry.at < GOOGLE_FRESH_MS) {
+      result = { status: 'fulfilled', value: entry.items };
+      states.push({ status: 'cached', checkedAt: new Date(entry.at).toISOString(), queryUrl: q.url, error: null });
+    } else {
+      if (blocked) result = { status: 'rejected', reason: new Error(blocked) };
+      else {
+        if (requested) await sleep(gap);
+        requested = true;
+        [result] = await fetchAll([q], now, { gap });
+      }
+      if (result.status === 'fulfilled') {
+        next[q.url] = { at: now, items: result.value };
+        states.push({ status: 'live', checkedAt: new Date(now).toISOString(), queryUrl: q.url, error: null });
+      } else {
+        error = result.reason?.message || 'fetch failed';
+        if (/HTTP (403|429|503)|invalid RSS/.test(error)) blocked = error;
+        if (entry) result = { status: 'fulfilled', value: entry.items };
+        states.push({ status: entry ? 'stale' : 'unavailable', checkedAt: entry ? new Date(entry.at).toISOString() : null,
+          attemptedAt: new Date(now).toISOString(), queryUrl: q.url, error });
+      }
+    }
+    results.push(result);
+  }
+  if (queries.length && env.SESSIONS) await env.SESSIONS.put(GOOGLE_CACHE_KEY, JSON.stringify(next), { expirationTtl: 86400 });
   return groups.map((g, i) => {
     const result = results[i];
     const matches = result.status === 'fulfilled' ? result.value.filter((x) => x.at <= now + H && now - x.at <= windowMs && !lowQuality(x.title)) : [];
     // 같은 회사의 다른 사건은 세지 않는다. 기존 제목 유사도 묶기로 같은 사건만 확인한다.
     const matched = cluster([g.lead, ...matches]).find((x) => x.items.includes(g.lead)).items.filter((x) => x !== g.lead);
     const reports = new Set(matched.map((x) => normUrl(x.url))).size;
-    return { ...g, popularity: { ok: result.status === 'fulfilled', reports }, score: reports,
+    return { ...g, popularity: { ok: result.status === 'fulfilled', reports, ...states[i] }, score: reports,
       signals: { googleReports: reports } };
   }).sort((a, b) => b.score - a.score || b.newest - a.newest);
 }
@@ -687,7 +725,7 @@ export function regionalSelection(groups, now, previous = null) {
       const g = diverse.find((g) => g.lead.url === t.url);
       const backfill = now - g.firstAt > TOP_WINDOW_MS;
       return { ...t, region: lang, regionRank: t.rank, summary: '', summaryKo: null, backfill, rankingParts: g.rankingParts, googlePopularity: g.popularity,
-        reasons: ['중요도 ' + (g.judge?.importance ?? '규칙 판정'), g.popularity?.ok ? 'Google News 동일 사건 보도 ' + g.popularity.reports + '건' : 'Google News 확인 실패 · 중요도와 최신성 반영',
+        reasons: ['중요도 ' + (g.judge?.importance ?? '규칙 판정'), g.popularity?.ok ? 'Google News 동일 사건 보도 ' + g.popularity.reports + '건' + (g.popularity.status === 'stale' ? ' · 이전 확인 결과' : '') : '중요도와 최신성 기준으로 선정',
           ...(backfill ? ['최근 72시간 기사로 보완'] : [])] };
     });
     selected.push(...cards);
@@ -732,10 +770,12 @@ export async function buildNews(env, now = Date.now()) {
   const missing = SOURCES.filter((s) => !sources.some((r) => r.name === s.name && r.ok && r.count));
   if (missing.length) warnings.push(missing.map((s) => s.name).join(' · ') + ' 기사 수집 실패 또는 최근 AI 기사 없음.');
   if (popular.some((g) => !g.popularity.ok)) warnings.push('Google News 인기도 일부 확인 실패 — 기사 중요도와 최신성으로 보완했습니다.');
+  if (popular.some((g) => g.popularity.status === 'stale')) warnings.push('Google News 응답 지연으로 최근 6시간 내 확인 결과를 재사용했습니다.');
   for (const r of regions) if (r.count < REGION_SIZE) warnings.push((r.lang === 'ko' ? '국내' : '해외') + ' 최근 72시간의 조건에 맞는 기사가 ' + r.count + '개뿐입니다.');
   if ([...top, ...top.flatMap((t) => t.related), ...latest].some((t) => t.lang === 'en' && !t.titleKo)) warnings.push('일부 영문 제목 번역 실패 — 원문 제목을 표시합니다.');
   const snapshot = { version: SNAPSHOT_VERSION, builtAt: new Date(now).toISOString(), windowHours: Math.max(...regions.map((r) => r.windowHours)), primaryWindowHours: 24,
     top, regions, community: [], latest, sources, warnings, degraded: warnings.length > 0,
+    googleDiagnostics: popular.map((g) => ({ title: g.lead.title, lang: g.lead.lang, ...g.popularity })),
     stats: { articles: items.filter((i) => now - i.at <= BACKFILL_WINDOW_MS).length, stories: groups.length }, scanned: items.length };
   if (items.length) await Promise.all([
     env.SESSIONS.put(KEY, JSON.stringify(snapshot), { expirationTtl: 7 * 86400 }),

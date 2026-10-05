@@ -20,10 +20,26 @@
 
 ## 운영
 
-추가 시크릿·DB 변경은 없다. Workers AI 바인딩을 사용한다. 스냅숏은 'SESSIONS' KV의 'news:snapshot', 최초 시각은 'news:seen'이다. 스냅숏 버전 4부터 지역별 3개와 번역 복구를 적용한다.
+추가 시크릿·DB 변경은 없다. Workers AI 바인딩을 사용한다. 스냅숏은 'SESSIONS' KV의 'news:snapshot', 최초 시각은 'news:seen'이다. 스냅숏 버전 5부터 Google 검색 검증 상태와 캐시 복구를 적용한다.
 매시 3분 예약 갱신, 캐시 유효 범위 65분, 수동 갱신 간격 10분. Google 요청은 1.5초 간격으로 직렬화하고 전체 연결은 최대 6개다. 수집 실패·번역 실패·인기도 확인 실패는 화면에 표시한다.
 
 검증: 'npm test'. 출처 제한, Google 동일 사건 집계, 국내·해외 각 3개와 해외 매체 다양성, 72시간 보완 표시, 참고 목록 각 10개, 실제 연속 JSON 번역 오류·개별 재시도·전용 모델 복구·중복 제거·동시 호출 제한·캐시 재사용, 최초 시각·인증을 검증한다.
+
+### Google News 확인 장애와 검증
+
+- 동일한 검색 URL(언어·24/72시간 범위 포함)의 정상 RSS는 KV `news:google-results:v1`에 저장하고 1시간 재사용한다. Google 장애 때에는 최대 6시간 내 성공 결과를 사용하며, 현재 기간을 벗어난 보도는 다시 제외한다. 이전 확인 결과임을 카드와 경고에 표시한다.
+- 403/429/503 또는 HTML 차단 응답이 재시도 후에도 계속되면 해당 지역의 남은 외부 검색을 중단한다. 캐시가 있는 검색은 계속 복구한다. HTTP 200 HTML을 정상 검색 0건으로 처리하지 않는다.
+- 캐시도 없으면 Google 점수는 0으로 두며 중요도·최신성으로 선정한다. 카드의 반복적인 실패 문구는 제거하고 데이터 경고와 **순위를 매기는 기준 → Google News 검증 상태**에 실패를 표시한다. 실패를 성공이나 검색 0건으로 숨기지 않는다.
+- 검증 상태에는 후보별 검색 링크, 정상/캐시/이전 결과/확인 불가, 동일 사건 보도 수, 성공 확인 시각, 오류 원인이 나온다. `/api/news`의 `googleDiagnostics`에서도 같은 정보를 볼 수 있다(기존 로그인·뉴스 권한 필요).
+- 운영에서만 막히는지 비교하거나 최초 성공 캐시를 확보하려면 다음을 실행한다. `--seed` 없이 실행하면 읽기·검증만 한다. `--seed`는 검증에 성공한 Google RSS만 운영 KV에 저장하며 기존 다른 검색의 캐시를 보존한다. Windows PowerShell의 UTF-8 BOM도 지원한다.
+
+```powershell
+npx wrangler kv key get news:snapshot --binding SESSIONS --remote | Out-File -Encoding utf8 $env:TEMP/japis-news-snapshot.json
+node tools/news-google-check.mjs --snapshot $env:TEMP/japis-news-snapshot.json
+node tools/news-google-check.mjs --snapshot $env:TEMP/japis-news-snapshot.json --seed
+```
+
+캐시 저장 후 뉴스 화면의 새로고침을 누른다(기존 10분 수동 갱신 제한 유지). 이 도구는 자동 예약 작업이 아니며 지속적인 Google 차단을 영구적으로 해제하지 않는다. 캐시 유효기간이 지나면 확인 불가 상태를 다시 표시한다.
 
 ## 대시보드 (2026-10-03)
 

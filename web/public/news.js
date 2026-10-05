@@ -73,6 +73,15 @@ export const warningHtml = (data) => ((data.warnings || []).length
   ? `<div class="news-warn" role="alert"><b>⚠ 데이터 경고</b><ul>${data.warnings.map((w) => `<li>${esc(w)}</li>`).join('')}</ul></div>` : '');
 
 // 대시보드와 AI NEWS 모두 국내·해외 각 3개를 표시한다.
+export function googleDiagnosticsHtml(data) {
+  const labels = { live: '실시간 확인', cached: '1시간 내 확인 결과', stale: '이전 확인 결과', unavailable: '확인 불가' };
+  const rows = data.googleDiagnostics || [];
+  return `<details><summary>Google News 검증 상태 (${rows.length}개 검색)</summary><p>검색 0건과 통신 실패를 구분합니다. 검색 링크에서 결과를 직접 비교할 수 있습니다. 보도 수는 동일 사건으로 판정된 URL 수입니다.</p><ul>${rows.map((r) => {
+    const url = safeNewsUrl(r.queryUrl);
+    return `<li>${link(url, esc(r.title))} · ${esc(labels[r.status] || '확인 불가')} · ${r.ok ? esc(r.reports) + '건' : '미집계'}${r.checkedAt ? ' · 확인 ' + esc(date(r.checkedAt)) : ''}${r.error ? ' · ' + esc(r.error) : ''}</li>`;
+  }).join('')}</ul></details>`;
+}
+
 const topSectionHtml = (dash = false) => `<section class="sns-top" aria-labelledby="news-top-title"><div class="sns-section-head"><span class="sns-eyebrow">THE AI PULSE · 국내 3 / 해외 3</span><h2 id="news-top-title">${dash ? '<a href="#/news" data-open-news>AI 주요 뉴스 · 국내 3 / 해외 3 <span>↗</span></a>' : 'AI 주요 뉴스 · 국내 3 / 해외 3'}</h2><p class="news-built">최신 순위를 불러오는 중입니다…</p><div class="news-warn-slot"></div></div>
   <div class="sns-top-items news-top-items" aria-live="polite"><p class="sns-empty">기사를 모으고 있습니다…</p></div></section>`;
 
@@ -119,7 +128,7 @@ export async function renderNews(page) {
       <p>기사 중요도 50% · Google News 보도 확산도 30% · 최신성 20%를 반영합니다. Google News 미등재 기사도 중요도와 최신성으로 평가하며, 해외는 서로 다른 매체를 우선 선정합니다. 보도 수는 조회수 지표가 아닙니다.</p>
       <p>최근 24시간 기사를 우선하고, 지역별 3개가 부족할 때 최근 72시간 기사로 보완해 표시합니다.</p>
       <p>영문 제목은 한국어로 간결하게 번역합니다. 참고 기사는 국내·해외 각각 최대 10개입니다.</p>
-      <p class="news-sources"></p></section></main><p class="sns-global-status" role="status"></p></div>`;
+      <p class="news-sources"></p><div class="news-google-diagnostics"></div></section></main><p class="sns-global-status" role="status"></p></div>`;
   const root = page.querySelector('.news-app');
   const $ = (s) => root.querySelector(s);
   const active = () => root.isConnected;
@@ -135,6 +144,7 @@ export async function renderNews(page) {
   function paint() {
     paintTop(root, data);
     $('.news-sources').textContent = '수집 상태: ' + data.sources.map((s) => `${s.name} ${s.ok ? `${s.count}건` : (s.error || '실패')}`).join(' · ');
+    $('.news-google-diagnostics').innerHTML = googleDiagnosticsHtml(data);
     paintLatest();
   }
   async function load(refresh = false) {

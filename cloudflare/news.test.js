@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { decode, stripHtml, parseDate, parseFeed, parseHn, safeUrl, isAi, aboutAi, lowQuality, features, cluster, rank, storyGroups, applyMerges, mergeSameEvents, community,
   applyJudgement, judgeImportance, selectTop, translate, buildNews, newsFeed, settledPool, fetchAll, SOURCES, BING_FALLBACK, allowedArticle, latestArticles, googlePopularity, translationRows, regionalSelection, popularityQuery } from './news.js';
-import { topCard, latestCard, communityCard, builtLine, warningHtml, safeNewsUrl, topListsHtml } from '../web/public/news.js';
+import { topCard, latestCard, communityCard, builtLine, warningHtml, safeNewsUrl, topListsHtml, googleDiagnosticsHtml } from '../web/public/news.js';
 import { SERVICES } from './services.js';
 import worker from './index.js';
 
@@ -365,6 +365,53 @@ test('Google 인기도 실패를 Bing 점수로 대체하지 않고 경고한다
   assert.equal(snap.top[0].googlePopularity.reports, 0);
   assert.ok(snap.warnings.some((w) => w.includes('Google News')));
   assert.deepEqual(snap.community, []);
+  assert.ok(!topCard(snap.top[0]).includes('Google News 확인 실패'));
+  assert.equal(snap.googleDiagnostics[0].error, 'HTTP 503');
+});
+
+test('Google 정상 0건·HTML 차단을 구분하고 차단 후 남은 요청을 중단한다', async (t) => {
+  const groups = storyGroups([item(), item({ title: 'EU approves AI copyright regulation', url: 'https://techcrunch.com/b' })], now);
+  let calls = 0, html = false;
+  t.mock.method(globalThis, 'fetch', async () => { calls++; return new Response(html ? '<html>blocked</html>' : '<rss></rss>'); });
+  const empty = await googlePopularity(fast({}), groups, now);
+  assert.ok(empty.every((r) => r.popularity.ok && r.popularity.reports === 0 && r.popularity.status === 'live'));
+  html = true; calls = 0;
+  const blocked = await googlePopularity(fast({}), groups, now);
+  assert.equal(calls, 2, '처음 검색만 한 번 재시도하고 나머지는 중단');
+  assert.ok(blocked.every((r) => !r.popularity.ok && r.popularity.error === 'invalid RSS'));
+});
+
+test('Google 캐시: 같은 검색은 재사용, 장애 때 6시간 내 결과만 복구하고 기간·언어를 구분한다', async (t) => {
+  const groups = storyGroups([item()], now);
+  const env = fast({ SESSIONS: kv() });
+  let calls = 0, fail = false;
+  t.mock.method(globalThis, 'fetch', async () => {
+    calls++;
+    return fail ? new Response('blocked', { status: 503 }) : new Response(rssAt(item().title, 'https://news.google.com/a', now));
+  });
+  const live = await googlePopularity(env, groups, now);
+  assert.equal(live[0].popularity.reports, 1);
+  const fresh = await googlePopularity(env, groups, now + 60000);
+  assert.equal(calls, 1); assert.equal(fresh[0].popularity.status, 'cached');
+  fail = true;
+  const stale = await googlePopularity(env, groups, now + 2 * H);
+  assert.equal(stale[0].popularity.status, 'stale'); assert.equal(stale[0].popularity.reports, 1);
+  assert.equal(stale[0].popularity.checkedAt, new Date(now).toISOString());
+  assert.equal(stale[0].popularity.error, 'HTTP 503');
+  const otherWindow = await googlePopularity(env, groups, now + 2 * H, 72 * H);
+  assert.equal(otherWindow[0].popularity.status, 'unavailable');
+  const korean = await googlePopularity(env, groups.map((g) => ({ ...g, lead: { ...g.lead, lang: 'ko' } })), now + 2 * H);
+  assert.equal(korean[0].popularity.status, 'unavailable');
+  const expired = await googlePopularity(env, groups, now + 7 * H);
+  assert.equal(expired[0].popularity.ok, false); assert.equal(expired[0].popularity.reports, 0);
+});
+
+test('Google 검증 화면에 오류·확인 시각·검색 링크를 안전하게 표시한다', () => {
+  const html = googleDiagnosticsHtml({ googleDiagnostics: [{ title: '<script>x</script>', queryUrl: 'javascript:1', ok: false, status: 'unavailable', error: 'HTTP 503' },
+    { title: 'OpenAI', queryUrl: 'https://news.google.com/rss/search?q=OpenAI', ok: true, reports: 0, status: 'cached', checkedAt: new Date(now).toISOString() }] });
+  assert.ok(!html.includes('<script>') && !html.includes('javascript:'));
+  assert.ok(html.includes('HTTP 503') && html.includes('0건') && html.includes('1시간 내 확인 결과'));
+  assert.ok(html.includes('href="https://news.google.com/'));
 });
 
 test('국내·해외 참고 기사는 각각 최대 10개이며 중복·행사·다른 매체를 제외한다', () => {
