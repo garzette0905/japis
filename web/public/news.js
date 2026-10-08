@@ -1,104 +1,94 @@
 import { api, esc, when } from './util.js';
 import { serviceIco } from './icons.js';
 
+// Jaden AI NEWS — 좋아요/싫어요와 등록한 기사 주소로 학습해 고른 AI 소식.
 // 서버가 이미 걸렀지만 화면에서도 http(s) 주소만 링크로 만든다.
 export function safeNewsUrl(value) {
   try { const u = new URL(value); return ['https:', 'http:'].includes(u.protocol) ? u.href : ''; } catch { return ''; }
 }
 const date = (at) => new Date(at).toLocaleString('ko-KR');
-// 국내·해외 참고 기사 목록.
-const FILTERS = [['all', '전체'], ['ko', '국내 매체'], ['en', '해외 매체']];
-const inFilter = (f, n) => f === 'all' || n.lang === f;
-
-function movement(t) {
-  if (!t.previousRank) return '<span class="news-move is-new" title="지난 갱신의 지역별 순위에 없던 기사">NEW</span>';
-  const d = t.previousRank - t.rank;
-  return d > 0 ? `<span class="news-move is-up" title="지난 갱신 ${t.previousRank}위">▲${d}</span>`
-    : d < 0 ? `<span class="news-move is-down" title="지난 갱신 ${t.previousRank}위">▼${-d}</span>` : '<span class="news-move" title="지난 갱신과 같은 순위">–</span>';
-}
-
+const KIND = { news: '뉴스', official: '공식 발표', report: '리포트·인사이트' };
+const FILTERS = [['all', '전체'], ['news', '뉴스'], ['official', '공식 발표'], ['report', '리포트·인사이트']];
 const link = (url, html) => (url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${html}</a>` : html);
+
+const voteButtons = (t) => `<div class="news-votes" role="group" aria-label="이 기사 평가">
+    <button type="button" class="news-vote is-up" data-vote="1" aria-pressed="${t.vote === 1}" title="이런 기사를 더 보여주세요">👍</button>
+    <button type="button" class="news-vote is-down" data-vote="-1" aria-pressed="${t.vote === -1}" title="이런 기사는 그만 보여주세요">👎</button></div>`;
+const dataAttrs = (t, url) => `data-key="${esc(t.key)}" data-url="${esc(url)}" data-title="${esc(t.title)}"`;
 
 export function topCard(t) {
   const url = safeNewsUrl(t.url);
   const title = t.titleKo || t.title;
-  const summary = t.summaryKo || t.summary;
-  const first = t.firstAt || t.at;
   const related = (t.related || []).map((r) => ({ ...r, url: safeNewsUrl(r.url) })).filter((r) => r.url);
   const why = (t.reasons || []).filter(Boolean);
-  return `<article class="sns-post sns-top-card news-card">
-    <div class="news-card-head"><b class="sns-rank">${esc(t.rank)}</b><strong>${esc(t.publisher)}</strong>${movement(t)}</div>
-    <div class="sns-post-meta"><time datetime="${esc(first)}" title="최초 보도 ${esc(date(first))}">최초 보도 ${esc(when(first))}</time>${t.paywall ? '<span class="news-paywall">유료</span>' : ''}</div>
+  return `<article class="sns-post sns-top-card news-card news-kind-${esc(t.kind)}" ${dataAttrs(t, url)}>
+    <div class="news-card-head"><b class="sns-rank">${esc(t.rank)}</b><strong>${esc(t.publisher)}</strong><span class="news-kind">${esc(KIND[t.kind] || '뉴스')}</span></div>
+    <div class="sns-post-meta"><time datetime="${esc(t.at)}" title="발행 ${esc(date(t.at))}">${esc(when(t.at))}</time>${t.paywall ? '<span class="news-paywall">유료</span>' : ''}</div>
     <h3 class="news-title">${link(url, esc(title))}</h3>
     ${t.titleKo && t.titleKo !== t.title ? `<p class="news-original" lang="en">${esc(t.title)}</p>` : ''}
-    ${summary ? `<p class="sns-text">${esc(summary)}</p>` : ''}
     ${why.length ? `<ul class="news-why" aria-label="선정 이유">${why.map((r) => `<li>${esc(r)}</li>`).join('')}</ul>` : ''}
-    ${t.paywall ? '<p class="news-note">본문은 구독이 필요합니다.</p>' : ''}
-    ${related.length ? `<details class="news-related"><summary>관련 보도 ${related.length}건</summary><ul>${related.map((r) => `<li>${link(r.url, `<b>${esc(r.publisher)}${r.official ? ' (공식)' : ''}</b> ${esc(r.titleKo || r.title)}`)}</li>`).join('')}</ul></details>` : ''}
-    <div class="sns-metrics">${url ? link(url, `${esc(t.publisher)}에서 읽기 ↗`) : ''}</div>
+    ${related.length ? `<details class="news-related"><summary>관련 보도 ${related.length}건</summary><ul>${related.map((r) => `<li>${link(r.url, `<b>${esc(r.publisher)}</b> ${esc(r.titleKo || r.title)}`)}</li>`).join('')}</ul></details>` : ''}
+    <div class="sns-metrics news-card-foot">${url ? link(url, '원문 ↗') : ''}${voteButtons(t)}</div>
   </article>`;
 }
 
-export function communityCard(c) {
-  const url = safeNewsUrl(c.url), thread = safeNewsUrl(c.hn?.url);
-  const title = c.titleKo || c.title;
-  const delta = c.delta > 0 ? `<span class="news-move is-up" title="지난 갱신 대비 점수 증가">+${esc(c.delta)}점</span>` : c.delta == null ? '<span class="news-move is-new" title="지난 갱신 목록에 없던 글">NEW</span>' : '';
-  return `<article class="sns-post sns-top-card news-card news-talk">
-    <div class="news-card-head"><b class="sns-rank">${esc(c.rank)}</b><strong>${esc(c.publisher)}</strong>${delta}</div>
-    <div class="sns-post-meta"><time datetime="${esc(c.at)}" title="HN 등록 ${esc(date(c.at))}">HN 등록 ${esc(when(c.at))}</time><span>HN ${esc(c.hn?.points)}점 · 댓글 ${esc(c.hn?.comments)}</span></div>
-    <h3 class="news-title">${link(url, esc(title))}</h3>
-    ${c.titleKo && c.titleKo !== c.title ? `<p class="news-original" lang="en">${esc(c.title)}</p>` : ''}
-    ${c.summaryKo ? `<p class="sns-text">${esc(c.summaryKo)}</p>` : ''}
-    <div class="sns-metrics">${url ? link(url, '원문 ↗') : ''}${thread ? link(thread, 'HN 토론 ↗') : ''}</div>
-  </article>`;
+export function moreRow(t) {
+  const url = safeNewsUrl(t.url);
+  return `<article class="sns-post news-row news-kind-${esc(t.kind)}" ${dataAttrs(t, url)}><div class="sns-avatar" aria-hidden="true">${esc((t.publisher || '?').slice(0, 1))}</div>
+    <div class="sns-post-body"><div class="sns-byline"><strong>${esc(t.publisher)}</strong><span class="sns-platform">${esc(KIND[t.kind] || '뉴스')}</span>${t.categoryLabel ? `<span class="sns-platform news-cat">${esc(t.categoryLabel)}</span>` : ''}${t.paywall ? '<span class="sns-platform news-paywall">유료</span>' : ''}</div>
+      <div class="sns-post-meta"><time datetime="${esc(t.at)}" title="${esc(date(t.at))}">${esc(when(t.at))}</time><span>점수 ${esc(t.score)}</span></div>
+      <h3 class="news-title">${link(url, esc(t.titleKo || t.title))}</h3>
+      <div class="sns-metrics news-card-foot">${url ? link(url, '원문 ↗') : ''}${voteButtons(t)}</div></div></article>`;
 }
 
-export function latestCard(n) {
-  const url = safeNewsUrl(n.url);
-  return `<article class="sns-post news-row"><div class="sns-avatar" aria-hidden="true">${esc((n.publisher || '?').slice(0, 1))}</div>
-    <div class="sns-post-body"><div class="sns-byline"><strong>${esc(n.publisher)}</strong>${n.kind === 'official' ? '<span class="sns-platform">공식 발표</span>' : ''}${n.paywall ? '<span class="sns-platform news-paywall">유료</span>' : ''}</div>
-      <div class="sns-post-meta"><time datetime="${esc(n.at)}" title="${esc(date(n.at))}">${esc(when(n.at))}</time></div>
-      <h3 class="news-title">${link(url, esc(n.titleKo || n.title))}</h3>
-      ${n.summary ? `<p class="sns-text">${esc(n.summary)}</p>` : ''}
-      ${url ? `<div class="sns-metrics">${link(url, '원문 ↗')}</div>` : ''}</div></article>`;
-}
-
-/** 기준 시각·비교 범위 한 줄. 수집 건수를 '비교한 기사 수'로 오해하게 쓰지 않는다. */
+/** 기준 시각과 학습 상태 한 줄. */
 export function builtLine(data) {
-  const s = data.stats;
-  return `${date(data.builtAt)} 기준 · 최초 보도 ${data.windowHours || 24}시간 이내` +
-    (s ? ` · 기사 ${s.articles}건(중복 포함)을 이야기 ${s.stories}개로 묶어 비교` : '') + ' · 매시 자동 갱신';
+  const l = data.learning || {};
+  const method = l.method === 'embedding' ? 'AI 임베딩' : '키워드';
+  return `${date(data.collectedAt || data.builtAt)} 수집 · 좋아요 ${l.likes ?? 0} · 싫어요 ${l.dislikes ?? 0} · 학습한 출처 ${l.learnedSources ?? 0} · ${method} 유사도 · 매시 자동 갱신`;
 }
 export const warningHtml = (data) => ((data.warnings || []).length
-  ? `<div class="news-warn" role="alert"><b>⚠ 데이터 경고</b><ul>${data.warnings.map((w) => `<li>${esc(w)}</li>`).join('')}</ul></div>` : '');
+  ? `<div class="news-warn" role="status"><ul>${data.warnings.map((w) => `<li>${esc(w)}</li>`).join('')}</ul></div>` : '');
 
-// 대시보드와 AI NEWS 모두 국내·해외 각 3개를 표시한다.
-export function googleDiagnosticsHtml(data) {
-  const labels = { live: '실시간 확인', cached: '1시간 내 확인 결과', stale: '이전 확인 결과', unavailable: '확인 불가' };
-  const rows = data.googleDiagnostics || [];
-  return `<details><summary>Google News 검증 상태 (${rows.length}개 검색)</summary><p>검색 0건과 통신 실패를 구분합니다. 검색 링크에서 결과를 직접 비교할 수 있습니다. 보도 수는 동일 사건으로 판정된 URL 수입니다.</p><ul>${rows.map((r) => {
-    const url = safeNewsUrl(r.queryUrl);
-    return `<li>${link(url, esc(r.title))} · ${esc(labels[r.status] || '확인 불가')} · ${r.ok ? esc(r.reports) + '건' : '미집계'}${r.checkedAt ? ' · 확인 ' + esc(date(r.checkedAt)) : ''}${r.error ? ' · ' + esc(r.error) : ''}</li>`;
-  }).join('')}</ul></details>`;
-}
+export const topListsHtml = (data) => (data.top || []).map(topCard).join('') || '<p class="sns-empty">조건에 맞는 기사를 아직 찾지 못했습니다.</p>';
 
-const topSectionHtml = (dash = false) => `<section class="sns-top" aria-labelledby="news-top-title"><div class="sns-section-head"><span class="sns-eyebrow">THE AI PULSE · 국내 3 / 해외 3</span><h2 id="news-top-title">${dash ? '<a href="#/news" data-open-news>AI 주요 뉴스 · 국내 3 / 해외 3 <span>↗</span></a>' : 'AI 주요 뉴스 · 국내 3 / 해외 3'}</h2><p class="news-built">최신 순위를 불러오는 중입니다…</p><div class="news-warn-slot"></div></div>
-  <div class="sns-top-items news-top-items" aria-live="polite"><p class="sns-empty">기사를 모으고 있습니다…</p></div></section>`;
-
-export function topListsHtml(data) {
-  return [['ko', '국내 인기 뉴스 Top 3'], ['en', '해외 주요 뉴스 Top 3']].map(([lang, title]) => {
-    const list = data.top.filter((t) => t.lang === lang).slice(0, 3);
-    const region = data.regions?.find((r) => r.lang === lang);
-    const note = region?.backfilled ? '<p class="news-window-note">24시간 내 기사 부족으로 최근 72시간 기사 ' + esc(region.backfilled) + '개를 보완했습니다.</p>' : '';
-    return `<section class="news-region" aria-label="${title}"><h3 class="news-region-title">${title}</h3>${note}<div class="news-region-items">${list.map(topCard).join('') || '<p class="sns-empty">조건에 맞는 기사를 확보하지 못했습니다.</p>'}</div></section>`;
-  }).join('');
-}
+const topSectionHtml = (dash = false) => `<section class="sns-top" aria-labelledby="news-top-title"><div class="sns-section-head"><span class="sns-eyebrow">FOR JADEN · 취향 학습 추천</span>
+  <h2 id="news-top-title">${dash ? '<a href="#/news" data-open-news>AI 추천 뉴스 <span>↗</span></a>' : 'AI 추천 뉴스'}</h2><p class="news-built">추천을 불러오는 중입니다…</p><div class="news-warn-slot"></div></div>
+  <div class="news-top-items" aria-live="polite"><p class="sns-empty">기사를 모으고 있습니다…</p></div></section>`;
 
 function paintTop(root, data) {
   root.querySelector('.news-built').textContent = builtLine(data);
   root.querySelector('.news-warn-slot').innerHTML = warningHtml(data);
-  const box = root.querySelector('.news-top-items');
-  box.innerHTML = topListsHtml(data);
+  root.querySelector('.news-top-items').innerHTML = topListsHtml(data);
+}
+
+/**
+ * 👍/👎 단추. 누르면 바로 저장하고, 싫어요는 화면에서 바로 뺀다.
+ * 연달아 누를 때를 생각해 마지막 평가 1.5초 뒤 한 번만 순위를 다시 매긴다(onSettled).
+ */
+function bindVotes(root, { onSettled, status }) {
+  let timer = null;
+  root.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-vote]');
+    if (!b) return;
+    const card = b.closest('[data-key]');
+    const current = card.querySelector('[data-vote][aria-pressed="true"]')?.dataset.vote;
+    const vote = current === b.dataset.vote ? 0 : Number(b.dataset.vote);
+    card.querySelectorAll('[data-vote]').forEach((x) => { x.disabled = true; });
+    try {
+      await api('/api/news/feedback', { method: 'POST', body: { url: card.dataset.url, title: card.dataset.title, vote } });
+      card.querySelectorAll('[data-vote]').forEach((x) => x.setAttribute('aria-pressed', String(Number(x.dataset.vote) === vote)));
+      if (vote === -1) { card.classList.add('is-hidden'); status?.('싫어요를 학습했습니다. 비슷한 기사는 앞으로 덜 보입니다.'); }
+      else if (vote === 1) status?.('좋아요를 학습했습니다. 비슷한 기사를 더 앞에 보여드립니다.');
+      else status?.('평가를 취소했습니다.');
+      clearTimeout(timer);
+      timer = setTimeout(() => onSettled?.(), 1500);
+    } catch (err) {
+      status?.(`평가를 저장하지 못했습니다: ${err.message}`);
+    } finally {
+      card.querySelectorAll('[data-vote]').forEach((x) => { x.disabled = false; });
+    }
+  });
 }
 
 /** 대시보드 맨 위 칸. 붙일 자리만 받고, 실패해도 대시보드의 나머지는 그대로 둔다. */
@@ -107,45 +97,138 @@ export async function loadNewsDash(root) {
   if (!root) return;
   // 대시보드에서 AI NEWS 로 넘어가는 것도 메뉴를 누른 것과 같이 센다(개인서비스 사용 순위).
   root.querySelector('[data-open-news]')?.addEventListener('click', () => api('/api/services/news/open', { method: 'POST' }).catch(() => {}));
-  try {
-    const data = await api('/api/news');
-    if (root.isConnected) paintTop(root, data);
-  } catch (e) {
-    if (!root.isConnected) return;
-    root.querySelector('.news-built').textContent = '';
-    root.querySelector('.news-top-items').innerHTML = `<p class="sns-empty">AI 뉴스를 불러오지 못했습니다: ${esc(e.message)}</p>`;
-  }
+  const load = async (refresh = false) => {
+    try {
+      const data = await api(`/api/news${refresh ? '?refresh=1' : ''}`);
+      if (root.isConnected) paintTop(root, data);
+    } catch (e) {
+      if (!root.isConnected) return;
+      root.querySelector('.news-built').textContent = '';
+      root.querySelector('.news-top-items').innerHTML = `<p class="sns-empty">AI 뉴스를 불러오지 못했습니다: ${esc(e.message)}</p>`;
+    }
+  };
+  bindVotes(root, { onSettled: () => load(true), status: (m) => { root.querySelector('.news-built').textContent = m; } });
+  await load();
+}
+
+// ──────────────────────────────────────────────────────────────
+// 좋아하는 기사 등록 창 + 학습 현황
+// ──────────────────────────────────────────────────────────────
+
+const FORMAT = { rss: 'RSS', html: '목록 화면', bing: 'Bing 사이트 검색' };
+function prefsHtml(p, data) {
+  const likes = p.items.filter((i) => i.vote > 0), dislikes = p.items.filter((i) => i.vote < 0);
+  const row = (i) => `<li><span class="news-pref-vote">${i.vote > 0 ? '👍' : '👎'}</span><span class="news-pref-text">${link(safeNewsUrl(i.url), esc(i.title || i.url))}<small>${esc(i.domain)} · ${i.origin === 'submit' ? '주소 등록' : '카드 평가'} · ${esc(when(i.createdAt))}${i.embedded ? '' : ' · 키워드 비교'}</small></span><button type="button" class="news-pref-del" data-del-pref="${esc(i.id)}" aria-label="학습에서 빼기">×</button></li>`;
+  const blocked = p.domains.filter((d) => d.blocked);
+  return `${p.ready ? '' : '<p class="news-warn">학습 저장소(D1 표)가 아직 준비되지 않았습니다. 관리자에게 migrations/020 적용을 요청하세요.</p>'}
+    <details open><summary>좋아요 ${likes.length}건</summary><ul class="news-pref-list">${likes.map(row).join('') || '<li class="news-pref-empty">아직 없습니다.</li>'}</ul></details>
+    <details><summary>싫어요 ${dislikes.length}건</summary><ul class="news-pref-list">${dislikes.map(row).join('') || '<li class="news-pref-empty">아직 없습니다.</li>'}</ul></details>
+    <details><summary>싫어요로 걸러진 기사 ${(data?.excluded || []).length}건</summary><ul class="news-pref-list">${(data?.excluded || []).map((x) => `<li><span class="news-pref-text">${link(safeNewsUrl(x.url), esc(x.title))}<small>${esc(x.publisher)} · ${esc(x.reason)}</small></span></li>`).join('') || '<li class="news-pref-empty">없습니다.</li>'}</ul>
+      ${blocked.length ? `<p class="news-pref-note">수집에서 뺀 사이트(싫어요 3번 이상, 좋아요 없음): ${blocked.map((d) => esc(d.domain)).join(', ')}</p>` : ''}</details>
+    <details><summary>등록 기사에서 배운 출처 ${p.sources.length}곳</summary><ul class="news-pref-list">${p.sources.map((s) => `<li><span class="news-pref-text"><b>${esc(s.name)}</b><small>${esc(s.domain)} · ${esc(FORMAT[s.format] || s.format)} · ${esc(KIND[s.kind] || '뉴스')}</small></span><button type="button" class="news-pref-del" data-del-source="${esc(s.domain)}" aria-label="출처 빼기">×</button></li>`).join('') || '<li class="news-pref-empty">아직 없습니다. 기본 출처에 없는 사이트의 기사를 등록하면 배웁니다.</li>'}</ul></details>`;
+}
+
+/** 등록 창. 닫힐 때 무엇이든 바뀌었으면 true 로 끝난다(부른 쪽이 점수를 다시 매긴다). */
+export function openLikesDialog(data) {
+  if (document.getElementById('news-likes')) return Promise.resolve(false);
+  const previous = document.activeElement;
+  const d = document.createElement('dialog');
+  d.id = 'news-likes'; d.className = 'news-dialog'; d.setAttribute('aria-labelledby', 'news-likes-title');
+  d.innerHTML = `<form method="dialog" class="news-dialog-form" novalidate>
+    <div class="news-dialog-head"><h2 id="news-likes-title">좋아하는 기사 등록</h2><button type="button" class="news-dialog-x" data-close aria-label="닫기">×</button></div>
+    <p class="news-dialog-help">마음에 든 뉴스·블로그·리포트 주소를 한 줄에 하나씩 넣으세요(엔터로 여러 개, 한 번에 10개까지). 제목과 내용을 읽어 비슷한 기사를 앞에 올리고, 처음 보는 사이트는 수집 출처로 배웁니다.</p>
+    <label class="sr-only" for="news-likes-input">기사 주소</label>
+    <textarea id="news-likes-input" rows="6" placeholder="https://openai.com/index/...&#10;https://www.sectionai.com/blog/...&#10;https://www.mckinsey.com/capabilities/..." spellcheck="false"></textarea>
+    <div class="news-dialog-acts"><span class="news-dialog-count">0개</span><button type="submit" class="news-dialog-submit">학습시키기</button></div>
+    <div class="news-dialog-result" role="status" aria-live="polite"></div>
+    <h3 class="news-dialog-sub">학습 현황</h3><div class="news-prefs"><p class="sns-empty">불러오는 중…</p></div>
+  </form>`;
+  document.body.appendChild(d);
+  const $ = (s) => d.querySelector(s);
+  const input = $('#news-likes-input');
+  let changed = false;
+  const count = () => input.value.split(/\s+/).filter((x) => /^https?:\/\//i.test(x)).length;
+  input.addEventListener('input', () => { $('.news-dialog-count').textContent = `${count()}개`; });
+  const loadPrefs = async () => {
+    try { $('.news-prefs').innerHTML = prefsHtml(await api('/api/news/preferences'), data); }
+    catch (e) { $('.news-prefs').innerHTML = `<p class="sns-empty">학습 현황을 불러오지 못했습니다: ${esc(e.message)}</p>`; }
+  };
+  $('form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!count()) { $('.news-dialog-result').textContent = '기사 주소(http/https)를 넣어주세요.'; return; }
+    const button = $('.news-dialog-submit');
+    button.disabled = true; button.textContent = '기사를 읽는 중…';
+    $('.news-dialog-result').textContent = '';
+    try {
+      const r = await api('/api/news/likes', { method: 'POST', body: { urls: input.value } });
+      changed = true; input.value = ''; $('.news-dialog-count').textContent = '0개';
+      $('.news-dialog-result').innerHTML = `<ul>${r.added.map((a) => `<li>${a.ok ? '✅' : '⚠️'} ${esc(a.title || a.url)} <small>${esc(a.domain)}${a.ok ? '' : ' · 페이지를 읽지 못해 주소로만 학습'}</small></li>`).join('')}</ul>` +
+        (r.learned.length ? `<p>새로 배운 출처: ${r.learned.map((s) => `<b>${esc(s.name)}</b>(${esc(FORMAT[s.format] || s.format)})`).join(', ')} — 다음 수집부터 기사를 가져옵니다.</p>` : '');
+      await loadPrefs();
+    } catch (err) {
+      $('.news-dialog-result').textContent = `등록하지 못했습니다: ${err.message}`;
+    } finally {
+      button.disabled = false; button.textContent = '학습시키기';
+    }
+  });
+  d.addEventListener('click', async (e) => {
+    if (e.target === d || e.target.closest('[data-close]')) { d.close(); return; }
+    const pref = e.target.closest('[data-del-pref]'), source = e.target.closest('[data-del-source]');
+    if (!pref && !source) return;
+    try {
+      await api(pref ? `/api/news/preferences/${encodeURIComponent(pref.dataset.delPref)}` : `/api/news/sources/${encodeURIComponent(source.dataset.delSource)}`, { method: 'DELETE' });
+      changed = true; await loadPrefs();
+    } catch (err) { $('.news-dialog-result').textContent = `지우지 못했습니다: ${err.message}`; }
+  });
+  return new Promise((resolve) => {
+    const leave = () => d.close();
+    d.addEventListener('close', () => {
+      window.removeEventListener('hashchange', leave);
+      d.remove();
+      if (previous?.isConnected) previous.focus();
+      resolve(changed);
+    }, { once: true });
+    window.addEventListener('hashchange', leave);
+    d.showModal();
+    input.focus();
+    loadPrefs();
+  });
+}
+
+// ──────────────────────────────────────────────────────────────
+// AI NEWS 화면
+// ──────────────────────────────────────────────────────────────
+
+export function sourcesLine(data) {
+  return (data.sources || []).map((s) => `${s.name}${s.learned ? '(학습)' : ''} ${s.ok ? `${s.count}건` : '실패'}`).join(' · ');
 }
 
 export async function renderNews(page) {
-  page.innerHTML = `<div class="sns-app news-app"><header class="sns-header"><div class="sns-title-icon">${serviceIco('news')}</div><div><h1>Jaden AI NEWS</h1><p>국내 인기 뉴스 3개 · 해외 주요 뉴스 3개 · 1시간마다 갱신</p></div><div class="sns-refresh-group"><button class="sns-refresh" type="button" data-refresh>새로고침 ↻</button></div></header>
+  page.innerHTML = `<div class="sns-app news-app"><header class="sns-header"><div class="sns-title-icon">${serviceIco('news')}</div><div><h1>Jaden AI NEWS</h1><p>좋아요·싫어요와 등록한 기사로 학습해 고른 AI 뉴스 · 공식 발표 · 리포트</p></div>
+      <div class="sns-refresh-group"><button class="news-like-open" type="button" data-likes>＋ 좋아하는 기사 등록</button><button class="sns-refresh" type="button" data-refresh>새로고침 ↻</button></div></header>
     <main class="sns-main">${topSectionHtml()}
-    <section class="sns-timeline" aria-label="매체별 최신 기사"><div class="sns-tabs" role="group" aria-label="분류 필터">${FILTERS.map(([k, v], i) => `<button data-filter="${k}" aria-pressed="${i === 0}">${v}</button>`).join('')}</div>
-      <div class="sns-toolbar"><span>지역별 참고 기사 최대 10개 · 부족하면 72시간까지 보완</span><span>최신순 ↓</span></div>
+    <section class="sns-timeline" aria-label="더 보기"><div class="sns-tabs" role="group" aria-label="종류 필터">${FILTERS.map(([k, v], i) => `<button data-filter="${k}" aria-pressed="${i === 0}">${v}</button>`).join('')}</div>
+      <div class="sns-toolbar"><span>추천 다음 순위 · 👍/👎 하면 바로 학습합니다</span><span>점수순 ↓</span></div>
       <div class="sns-feed-items" aria-live="polite"><p class="sns-empty">기사를 불러오는 중입니다…</p></div></section>
-    <section class="sns-panel sns-about news-about"><h2>순위를 매기는 기준</h2>
-      <p>TechCrunch · AI타임스 · The Information · Reuters · Bloomberg 원문만 수집합니다. 국내·해외에서 각각 3개를 고릅니다. 칼럼·행사·주가 기사를 제외하고 같은 사건은 지역별로 묶습니다.</p>
-      <p>기사 중요도 50% · Google News 보도 확산도 30% · 최신성 20%를 반영합니다. Google News 미등재 기사도 중요도와 최신성으로 평가하며, 해외는 서로 다른 매체를 우선 선정합니다. 보도 수는 조회수 지표가 아닙니다.</p>
-      <p>최근 24시간 기사를 우선하고, 지역별 3개가 부족할 때 최근 72시간 기사로 보완해 표시합니다.</p>
-      <p>영문 제목은 한국어로 간결하게 번역합니다. 참고 기사는 국내·해외 각각 최대 10개입니다.</p>
-      <p class="news-sources"></p><div class="news-google-diagnostics"></div></section></main><p class="sns-global-status" role="status"></p></div>`;
+    <section class="sns-panel sns-about news-about"><h2>고르는 방법</h2>
+      <p><b>대상</b> 뉴스(AI타임스·인공지능신문·지디넷코리아·TechCrunch·The Verge·MIT Technology Review·Reuters·Bloomberg·The Information), 공식 발표(OpenAI·Anthropic·Google DeepMind·Google AI·NVIDIA·Hugging Face), 리포트·인사이트(McKinsey·Bain·Section·컨설팅사 보고서 보도), 무료 사용·토큰 소식, 그리고 등록한 기사에서 배운 사이트. 국내·해외 개수는 정해 두지 않습니다.</p>
+      <p><b>점수</b> 좋아요 기사와의 유사도 35 · 중요도 25 · 신제품/무료 토큰/분석 리포트 가산 최대 16 · 최신성 15(뉴스 24시간, 공식 발표 3일, 리포트 7일 반감) · 좋아요한 출처 ±8 · 여러 매체 보도 최대 6 − 싫어요 기사와의 유사도 최대 35. 유사도는 Cloudflare Workers AI 임베딩(bge-m3)으로 계산하고, 안 될 때는 제목 키워드로 비교합니다.</p>
+      <p><b>평가</b> 👎 기사와 거의 같은 기사는 빼고, 비슷한 기사는 감점합니다. 싫어요가 3번 이상이고 좋아요가 없는 사이트는 수집에서 뺍니다. 등록 창의 학습 현황에서 걸러진 기사와 학습 내용을 확인·취소할 수 있습니다.</p>
+      <details class="news-sources-box"><summary>수집 상태</summary><p class="news-sources"></p></details></section></main><p class="sns-global-status" role="status"></p></div>`;
   const root = page.querySelector('.news-app');
   const $ = (s) => root.querySelector(s);
   const active = () => root.isConnected;
+  const status = (m) => { $('.sns-global-status').textContent = m; };
   let data = null, filter = 'all';
 
-  function paintLatest() {
-    const counts = new Map();
-    const list = data.latest.filter((n) => inFilter(filter, n)).filter((n) => {
-      const count = counts.get(n.lang) || 0; counts.set(n.lang, count + 1); return count < 10;
-    });
-    $('.sns-feed-items').innerHTML = list.map(latestCard).join('') || '<div class="sns-empty"><h3>이 분류의 최근 AI 기사가 없습니다</h3><p>다른 분류를 선택해보세요.</p></div>';
+  function paintMore() {
+    const list = (data.more || []).filter((n) => filter === 'all' || n.kind === filter);
+    $('.sns-feed-items').innerHTML = list.map(moreRow).join('') || '<div class="sns-empty"><h3>이 종류의 기사가 없습니다</h3><p>다른 종류를 선택해보세요.</p></div>';
   }
   function paint() {
     paintTop(root, data);
-    $('.news-sources').textContent = '수집 상태: ' + data.sources.map((s) => `${s.name} ${s.ok ? `${s.count}건` : (s.error || '실패')}`).join(' · ');
-    $('.news-google-diagnostics').innerHTML = googleDiagnosticsHtml(data);
-    paintLatest();
+    $('.news-sources').textContent = sourcesLine(data);
+    paintMore();
   }
   async function load(refresh = false) {
     const button = $('[data-refresh]');
@@ -154,22 +237,25 @@ export async function renderNews(page) {
       const result = await api(`/api/news${refresh ? '?refresh=1' : ''}`);
       if (!active()) return;
       data = result; paint();
-      $('.sns-global-status').textContent = '';
     } catch (e) {
       if (!active()) return;
-      $('.sns-global-status').textContent = `뉴스를 불러오지 못했습니다: ${e.message}`;
-      if (!data) { $('.news-top-items').innerHTML = '<p class="sns-empty">순위를 불러오지 못했습니다.</p>'; $('.sns-feed-items').innerHTML = ''; }
+      status(`뉴스를 불러오지 못했습니다: ${e.message}`);
+      if (!data) { $('.news-top-items').innerHTML = '<p class="sns-empty">추천을 불러오지 못했습니다.</p>'; $('.sns-feed-items').innerHTML = ''; }
     } finally {
       if (active()) { button.disabled = false; button.textContent = '새로고침 ↻'; root.removeAttribute('aria-busy'); }
     }
   }
-  $('[data-refresh]').onclick = () => load(true);
+  $('[data-refresh]').onclick = () => { status(''); load(true); };
+  $('[data-likes]').onclick = async () => {
+    if (await openLikesDialog(data) && active()) { status('학습 내용으로 순위를 다시 매기는 중입니다…'); await load(true); status('새 학습 내용을 반영했습니다.'); }
+  };
+  bindVotes(root, { onSettled: () => load(true), status });
   root.addEventListener('click', (e) => {
     const f = e.target.closest('[data-filter]');
     if (!f || !data) return;
     filter = f.dataset.filter;
     root.querySelectorAll('[data-filter]').forEach((b) => b.setAttribute('aria-pressed', String(b === f)));
-    paintLatest();
+    paintMore();
   });
   await load();
 }

@@ -71,7 +71,7 @@ WEATHER_LON = "126.978"
 WEATHER_PLACE = "서울"
 
 # 하루 한 번, 90일이 지난 접속 기록을 지운다(cloudflare/index.js 의 scheduled).
-# 매시 3분에는 Jaden AI NEWS 국내·해외 각 3개를 새로 만든다(cloudflare/news.js, NEWS_CRON 과 같은 값).
+# 매시 3분에는 Jaden AI NEWS 추천을 새로 만든다(cloudflare/news.js, NEWS_CRON 과 같은 값).
 [triggers]
 crons = ["17 19 * * *", "3 * * * *"]
 

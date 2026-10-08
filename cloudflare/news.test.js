@@ -1,578 +1,350 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { decode, stripHtml, parseDate, parseFeed, parseHn, safeUrl, isAi, aboutAi, lowQuality, features, cluster, rank, storyGroups, applyMerges, mergeSameEvents, community,
-  applyJudgement, judgeImportance, selectTop, translate, buildNews, newsFeed, settledPool, fetchAll, SOURCES, BING_FALLBACK, allowedArticle, latestArticles, googlePopularity, translationRows, regionalSelection, popularityQuery } from './news.js';
-import { topCard, latestCard, communityCard, builtLine, warningHtml, safeNewsUrl, topListsHtml, googleDiagnosticsHtml } from '../web/public/news.js';
+import { decode, stripHtml, parseDate, parseFeed, parseListing, parseMeta, isAi, lowQuality, cluster, candidates, ruleCategory, scoreCandidate, selectNews, applySeen,
+  applyVotes, translate, buildNews, newsFeed, rescoreNews, voteNews, submitLikes, SOURCES, allowedArticle, learnedSource, translationRows } from './news.js';
+import { packVec, unpackVec, cosine, textDate, normUrl } from './news-util.js';
+import { parseUrls, loadPrefs, kindOfDomain, listPrefs } from './news-prefs.js';
+import { topCard, moreRow, builtLine, warningHtml, safeNewsUrl, topListsHtml, sourcesLine } from '../web/public/news.js';
 import { SERVICES } from './services.js';
 import worker from './index.js';
 
-const now = Date.parse('2026-10-03T03:00:00Z');
+const now = Date.parse('2026-10-09T03:00:00Z');
 const H = 3600000;
-const src = (id) => SOURCES.find((s) => s.id === id) || ({ id, name: id, kind: id.startsWith('gnews') ? 'google' : id, lang: 'en' });
-const item = (over = {}) => ({ source: 'techcrunch', kind: 'news', publisher: 'TechCrunch', title: 'OpenAI launches new reasoning model for developers', url: 'https://techcrunch.com/a',
-  summary: '', at: now - H, lang: 'en', paywall: false, ...over });
-const fast = (env) => ({ NEWS_GOOGLE_GAP_MS: 0, ...env });
+const src = (id) => SOURCES.find((s) => s.id === id);
 function kv() {
   const values = new Map();
   return { values, async get(k, type) { const v = values.get(k); return type === 'json' ? JSON.parse(v || 'null') : v ?? null; }, async put(k, v) { values.set(k, v); }, async delete(k) { values.delete(k); } };
 }
 
-test('RSS 문자열의 CDATA·엔티티·HTML을 걷어낸다', () => {
+/** news-prefs.js 가 쓰는 질의만 흉내 내는 작은 D1. */
+function d1() {
+  const feedback = [], sources = [];
+  let id = 0;
+  const db = {
+    feedback, sources,
+    prepare(sql) {
+      let args = [];
+      const stmt = {
+        bind(...a) { args = a; return stmt; },
+        async all() {
+          if (/FROM news_feedback ORDER BY id DESC LIMIT 400/.test(sql)) return { results: [...feedback].sort((a, b) => b.id - a.id) };
+          if (/SELECT url, vote FROM news_feedback/.test(sql)) return { results: [...feedback].sort((a, b) => b.id - a.id) };
+          if (/FROM news_sources/.test(sql)) return { results: [...sources] };
+          return { results: [] };
+        },
+        async first() { return null; },
+        async run() {
+          if (/^INSERT INTO news_feedback/.test(sql)) {
+            const [url, link, vote, origin, title, summary, domain, vector, user_id, created_at] = args;
+            const old = feedback.find((f) => f.url === url);
+            if (old) Object.assign(old, { vote, origin, title, summary, vector: vector ?? old.vector, user_id });
+            else feedback.push({ id: ++id, url, link, vote, origin, title, summary, domain, vector, user_id, created_at });
+          } else if (/^INSERT INTO news_sources/.test(sql)) {
+            const [domain, name, feed_url, format, kind, link_prefix, created_at] = args;
+            const i = sources.findIndex((s) => s.domain === domain);
+            const row = { domain, name, feed_url, format, kind, link_prefix, created_at };
+            if (i >= 0) sources[i] = row; else sources.push(row);
+          } else if (/DELETE FROM news_feedback WHERE url/.test(sql)) feedback.splice(feedback.findIndex((f) => f.url === args[0]) >>> 0, feedback.some((f) => f.url === args[0]) ? 1 : 0);
+          else if (/DELETE FROM news_feedback WHERE id/.test(sql)) { const i = feedback.findIndex((f) => f.id === args[0]); if (i >= 0) feedback.splice(i, 1); }
+          else if (/DELETE FROM news_sources/.test(sql)) { const i = sources.findIndex((s) => s.domain === args[0]); if (i >= 0) sources.splice(i, 1); }
+          return {};
+        },
+      };
+      return stmt;
+    },
+  };
+  return db;
+}
+
+// 단어를 해시해 64차원에 담는 가짜 임베딩. 같은 단어가 많을수록 코사인이 크다.
+const WORDS = (t) => String(t).toLowerCase().split(/[^a-z0-9가-힣]+/).filter((w) => w.length > 2);
+function fakeVec(text) {
+  const v = new Array(64).fill(0.01);
+  for (const w of WORDS(text)) { let h = 0; for (const ch of w) h = (h * 31 + ch.charCodeAt(0)) >>> 0; v[h % 64] += 1; }
+  return v;
+}
+function fakeAi({ embedFail = false, calls = [] } = {}) {
+  return {
+    calls,
+    async run(model, input) {
+      calls.push(model);
+      if (model === '@cf/baai/bge-m3') { if (embedFail) throw new Error('quota'); return { shape: [input.text.length, 64], data: input.text.map(fakeVec) }; }
+      if (model === '@cf/meta/m2m100-1.2b') return { translated_text: '번역 ' + input.text };
+      const payload = JSON.parse(input.messages[1].content);
+      if (/편집장/.test(input.messages[0].content)) return { response: { items: payload.map((p) => ({ i: p.i, ai: !/crypto/i.test(p.title), importance: 4, type: 'other' })) } };
+      return { response: { items: payload.map((p) => ({ i: p.i, title_ko: '번역: ' + p.title })) } };
+    },
+  };
+}
+
+const rss = (rows) => `<rss><channel>${rows.map(([t, u, at, d = '']) => `<item><title>${t}</title><link>${u}</link><description>${d}</description><pubDate>${new Date(at).toUTCString()}</pubDate></item>`).join('')}</channel></rss>`;
+
+test('RSS 문자열의 CDATA·엔티티·HTML을 걷어내고 날짜를 읽는다', () => {
   assert.equal(decode('<![CDATA[A &amp; B]]>'), 'A & B');
-  assert.equal(decode('Don&#8217;t &#x41;'), 'Don’t A');
   assert.equal(stripHtml('&lt;p&gt;Hello <b>world</b>&lt;/p&gt;'), 'Hello world');
+  assert.equal(parseDate('2026-10-03 07:00:00'), Date.parse('2026-10-02T22:00:00Z'), '시간대 없는 AI타임스 날짜는 서울 시각');
+  assert.equal(textDate('Oct 2, 2026 Announcements'), Date.UTC(2026, 9, 2, 12));
+  assert.equal(textDate('2026.10.05 리포트'), Date.UTC(2026, 9, 5, 12));
 });
 
-test('시간대 없는 AI타임스 날짜는 서울 시각으로 읽는다', () => {
-  assert.equal(parseDate('2026-10-03 07:00:00'), Date.parse('2026-10-02T22:00:00Z'));
-  assert.equal(parseDate('Fri, 02 Oct 2026 21:09:14 +0000'), Date.parse('2026-10-02T21:09:14Z'));
-  assert.equal(parseDate('nope'), null);
+test('RSS · Atom · Bing 항목을 같은 모양으로 읽고 원문 사이트만 허용한다', () => {
+  const a = parseFeed(`<rss><item><title>AI 기사</title><link>https://www.aitimes.com/news/articleView.html?idxno=1</link><description><![CDATA[<p>요약</p>]]></description><pubDate>2026-10-09 07:00:00</pubDate></item>
+    <item><title>나쁜 링크</title><link>javascript:alert(1)</link><pubDate>2026-10-09 07:00:00</pubDate></item></rss>`, src('aitimes'));
+  assert.equal(a.length, 1); assert.equal(a[0].lang, 'ko'); assert.equal(a[0].summary, '요약');
+  const b = parseFeed(`<feed><entry><updated>2026-10-09T02:00:00Z</updated><published>2026-10-08T19:00:00Z</published><link rel="alternate" href="https://www.theinformation.com/articles/x"/><title>OpenAI hires</title></entry></feed>`, src('theinformation'));
+  assert.equal(b[0].at, Date.parse('2026-10-08T19:00:00Z'), '수정 시각보다 최초 발행 시각'); assert.equal(b[0].paywall, true);
+  const bing = parseFeed(`<rss><item><title>Bain says AI needs $2 trillion</title><link>https://www.bing.com/news/apiclick.aspx?url=https%3a%2f%2fwww.bain.com%2finsights%2fai-report%2f&amp;c=1</link><pubDate>${new Date(now).toUTCString()}</pubDate><News:Source>Bain</News:Source></item></rss>`, src('bain'));
+  assert.equal(bing[0].url, 'https://www.bain.com/insights/ai-report/');
+  assert.ok(allowedArticle(bing[0], src('bain')));
+  assert.ok(!allowedArticle({ url: 'https://evil-bain.com/x' }, src('bain')), '비슷한 가짜 도메인 제외');
+  assert.ok(!allowedArticle({ url: 'https://www.msn.com/x' }, src('consulting')), '포털 재전재 제외');
+  assert.ok(allowedArticle({ url: 'https://www.cnbc.com/x' }, src('consulting')), '여러 매체를 모으는 검색은 원문 사이트를 묻지 않는다');
 });
 
-test('RSS · Atom · Google 뉴스 · Techmeme · Bing 항목을 같은 모양으로 읽는다', () => {
-  const rss = `<rss><channel><item><title>AI 기사 &quot;하나&quot;</title><link>https://www.aitimes.com/news/articleView.html?idxno=1</link>
-    <description><![CDATA[<p>요약입니다</p>]]></description><pubDate>2026-10-03 07:00:00</pubDate></item>
-    <item><title>링크 없음</title><pubDate>2026-10-03 07:00:00</pubDate></item>
-    <item><title>나쁜 링크</title><link>javascript:alert(1)</link><pubDate>2026-10-03 07:00:00</pubDate></item></channel></rss>`;
-  const a = parseFeed(rss, src('aitimes'));
-  assert.equal(a.length, 1);
-  assert.equal(a[0].title, 'AI 기사 "하나"'); assert.equal(a[0].summary, '요약입니다'); assert.equal(a[0].lang, 'ko'); assert.equal(a[0].kind, 'news');
-
-  const atom = `<feed><entry><updated>2026-10-02T23:00:00Z</updated><published>2026-10-02T19:00:48Z</published><link rel="alternate" type="text/html" href="https://www.theinformation.com/articles/x"/>
-    <title>OpenAI Hires Official</title><content type="html">&lt;p&gt;Teaser text.&lt;/p&gt;</content></entry></feed>`;
-  const b = parseFeed(atom, src('theinformation'));
-  assert.equal(b[0].url, 'https://www.theinformation.com/articles/x'); assert.equal(b[0].summary, 'Teaser text.'); assert.equal(b[0].paywall, true);
-  assert.equal(b[0].at, Date.parse('2026-10-02T19:00:48Z'), '수정 시각(updated)보다 최초 발행 시각(published)을 쓴다');
-
-  const google = `<rss><channel><item><title>Big AI deal - Reuters</title><link>https://news.google.com/rss/articles/abc?oc=5</link>
-    <pubDate>Fri, 02 Oct 2026 20:46:00 GMT</pubDate><description>&lt;a href="x"&gt;Big AI deal&lt;/a&gt;</description><source url="https://www.reuters.com">Reuters</source></item>
-    <item><title>Second - ABC News - Breaking News, Latest News and Videos</title><link>https://news.google.com/rss/articles/def</link><pubDate>Fri, 02 Oct 2026 20:46:00 GMT</pubDate><source url="https://abcnews.go.com">ABC News - Breaking News, Latest News and Videos</source></item></channel></rss>`;
-  const c = parseFeed(google, src('gnews-en'));
-  assert.deepEqual(c.map((i) => [i.title, i.publisher, i.kind]), [['Big AI deal', 'Reuters', 'google'], ['Second', 'ABC News', 'google']]);
-  assert.equal(c[0].summary, '');
-
-  const tm = `<rss><channel><item><title>Apple tightens macOS access for AI agents (Jane Doe/TechCrunch)</title><link>https://www.techmeme.com/261002/p1#a1</link>
-    <description><![CDATA[<A HREF="https://techcrunch.com/2026/10/02/apple"><IMG SRC="x"></A><P>Jane Doe / TechCrunch:<BR><B>Apple tightens</B>&nbsp; &mdash;&nbsp; Apple said on Friday it will add controls &hellip; </P>]]></description>
-    <pubDate>Fri, 02 Oct 2026 19:55:35 -0400</pubDate></item></channel></rss>`;
-  const d = parseFeed(tm, src('techmeme'));
-  assert.equal(d[0].title, 'Apple tightens macOS access for AI agents'); assert.equal(d[0].publisher, 'TechCrunch');
-  assert.equal(d[0].url, 'https://techcrunch.com/2026/10/02/apple'); assert.match(d[0].summary, /Apple said on Friday/);
-
-  const bing = `<rss><channel><item><title>우주로 간 인공지능</title><link>http://www.bing.com/news/apiclick.aspx?ref=FexRss&amp;url=https%3a%2f%2fwww.hani.co.kr%2farti%2f1.html&amp;c=1</link>
-    <description>구글이 시험위성을 발사했다.</description><pubDate>Fri, 02 Oct 2026 03:27:00 GMT</pubDate><News:Source>한겨레 on MSN</News:Source></item></channel></rss>`;
-  const e = parseFeed(bing, BING_FALLBACK.find((s) => s.lang === 'ko'));
-  assert.equal(e[0].url, 'https://www.hani.co.kr/arti/1.html'); assert.equal(e[0].publisher, '한겨레'); assert.equal(e[0].kind, 'news');
+test('RSS 가 없는 공식 블로그는 목록 화면에서 글 주소·제목·날짜를 읽는다', () => {
+  const html = `<nav><a href="/news">News</a><a href="/careers">Careers</a></nav>
+    <a href="/news/claude-frontier-academy"><img src="x.png"><span>Oct 2, 2026</span><span>Announcements</span><h3>Claude Frontier Academy: $100M to train engineers</h3></a>
+    <a href="/news/claude-frontier-academy">Read more</a>
+    <a href="https://www.anthropic.com/news/cyber-mission"><div>Introducing the Anthropic Cyber Mission program</div></a>
+    <a href="https://other.com/news/x"><h3>Other site story here</h3></a>`;
+  const got = parseListing(html, src('anthropic'));
+  assert.deepEqual(got.map((i) => i.title), ['Claude Frontier Academy: $100M to train engineers', 'Introducing the Anthropic Cyber Mission program']);
+  assert.equal(got[0].at, Date.UTC(2026, 9, 2, 12)); assert.equal(got[0].undated, false);
+  assert.equal(got[1].undated, true); assert.equal(got[0].kind, 'official');
 });
 
-test('Hacker News는 점수가 낮은 글을 빼고, 언론사 기사를 가리키면 그 매체 보도로도 센다', () => {
-  const hits = parseHn({ hits: [
-    { objectID: '1', title: 'Claude ships agents', url: 'https://www.reuters.com/tech/x', points: 120, num_comments: 40, created_at: '2026-10-03T01:00:00Z' },
-    { objectID: '2', title: 'Ask HN: AI?', points: 30, created_at: '2026-10-03T01:00:00Z' },
-    { objectID: '3', title: 'tiny', url: 'https://a.example', points: 3, created_at: '2026-10-03T01:00:00Z' },
-  ] });
-  assert.equal(hits.length, 2);
-  assert.equal(hits[0].publisher, 'Reuters'); assert.equal(hits[0].newsDomain, true); assert.equal(hits[0].hn.points, 120); assert.equal(hits[0].hn.id, '1');
-  assert.equal(hits[1].url, 'https://news.ycombinator.com/item?id=2'); assert.equal(hits[1].newsDomain, false);
+test('기사 페이지의 제목·요약·발행 시각·RSS 주소를 읽는다', () => {
+  const m = parseMeta(`<head><title>fallback</title><meta property="og:title" content="State of AI 2026"/><meta name="description" content="McKinsey survey &amp; findings"/>
+    <meta property="article:published_time" content="2026-10-02T23:01:00.000Z"/><meta property="og:site_name" content="McKinsey"/>
+    <link rel="alternate" type="application/rss+xml" href="/insights/rss"></head>`, 'https://www.mckinsey.com/a/b');
+  assert.equal(m.title, 'State of AI 2026'); assert.equal(m.summary, 'McKinsey survey & findings');
+  assert.equal(m.at, Date.parse('2026-10-02T23:01:00Z')); assert.equal(m.siteName, 'McKinsey'); assert.deepEqual(m.feeds, ['https://www.mckinsey.com/insights/rss']);
 });
 
-test('AI 판정과 링크 검사', () => {
-  assert.ok(isAi('Nvidia unveils new GPU')); assert.ok(isAi('오픈AI, 새 모델 공개')); assert.ok(!isAi('Crypto custodian lays off staff'));
-  assert.ok(!isAi('Said the chairman')); // 부분 단어 'ai' 는 AI 가 아니다
-  assert.equal(safeUrl('javascript:alert(1)'), ''); assert.equal(safeNewsUrl('data:text/html,1'), '');
+test('임베딩은 int8 로 줄여도 코사인 순서를 지킨다', () => {
+  const a = unpackVec(packVec(fakeVec('openai launches gpt model agents'))), b = unpackVec(packVec(fakeVec('openai gpt model launch for agents'))), c = unpackVec(packVec(fakeVec('bank earnings quarterly crypto')));
+  assert.ok(cosine(a, b) > cosine(a, c)); assert.ok(Math.abs(cosine(a, a) - 1) < 0.01);
+  assert.equal(unpackVec('###'), null);
 });
 
-test('금액 표기를 맞추고, 한국어는 조사가 달라도 겹치게 쪼갠다', () => {
-  assert.ok(features('Amazon seeks to offload $8bn of Nvidia chips').has('$8b'));
-  assert.ok(features('Amazon to Move $8 Billion of Chips').has('$8b'));
-  const a = features('하나은행도 AI 해킹 뚫렸다'), b = features('하나은행, 해킹 공격으로 유출');
-  assert.ok(a.has('하나') && b.has('하나') && a.has('해킹') && b.has('해킹'));
-  assert.ok(!features('[속보] 해킹').has('속보'));
+test('텍스트 상자 입력: 엔터·쉼표로 여러 주소, 중복·추적 파라미터·이상한 주소 제거', () => {
+  assert.deepEqual(parseUrls('https://a.com/x?utm_source=t\nhttps://a.com/x\n javascript:alert(1), https://b.com/y'), ['https://a.com/x?utm_source=t', 'https://b.com/y']);
+  assert.equal(normUrl('https://www.aitimes.com/news/articleView.html?idxno=5&utm_medium=x'), 'aitimes.com/news/articleView.html?idxno=5', '기사번호는 남긴다');
+  assert.equal(kindOfDomain('openai.com'), 'official'); assert.equal(kindOfDomain('mckinsey.com'), 'report'); assert.equal(kindOfDomain('cnbc.com'), 'news');
 });
 
-test('같은 이야기를 다룬 기사들을 하나로 묶고, 다른 이야기는 따로 둔다', () => {
-  const groups = cluster([
-    item(),
-    item({ source: 'verge', publisher: 'The Verge', url: 'https://theverge.com/b', title: 'OpenAI launches a new reasoning model' }),
-    item({ source: 'gnews-en', kind: 'google', publisher: 'Reuters', url: 'https://news.google.com/c', title: 'OpenAI launches reasoning model for developers, says CEO' }),
-    item({ url: 'https://techcrunch.com/d', title: 'Apple tightens macOS disk access controls' }),
-    item({ source: 'ft', publisher: 'Financial Times', url: 'https://ft.com/e', title: 'Amazon seeks to offload $8bn of Nvidia chips to investors' }),
-    item({ source: 'gnews-en', kind: 'google', publisher: 'Bloomberg', url: 'https://news.google.com/f', title: 'Amazon to offload $8 billion of Nvidia chips, FT says' }),
-  ]);
-  assert.equal(groups.length, 3);
-  assert.deepEqual(groups.map((g) => g.items.length), [3, 1, 2]);
+test('종류 판정: 프런티어 신제품 · 무료 토큰 · 컨설팅 리포트', () => {
+  assert.equal(ruleCategory({ title: 'Anthropic launches Claude 5 for developers', kind: 'news' }), 'launch');
+  assert.equal(ruleCategory({ title: 'Google gives developers free Gemini API tokens for a month', kind: 'news' }), 'free');
+  assert.equal(ruleCategory({ title: '오픈AI, 챗GPT 고급 기능 무료 개방', kind: 'news' }), 'free');
+  assert.equal(ruleCategory({ title: 'The state of AI in 2026: global survey', kind: 'report', source: 'mckinsey' }), 'report');
+  assert.equal(ruleCategory({ title: 'McKinsey report: agents reshape banking', kind: 'news' }), 'report');
+  assert.ok(isAi('엔비디아 GPU 공급')); assert.ok(lowQuality('[기자수첩] AI 거품')); assert.ok(!lowQuality('OpenAI unveils new model'));
 });
 
-test('여러 매체가 다룬 이야기가 위로 오고, 매체 가중치 없이 먼저 나온 무료 기사가 대표가 된다', () => {
+const cand = (over) => ({ key: over.url, title: 'x', summary: '', url: 'https://techcrunch.com/x', publisher: 'TechCrunch', source: 'techcrunch', kind: 'news', lang: 'en', paywall: false,
+  at: now - 2 * H, domain: 'techcrunch.com', coverage: 1, related: [], ...over, key: normUrl(over.url || 'https://techcrunch.com/x') });
+const prefsOf = (likes = [], dislikes = [], domains = new Map()) => ({ ok: true, likes, dislikes, sources: [], domains, rows: [...likes, ...dislikes] });
+const pref = (title, vote = 1) => ({ title, summary: '', vote, vec: unpackVec(packVec(fakeVec(title))), feat: new Set() });
+
+test('좋아요 기사와 닮은 기사가 위로, 싫어요와 거의 같은 기사는 빠진다', () => {
+  const pool = [
+    cand({ url: 'https://techcrunch.com/a', title: 'Bank earnings beat estimates on AI trading desks' }),
+    cand({ url: 'https://theverge.com/b', publisher: 'The Verge', domain: 'theverge.com', title: 'Coding agents from Anthropic now write enterprise software tests' }),
+    cand({ url: 'https://techcrunch.com/c', title: 'Crypto token airdrop hype AI meme coins surge' }),
+  ].map((c) => ({ ...c, vector: packVec(fakeVec(c.title)) }));
+  const prefs = prefsOf([pref('Anthropic coding agents enterprise software')], [pref('Crypto token airdrop meme coins hype surge', -1)]);
+  const r = selectNews(pool, prefs, now);
+  assert.equal(r.top[0].url, 'https://theverge.com/b');
+  assert.ok(r.top[0].reasons.some((x) => /좋아요 기사와/.test(x)));
+  assert.ok(!r.top.some((t) => t.url === 'https://techcrunch.com/c'), '싫어요 기사와 거의 같은 기사 제외');
+  assert.equal(r.excluded[0].url, 'https://techcrunch.com/c'); assert.match(r.excluded[0].reason, /비슷함/);
+  assert.equal(r.method, 'embedding');
+  const voted = selectNews(pool, prefs, now, { [normUrl('https://theverge.com/b')]: -1 });
+  assert.ok(!voted.top.some((t) => t.url === 'https://theverge.com/b'), '직접 싫어요한 기사는 숨김');
+});
+
+test('좋아요가 없을 때는 중요도·종류·최신성으로 고르고, 국내·해외 할당 없이 한 매체는 2개까지', () => {
+  const pool = Array.from({ length: 8 }, (_, i) => cand({ url: `https://techcrunch.com/${i}`, title: `OpenAI launches tool number ${i}`, at: now - i * H }))
+    .concat([cand({ url: 'https://www.mckinsey.com/r', publisher: 'McKinsey', kind: 'report', domain: 'mckinsey.com', title: 'The state of AI 2026 survey report', at: now - 5 * 24 * H, source: 'mckinsey' })]);
+  const r = selectNews(pool, prefsOf(), now);
+  assert.equal(r.top.filter((t) => t.publisher === 'TechCrunch').length, 2);
+  assert.ok(r.top.some((t) => t.category === 'report'), '5일 된 컨설팅 리포트도 추천에 오른다');
+  assert.equal(r.method, 'keyword');
+  const s = scoreCandidate({ ...pool[0], feat: new Set() }, prefsOf([], [], new Map([['techcrunch.com', { up: 3, down: 0 }]])), now);
+  assert.ok(s.parts.source > 5, '좋아요한 출처는 가산');
+});
+
+test('같은 사건은 묶어 대표 기사 하나와 관련 보도로, 종류별 기간과 칼럼은 거른다', () => {
   const items = [
-    item({ source: 'aitimes', publisher: 'AI타임스', url: 'https://aitimes.com/solo', title: '국내 스타트업 AI 반도체 시제품', lang: 'ko' }),
-    item({ source: 'theinformation', publisher: 'The Information', url: 'https://theinformation.com/x', title: 'OpenAI launches new reasoning model for developers', paywall: true, at: now - 3 * H }),
-    item({ at: now - 2 * H }),
-    item({ source: 'verge', publisher: 'The Verge', url: 'https://theverge.com/b', title: 'OpenAI launches a new reasoning model' }),
-    item({ source: 'gnews-en', kind: 'google', publisher: 'Reuters', url: 'https://news.google.com/r', title: 'OpenAI launches reasoning model for developers' }),
+    { source: 'techcrunch', kind: 'news', publisher: 'TechCrunch', title: 'OpenAI launches GPT-6 reasoning model', url: 'https://techcrunch.com/1', summary: '', at: now - H, lang: 'en' },
+    { source: 'openai', kind: 'official', publisher: 'OpenAI', title: 'Introducing GPT-6 reasoning model from OpenAI', url: 'https://openai.com/index/gpt-6', summary: '', at: now - 2 * H, lang: 'en' },
+    { source: 'theverge', kind: 'news', publisher: 'The Verge', title: 'Old AI story', url: 'https://theverge.com/old', summary: '', at: now - 4 * 24 * H, lang: 'en' },
+    { source: 'mckinsey', kind: 'report', publisher: 'McKinsey', title: 'Superagency in the workplace AI report', url: 'https://mckinsey.com/r', summary: '', at: now - 10 * 24 * H, lang: 'en' },
+    { source: 'aitimes', kind: 'news', publisher: 'AI타임스', title: '[칼럼] AI 시대의 교육', url: 'https://aitimes.com/c', summary: '', at: now - H, lang: 'ko' },
   ];
-  const { top, stories } = rank(items, now, { top: [{ url: 'https://aitimes.com/solo', related: [] }] });
-  assert.equal(stories, 2);
-  assert.equal(top[0].url, 'https://techcrunch.com/a', '유료 The Information 보다 무료 기사를 대표로');
-  assert.equal(top[0].coverage, 4);
-  assert.deepEqual(top[0].related.map((r) => r.publisher).sort(), ['Reuters', 'The Information', 'The Verge']);
-  assert.equal(top[0].firstAt, new Date(now - 3 * H).toISOString(), '최초 보도 시각은 묶음에서 가장 이른 기사');
-  assert.ok(top[0].reasons.includes('독립 매체 4곳 보도'));
-  assert.equal(top[0].previousRank, null);
-  assert.equal(top[1].previousRank, 1);
-  assert.equal(top[1].titleKo, '국내 스타트업 AI 반도체 시제품');
+  assert.equal(cluster(items.slice(0, 2)).length, 1);
+  const c = candidates(items, now);
+  assert.deepEqual(c.map((x) => x.publisher).sort(), ['McKinsey', 'OpenAI']);
+  const gpt = c.find((x) => x.publisher === 'OpenAI');
+  assert.equal(gpt.coverage, 2); assert.equal(gpt.related[0].publisher, 'TechCrunch', '공식 발표가 대표, 매체 보도는 관련 보도');
 });
 
-test('Top 은 최초 보도 24시간 이내만 — 어제 처음 나온 이야기는 오늘 다시 보도돼도 빠진다', () => {
-  const items = [
-    item({ url: 'https://techcrunch.com/old', title: 'Court dismisses Google AI Overviews lawsuit', at: now - 30 * H }),
-    item({ source: 'verge', publisher: 'The Verge', url: 'https://theverge.com/old', title: 'Judge dismisses Google AI Overviews lawsuit filed by publishers', at: now - 2 * H }),
-    item({ url: 'https://techcrunch.com/fresh', title: 'Nvidia ships new inference chip', at: now - 5 * H }),
-  ];
-  const { top } = rank(items, now);
-  assert.deepEqual(top.map((t) => t.url), ['https://techcrunch.com/fresh']);
+test('날짜 없는 목록 글: 출처를 처음 읽을 때 있던 글은 옛 글, 그 뒤 새로 보인 글은 처음 본 시각', () => {
+  const first = [{ source: 'sectionai', url: 'https://sectionai.com/blog/a', undated: true, at: null }];
+  const seen = applySeen(first, {}, now);
+  assert.equal(first[0].at, now - 30 * 24 * H);
+  const later = [{ source: 'sectionai', url: 'https://sectionai.com/blog/a', undated: true, at: null }, { source: 'sectionai', url: 'https://sectionai.com/blog/b', undated: true, at: null }];
+  applySeen(later, seen, now + H);
+  assert.equal(later[0].at, now - 30 * 24 * H); assert.equal(later[1].at, now + H);
+  const edited = [{ source: 'techcrunch', url: 'https://techcrunch.com/x', at: now }];
+  applySeen(edited, { 'techcrunch.com/x': now - 5 * H }, now);
+  assert.equal(edited[0].at, now - 5 * H, '수정으로 늦어진 시각 대신 처음 본 시각');
 });
 
-test('HN 에서만 화제인 글과 공식 발표만 있는 소식은 뉴스 Top 에 들지 않고, HN 글은 커뮤니티 화제로 간다', () => {
-  const hnOnly = { ...item({ source: 'hn', kind: 'hn', publisher: 'github.com', url: 'https://github.com/lego', title: 'Show HN: Lego AI generator', newsDomain: false }), hn: { id: '9', points: 300, comments: 10, url: 'https://news.ycombinator.com/item?id=9' } };
-  const official = item({ source: 'openai', kind: 'official', publisher: 'OpenAI', url: 'https://openai.com/x', title: 'Introducing a sandbox for agents' });
-  const news = item({ url: 'https://techcrunch.com/z', title: 'Mistral raises funding round' });
-  const { top } = rank([hnOnly, official, news], now);
-  assert.deepEqual(top.map((t) => t.url), ['https://techcrunch.com/z']);
-  const talk = community([hnOnly, news], now, { community: [{ hn: { id: '9', points: 250 } }] });
-  assert.equal(talk.length, 1); assert.equal(talk[0].delta, 50);
-});
-
-test('한 매체는 대표 기사로 2건까지만 오른다', () => {
-  const titles = ['AI robot vacuum learns stairs', 'AI chip startup files patent', 'AI model card standards debated', 'AI seed round closes quietly', 'Court weighs AI copyright claim'];
-  const many = titles.map((title, i) => item({ url: `https://techcrunch.com/${i}`, title }));
-  assert.equal(rank(many, now).top.length, 2);
-});
-
-test('AI 가 같은 사건이라 한 묶음은 합치되, 제목이 거의 안 겹치는 같은 언어 묶음은 합치지 않는다', async () => {
-  const items = [
-    item({ source: 'yonhap', publisher: '연합뉴스', url: 'https://yna.co.kr/1', title: '하나은행도 AI 해킹 뚫렸다…89명 개인정보 유출', lang: 'ko' }),
-    item({ source: 'gnews-ko', kind: 'google', publisher: '조선일보', url: 'https://news.google.com/2', title: '은행 6곳에 무차별 AI 해킹… 4곳은 개인정보 유출', lang: 'ko' }),
-    item({ url: 'https://techcrunch.com/apple', title: 'Apple tightens macOS Full Disk Access for AI agents' }),
-    item({ source: 'ft', publisher: 'Financial Times', url: 'https://ft.com/amzn', title: 'Amazon seeks to offload $8bn of Nvidia AI chips to investors' }),
-    item({ source: 'gnews-ko', kind: 'google', publisher: 'ebn', url: 'https://news.google.com/3', title: '애플, AI 에이전트 정보유출 우려에 접근권한 통제 강화', lang: 'ko' }),
-  ];
-  const groups = storyGroups(items, now);
-  const idx = (re) => groups.findIndex((g) => g.items.some((i) => re.test(i.title)));
-  const merged = applyMerges(groups, [[idx(/하나은행/), idx(/은행 6곳/)], [idx(/Apple/), idx(/Amazon/)], [idx(/Apple/), idx(/애플/)]], now);
-  const sizes = merged.map((g) => g.items.length).sort();
-  assert.deepEqual(sizes, [1, 2, 2], '은행 두 기사·애플 한영 기사는 합치고 애플·아마존은 따로');
-  assert.ok(merged.find((g) => g.items.some((i) => /Apple/.test(i.title))).items.some((i) => /애플/.test(i.title)));
-
-  assert.equal(idx(/하나은행/), idx(/은행 6곳/), '같은 은행 해킹 기사는 제목만으로도 묶인다');
-  const env = { AI: { async run() { return { response: `{"same":[[${idx(/Apple/)},${idx(/애플/)}]]}` }; } } };
-  assert.equal((await mergeSameEvents(env, groups, now)).length, groups.length - 1);
-  const broken = { AI: { async run() { throw new Error('quota'); } } };
-  assert.equal((await mergeSameEvents(broken, groups, now)).length, groups.length, 'AI 가 실패하면 제목 묶음 그대로');
-});
-
-test('동시에 6개까지만 가져온다(Workers 동시 연결 한도)', async () => {
-  let running = 0, peak = 0;
-  const tasks = Array.from({ length: 20 }, (_, i) => async () => { running++; peak = Math.max(peak, running); await new Promise((r) => setTimeout(r, 2)); running--; if (i === 3) throw new Error('x'); return i; });
-  const out = await settledPool(tasks);
-  assert.equal(peak, 6); assert.equal(out[3].status, 'rejected'); assert.equal(out[19].value, 19);
-});
-
-test('영어 기사 번역은 AI 답만 덧붙이고, 한 번 더 시도한 뒤에도 실패하면 원문을 그대로 둔다', async () => {
-  const top = [{ title: 'A', summary: 's', lang: 'en', titleKo: null, summaryKo: null }, { title: '가', lang: 'ko', titleKo: '가' }];
-  let prompt;
-  await translate({ AI: { async run(_, opts) { prompt = opts.messages[1].content; return { response: '```json\n{"items":[{"i":0,"title_ko":"에이","summary_ko":"요약"},{"i":9,"title_ko":"x"}]}\n```' }; } } }, top);
-  assert.equal(top[0].titleKo, '에이'); assert.equal(top[0].summaryKo, null, '제목만 번역한다');
-  assert.equal(JSON.parse(prompt).length, 1, '한국어 기사는 번역하지 않는다');
-  let calls = 0;
-  const flaky = [{ title: 'C', lang: 'en', titleKo: null }];
-  await translate({ AI: { async run() { calls++; if (calls === 1) return { response: '{"items":[{"i":0,"title_ko":' }; return { response: '{"items":[{"i":0,"title_ko":"씨"}]}' }; } } }, flaky);
-  assert.equal(flaky[0].titleKo, '씨');
-  const failing = [{ title: 'B', lang: 'en', titleKo: null }];
-  await translate({ AI: { async run() { throw new Error('quota'); } } }, failing);
-  assert.equal(failing[0].titleKo, null);
-});
-
-const rssAt = (title, link, at) => `<rss><item><title>${title}</title><link>${link}</link><pubDate>${new Date(at).toUTCString()}</pubDate></item></rss>`;
-
-test('실제 번역 실패 형식: 연속 JSON 객체·배열·문자열 내부 괄호도 안전하게 읽는다', async () => {
-  const content = '{"i":0,"title_ko":"구글 {새 모델} 공개"}\n{"i":1,"title_ko":"애플 AI 기능 출시"}';
-  assert.equal(translationRows({ choices: [{ message: { content } }] }).length, 2);
-  assert.equal(translationRows({ response: '[{"i":0,"title_ko":"한국어"}]' }).length, 1);
-  const list = [{ title: 'Google releases model', lang: 'en' }, { title: 'Apple releases AI feature', lang: 'en' }];
-  await translate({ AI: { async run() { return { choices: [{ message: { content } }] }; } } }, list);
-  assert.equal(list[0].titleKo, '구글 {새 모델} 공개');
-  assert.equal(list[1].titleKo, '애플 AI 기능 출시');
-});
-
-test('번역 누락 제목만 개별 재시도하고 전용 번역으로 복구하며 중복·지난 번역은 재사용한다', async () => {
-  const list = [
-    { title: 'Saved headline', lang: 'en' }, { title: 'New headline', lang: 'en' },
-    { title: 'New headline', lang: 'en' }, { title: 'Other headline', lang: 'en' },
-  ];
+test('번역: 연속 JSON 객체를 읽고, 빠진 제목은 전용 번역 모델로 보완하며 지난 번역을 재사용한다', async () => {
+  assert.deepEqual(translationRows({ response: '{"i":0,"title_ko":"가 {괄호}"}\n{"i":1,"title_ko":"나"}' }).map((r) => r.i), [0, 1]);
   const calls = [];
-  await translate({ AI: { async run(model, input) {
-    calls.push({ model, input });
-    if (model.includes('m2m100')) return { translated_text: '새로운 제목' };
-    const rows = JSON.parse(input.messages[1].content);
-    if (rows.length > 1) return { response: { items: [{ i: 1, title_ko: '다른 제목' }] } };
-    throw new Error('broken JSON');
-  } } }, list, { top: [{ title: 'Saved headline', titleKo: '저장된 제목' }] });
-  assert.deepEqual(list.map((x) => x.titleKo), ['저장된 제목', '새로운 제목', '새로운 제목', '다른 제목']);
-  assert.equal(calls.length, 3);
-  assert.equal(JSON.parse(calls[0].input.messages[1].content).length, 2, '캐시·중복 제목 제외');
-  assert.equal(JSON.parse(calls[1].input.messages[1].content)[0].title, 'New headline', '누락 제목만 재시도');
-  assert.equal(calls[2].input.target_lang, 'ko');
+  const env = { AI: { async run(model, input) { calls.push(model); if (model.includes('m2m100')) return { translated_text: '전용 ' + input.text }; return { response: '{"i":0,"title_ko":"첫 제목"}' }; } } };
+  const list = [{ title: 'One', lang: 'en' }, { title: 'Two', lang: 'en' }, { title: 'One', lang: 'en' }, { title: 'Cached', lang: 'en' }, { title: '국내', lang: 'ko' }];
+  await translate(env, list, new Map([['Cached', '저장된 번역']]));
+  assert.deepEqual(list.map((t) => t.titleKo), ['첫 제목', '전용 Two', '첫 제목', '저장된 번역', '국내']);
 });
 
-test('번역 동시 호출은 2개를 넘지 않는다', async () => {
-  let running = 0, peak = 0;
-  const list = Array.from({ length: 16 }, (_, i) => ({ title: 'Headline ' + i, lang: 'en' }));
-  await translate({ AI: { async run(_, input) {
-    running++; peak = Math.max(peak, running);
-    await new Promise((r) => setTimeout(r, 2)); running--;
-    return { response: { items: JSON.parse(input.messages[1].content).map((r) => ({ i: r.i, title_ko: '제목 ' + r.i })) } };
-  } } }, list);
-  assert.equal(peak, 2);
-  assert.ok(list.every((x) => x.titleKo));
-});
-
-test('편집 중요도 판정도 연속 JSON 객체 응답을 읽어 AI 무관 기사를 제외한다', async () => {
-  const groups = storyGroups([item(), item({ title: 'EU approves AI regulation', url: 'https://techcrunch.com/b' })], now);
-  const content = groups.map((g, i) => JSON.stringify({ i, ai: !g.lead.title.includes('EU'), importance: 4, type: 'launch' })).join('\n');
-  const judged = await judgeImportance({ AI: { async run() { return { choices: [{ message: { content } }] }; } } }, groups);
-  assert.equal(judged.length, 1);
-  assert.ok(judged[0].lead.title.includes('OpenAI'));
-});
-
-test('국내·해외 각각 3개를 확보하고 해외는 중복 매체보다 TechCrunch 등 다른 매체를 우선한다', () => {
-  const korean = ['오픈AI 새 추론 모델 출시', '삼성 AI 반도체 수출 규제', '네이버 인공지능 검색 서비스 공개'];
-  const english = ['OpenAI launches reasoning model', 'EU approves AI copyright regulation', 'Nvidia ships inference chip', 'Apple launches AI agents'];
-  const items = [
-    ...korean.map((title, i) => item({ title, lang: 'ko', publisher: 'AI타임스', source: 'aitimes', url: 'https://aitimes.com/' + i })),
-    ...english.map((title, i) => item({ title, publisher: ['Reuters', 'Reuters', 'Bloomberg', 'TechCrunch'][i], url: 'https://example.com/' + i })),
-  ];
-  const groups = storyGroups(items, now).map((g) => ({ ...g, judge: { importance: 4 }, popularity: { ok: true, reports: g.lead.lang === 'ko' ? 0 : g.lead.publisher === 'Reuters' ? 100 : 2 } }));
-  const result = regionalSelection(groups, now);
-  assert.equal(result.top.filter((t) => t.lang === 'ko').length, 3);
-  assert.equal(result.top.filter((t) => t.lang === 'en').length, 3);
-  assert.deepEqual(new Set(result.top.filter((t) => t.lang === 'en').map((t) => t.publisher)), new Set(['Reuters', 'Bloomberg', 'TechCrunch']));
-  const html = topListsHtml(result);
-  assert.ok(html.includes('국내 인기 뉴스 Top 3') && html.includes('해외 주요 뉴스 Top 3'));
-  assert.equal((html.match(/sns-top-card/g) || []).length, 6);
-});
-
-test('주말에는 72시간 기사로 보완하고 표시하되 충분한 최근 기사가 있으면 오래된 기사는 제외한다', () => {
-  const titles = ['오픈AI 새 추론 모델 출시', '삼성 AI 반도체 수출 규제', '네이버 인공지능 검색 서비스 공개', 'AI 로봇 보안 취약점 발견'];
-  const groups = storyGroups(titles.map((title, i) => item({ title, lang: 'ko', publisher: 'AI타임스', source: 'aitimes', url: 'https://aitimes.com/' + i, at: now - (i + 1) * 12 * H })), now, 72 * H)
-    .map((g) => ({ ...g, popularity: { ok: true, reports: 1 }, judge: { importance: 4 } }));
-  const result = regionalSelection(groups, now);
-  assert.equal(result.top.length, 3);
-  assert.equal(result.regions[0].backfilled, 1);
-  assert.ok(topListsHtml(result).includes('최근 72시간 기사 1개'));
-  const fresh = { ...groups[3], firstAt: now - H, newest: now - H };
-  const enough = regionalSelection([...groups, fresh], now);
-  assert.ok(enough.top.every((t) => !t.backfill));
-});
-
-test('Google News 검색은 전체 문장 대신 핵심 단어를 사용한다', () => {
-  assert.equal(popularityQuery('Google froze its open source bug bounty program due to AI submissions', 'en'), 'Google froze open source bug');
-  assert.ok(popularityQuery('오픈AI, 신규 추론 모델 출시…개발자 지원 확대', 'ko').length > 0);
-});
-
-test('AI타임스의 idxno 기사번호를 보존해 서로 다른 한글 기사를 합치거나 같은 발행시각으로 만들지 않는다', async (t) => {
-  const titles = ['오픈AI 새 추론 모델 출시', '삼성 AI 반도체 수출 규제', '네이버 인공지능 검색 서비스 공개'];
-  const articles = titles.map((title, i) => item({ title, lang: 'ko', publisher: 'AI타임스', source: 'aitimes', url: 'https://www.aitimes.com/news/articleView.html?idxno=' + (100 + i), at: now - (i + 1) * H }));
-  assert.equal(cluster([...articles, { ...articles[0], url: articles[0].url + '&utm_source=google' }]).length, 3, '기사번호는 구분하고 추적 파라미터만 제거');
-  let revised = false;
-  t.mock.method(globalThis, 'fetch', async (url) => {
-    if (String(url).startsWith('https://www.aitimes.com/')) return new Response('<rss>' + articles.map((a, i) => '<item><title>' + a.title + '</title><link>' + a.url.replace(/&/g, '&amp;') + '</link><pubDate>' + new Date(revised && i === 0 ? now + H : a.at).toUTCString() + '</pubDate></item>').join('') + '</rss>');
-    return new Response('no', { status: 503 });
-  });
-  const env = fast({ SESSIONS: kv() });
-  const snapshot = await buildNews(env, now);
-  assert.equal(snapshot.top.filter((x) => x.lang === 'ko').length, 3);
-  revised = true;
-  const later = await buildNews(env, now + 2 * H);
-  assert.deepEqual(later.top.map((x) => x.firstAt).sort(), articles.map((a) => new Date(a.at).toISOString()).sort(), '기사별 최초 발행시각을 따로 기억');
-});
-
-test('스냅숏: 일부 매체가 실패해도 만들고, 오래되거나 없을 때만 다시 모으며 수동 갱신은 10분 간격', async (t) => {
-  let calls = 0;
-  t.mock.method(globalThis, 'fetch', async (url) => {
-    calls++;
+function feeds({ extra = {} } = {}) {
+  return async (url) => {
     const u = String(url);
-    if (u.includes('techcrunch')) return new Response(rssAt('OpenAI launches model', 'https://techcrunch.com/a', now - 60000));
-    if (u.includes('theinformation')) return new Response(`<feed><entry><title>Crypto layoffs</title><link href="https://theinformation.com/c"/><published>${new Date(now).toISOString()}</published></entry></feed>`);
-    if (u.includes('algolia')) return Response.json({ hits: [] });
-    if (u.includes('news.google.com') && !u.includes('anthropic.com')) return new Response(`<rss><item><title>OpenAI launches model - Reuters</title><link>https://news.google.com/x</link><pubDate>${new Date(now).toUTCString()}</pubDate><source>Reuters</source></item></rss>`);
+    for (const [k, v] of Object.entries(extra)) if (u.includes(k)) return typeof v === 'function' ? v(u) : new Response(v);
+    if (u.includes('techcrunch.com/category')) return new Response(rss([['Anthropic launches Claude coding agents for enterprise', 'https://techcrunch.com/2026/10/09/claude-agents', now - H],
+      ['Bank earnings beat estimates on AI trading', 'https://techcrunch.com/2026/10/09/bank', now - 2 * H]]));
+    if (u.includes('openai.com/news/rss')) return new Response(rss([['OpenAI gives developers free API tokens for GPT-6', 'https://openai.com/index/free-tokens', now - 3 * H]]));
+    if (u.includes('theinformation')) return new Response(rss([['Crypto layoffs hit exchanges', 'https://www.theinformation.com/c', now - H]]));
+    if (u.includes('anthropic.com/news') && !u.includes('/news/')) return new Response('<a href="/news/x-launch"><span>Oct 8, 2026</span><h3>Anthropic introduces Claude for Chrome</h3></a>');
+    if (u.includes('anthropic.com/news/')) return new Response('<meta property="og:title" content="Claude for Chrome is here"><meta property="article:published_time" content="2026-10-08T15:00:00Z">');
     return new Response('nope', { status: 503 });
-  });
-  const env = fast({ SESSIONS: kv() });
+  };
+}
+
+test('수집부터 선정까지: 공식 발표·리포트·뉴스를 함께 고르고, 실패한 출처는 경고 대신 수집 상태에만 적는다', async (t) => {
+  t.mock.method(globalThis, 'fetch', feeds());
+  const env = { SESSIONS: kv(), AI: fakeAi(), DB: d1() };
+  const snap = await buildNews(env, now);
+  const titles = snap.top.map((x) => x.title);
+  assert.ok(titles.includes('OpenAI gives developers free API tokens for GPT-6'));
+  assert.ok(titles.includes('Claude for Chrome is here'), '목록 화면 글은 기사 페이지에서 제목을 보완');
+  assert.ok(!titles.some((x) => /Crypto/.test(x)), 'AI 와 무관한 글 제외');
+  assert.equal(snap.top.find((x) => /free API tokens/.test(x.title)).category, 'free');
+  assert.ok(snap.top.every((x) => x.titleKo), '영문 제목 번역');
+  assert.deepEqual(snap.warnings, [], 'Google·출처 실패 경고를 띄우지 않는다');
+  assert.equal(snap.sources.find((s) => s.id === 'bloomberg').ok, false);
+  assert.ok(!JSON.stringify(snap).includes('news.google.com'));
+  assert.ok(env.AI.calls.includes('@cf/baai/bge-m3'));
+  const pool = JSON.parse(env.SESSIONS.values.get('news:pool'));
+  assert.ok(pool.items.every((c) => typeof c.vector === 'string'));
+  // 다음 수집은 지난 임베딩·판정을 재사용한다.
+  env.AI.calls.length = 0;
+  await buildNews(env, now + H);
+  assert.ok(!env.AI.calls.includes('@cf/baai/bge-m3'), '새 후보가 없으면 임베딩을 다시 부르지 않는다');
+});
+
+test('좋아하는 기사 주소 등록: 페이지를 읽어 학습하고 처음 보는 사이트는 RSS 출처로 배우며 다음 수집에 쓴다', async (t) => {
+  t.mock.method(globalThis, 'fetch', feeds({ extra: {
+    'example-ai.com/feed': rss([['Example AI agents platform launch', 'https://example-ai.com/posts/agents', now - H], ['Example AI second post', 'https://example-ai.com/posts/2', now - 2 * H], ['Example AI third post', 'https://example-ai.com/posts/3', now - 3 * H]]),
+    'example-ai.com/posts/1': '<meta property="og:title" content="Agents in the enterprise"><meta property="og:site_name" content="Example AI"><link rel="alternate" type="application/rss+xml" href="https://example-ai.com/feed">',
+    'techcrunch.com/2026/10/01/x': '<meta property="og:title" content="Claude coding agents for enterprise teams">',
+    'blocked.com': () => new Response('no', { status: 403 }),
+  } }));
+  const env = { SESSIONS: kv(), AI: fakeAi(), DB: d1() };
+  const r = await submitLikes(env, 7, 'https://example-ai.com/posts/1\nhttps://techcrunch.com/2026/10/01/x\nhttps://blocked.com/ai-agents-report', now);
+  assert.deepEqual(r.added.map((a) => a.ok), [true, true, false]);
+  assert.equal(r.added[2].title, 'ai agents report', '막힌 페이지는 주소로 제목을 짐작');
+  assert.deepEqual(r.learned.map((s) => [s.domain, s.format]), [['example-ai.com', 'rss']], '기본 출처(TechCrunch)는 다시 배우지 않는다');
+  assert.equal(env.DB.feedback.length, 3); assert.equal(env.DB.feedback[0].user_id, 7); assert.ok(env.DB.feedback[0].vector);
+  const prefs = await loadPrefs(env);
+  assert.equal(prefs.likes.length, 3);
+  const snap = await buildNews(env, now);
+  assert.ok(snap.sources.some((s) => s.learned && s.ok && s.count === 3));
+  assert.ok([...snap.top, ...snap.more].some((c) => c.publisher === 'Example AI'), '배운 출처의 기사가 후보에 오른다');
+  assert.equal(snap.top[0].title, 'Anthropic launches Claude coding agents for enterprise', '등록한 기사와 가장 닮은 기사가 1위');
+  const list = await listPrefs(env);
+  assert.equal(list.items.length, 3); assert.equal(list.sources[0].domain, 'example-ai.com'); assert.ok(!JSON.stringify(list).includes('vector'));
+  await assert.rejects(submitLikes(env, 7, 'not a url', now), /기사 주소/);
+  await assert.rejects(submitLikes(env, 7, Array.from({ length: 11 }, (_, i) => `https://a.com/${i}`).join('\n'), now), /10개/);
+});
+
+test('👎 은 바로 숨기고, 새로고침하면 수집 없이 점수만 다시 매기며 수동 재수집은 10분 간격', async (t) => {
+  let calls = 0;
+  const handler = feeds();
+  t.mock.method(globalThis, 'fetch', async (u) => { calls++; return handler(u); });
+  const env = { SESSIONS: kv(), AI: fakeAi(), DB: d1() };
   const first = await newsFeed(env, { now });
-  assert.equal(first.top.length, 1); assert.equal(first.top[0].publisher, 'TechCrunch'); assert.equal(first.top[0].coverage, 1);
-  assert.equal(first.latest.length, 1, 'AI와 무관한 The Information 글은 뺀다');
-  assert.equal(first.sources.find((s) => s.id === 'bloomberg').ok, false);
-  assert.equal(first.sources.find((s) => s.id === 'bloomberg').error, '수집 실패(HTTP 503)');
-  assert.ok(first.warnings.some((w) => w.includes('Bloomberg')), '요청한 출처 실패는 경고');
-  assert.ok(!first.warnings.some((w) => w.includes('Google 뉴스')));
-  assert.deepEqual(first.stats, { articles: 1, stories: 1 });
-  const after = calls;
+  const target = first.top[0];
+  await voteNews(env, 1, { url: target.url, vote: -1 }, now + 60000);
+  assert.equal(env.DB.feedback[0].vote, -1); assert.ok(env.DB.feedback[0].vector, '후보 묶음의 임베딩을 재사용');
+  const before = calls;
+  const hidden = await newsFeed(env, { now: now + 2 * 60000 });
+  assert.ok(!hidden.top.some((x) => x.key === target.key), '저장본에서도 바로 숨긴다');
+  const rescored = await newsFeed(env, { now: now + 3 * 60000, refresh: true });
+  assert.equal(calls, before, '평가가 바뀐 새로고침은 다시 수집하지 않는다');
+  assert.ok(rescored.excluded.some((x) => x.url === target.url));
   await newsFeed(env, { now: now + 5 * 60000, refresh: true });
-  assert.equal(calls, after, '10분 안의 수동 갱신은 저장본을 준다');
+  assert.equal(calls, before, '10분 안의 수동 갱신은 저장본');
   await newsFeed(env, { now: now + 11 * 60000, refresh: true });
-  assert.ok(calls > after);
+  assert.ok(calls > before);
+  await voteNews(env, 1, { url: target.url, vote: 0 }, now + 12 * 60000);
+  assert.equal(env.DB.feedback.length, 0, '평가 취소');
+  await assert.rejects(voteNews(env, 1, { url: 'javascript:1', vote: 1 }), /주소/);
   const waits = [];
-  const stale = await newsFeed(env, { now: now + 3 * 3600000, ctx: { waitUntil: (p) => waits.push(p) } });
-  assert.ok(stale.builtAt); assert.equal(waits.length, 1, '오래된 저장본은 바로 주고 뒤에서 갱신한다');
+  const stale = await newsFeed(env, { now: now + 3 * H, ctx: { waitUntil: (p) => waits.push(p) } });
+  assert.ok(stale.builtAt); assert.equal(waits.length, 1, '오래된 저장본은 바로 주고 뒤에서 갱신');
   await Promise.all(waits);
 });
 
-test('원문 수집은 지정한 5개 매체만 허용하고 검색 재전재·가짜 도메인은 제외한다', () => {
-  assert.deepEqual(SOURCES.map((s) => s.name).sort(), ['AI타임스', 'Bloomberg', 'Reuters', 'TechCrunch', 'The Information'].sort());
-  assert.ok(allowedArticle(item()));
-  assert.ok(allowedArticle(item({ source: 'reuters', url: 'https://www.reuters.com/technology/a' })));
-  for (const url of ['https://techcrunch.com.evil.com/a', 'https://msn.com/a', 'https://theverge.com/a']) assert.ok(!allowedArticle(item({ url })));
-  assert.ok(!allowedArticle(item({ source: 'gnews-en' })));
-});
-
-test('Google News 동일 사건 보도 URL 수로 정렬하고 중복·다른 사건은 세지 않는다', async (t) => {
-  const groups = storyGroups([
-    item({ title: 'OpenAI launches new reasoning model for developers' }),
-    item({ title: 'EU approves AI copyright regulation', url: 'https://techcrunch.com/b' }),
-  ], now);
-  t.mock.method(globalThis, 'fetch', async (url) => {
-    const title = new URL(url).searchParams.get('q');
-    const stories = title.includes('OpenAI') ? [
-      ['OpenAI launches new reasoning model for developers', 'https://news.google.com/1'],
-      ['OpenAI launches reasoning model for developers', 'https://news.google.com/2'],
-      ['OpenAI launches reasoning model for developers', 'https://news.google.com/2'],
-      ['OpenAI sued by investors over funding dispute', 'https://news.google.com/3'],
-    ] : [['EU approves AI copyright regulation', 'https://news.google.com/4']];
-    return new Response('<rss>' + stories.map(([title, url]) => '<item><title>' + title + '</title><link>' + url + '</link><pubDate>' + new Date(now).toUTCString() + '</pubDate><source>Other outlet</source></item>').join('') + '</rss>');
-  });
-  const ranked = await googlePopularity(fast({}), groups, now);
-  assert.deepEqual(ranked.map((g) => g.popularity.reports), [2, 1]);
-  assert.ok(ranked.every((g) => g.items.every(allowedArticle)), '다른 매체는 인기도 집계에만 사용');
-});
-
-test('Google 인기도 실패를 Bing 점수로 대체하지 않고 경고한다', async (t) => {
-  t.mock.method(globalThis, 'fetch', async (url) => {
-    if (String(url).startsWith('https://techcrunch.com/')) return new Response(rssAt('OpenAI launches model', 'https://techcrunch.com/a', now - H));
-    return new Response('blocked', { status: 503 });
-  });
-  const snap = await buildNews(fast({ SESSIONS: kv() }), now);
-  assert.equal(snap.top[0].googlePopularity.ok, false);
-  assert.equal(snap.top[0].googlePopularity.reports, 0);
-  assert.ok(snap.warnings.some((w) => w.includes('Google News')));
-  assert.deepEqual(snap.community, []);
-  assert.ok(!topCard(snap.top[0]).includes('Google News 확인 실패'));
-  assert.equal(snap.googleDiagnostics[0].error, 'HTTP 503');
-});
-
-test('Google 정상 0건·HTML 차단을 구분하고 차단 후 남은 요청을 중단한다', async (t) => {
-  const groups = storyGroups([item(), item({ title: 'EU approves AI copyright regulation', url: 'https://techcrunch.com/b' })], now);
-  let calls = 0, html = false;
-  t.mock.method(globalThis, 'fetch', async () => { calls++; return new Response(html ? '<html>blocked</html>' : '<rss></rss>'); });
-  const empty = await googlePopularity(fast({}), groups, now);
-  assert.ok(empty.every((r) => r.popularity.ok && r.popularity.reports === 0 && r.popularity.status === 'live'));
-  html = true; calls = 0;
-  const blocked = await googlePopularity(fast({}), groups, now);
-  assert.equal(calls, 2, '처음 검색만 한 번 재시도하고 나머지는 중단');
-  assert.ok(blocked.every((r) => !r.popularity.ok && r.popularity.error === 'invalid RSS'));
-});
-
-test('Google 캐시: 같은 검색은 재사용, 장애 때 6시간 내 결과만 복구하고 기간·언어를 구분한다', async (t) => {
-  const groups = storyGroups([item()], now);
-  const env = fast({ SESSIONS: kv() });
-  let calls = 0, fail = false;
-  t.mock.method(globalThis, 'fetch', async () => {
-    calls++;
-    return fail ? new Response('blocked', { status: 503 }) : new Response(rssAt(item().title, 'https://news.google.com/a', now));
-  });
-  const live = await googlePopularity(env, groups, now);
-  assert.equal(live[0].popularity.reports, 1);
-  const fresh = await googlePopularity(env, groups, now + 60000);
-  assert.equal(calls, 1); assert.equal(fresh[0].popularity.status, 'cached');
-  fail = true;
-  const stale = await googlePopularity(env, groups, now + 2 * H);
-  assert.equal(stale[0].popularity.status, 'stale'); assert.equal(stale[0].popularity.reports, 1);
-  assert.equal(stale[0].popularity.checkedAt, new Date(now).toISOString());
-  assert.equal(stale[0].popularity.error, 'HTTP 503');
-  const otherWindow = await googlePopularity(env, groups, now + 2 * H, 72 * H);
-  assert.equal(otherWindow[0].popularity.status, 'unavailable');
-  const korean = await googlePopularity(env, groups.map((g) => ({ ...g, lead: { ...g.lead, lang: 'ko' } })), now + 2 * H);
-  assert.equal(korean[0].popularity.status, 'unavailable');
-  const expired = await googlePopularity(env, groups, now + 7 * H);
-  assert.equal(expired[0].popularity.ok, false); assert.equal(expired[0].popularity.reports, 0);
-});
-
-test('Google 검증 화면에 오류·확인 시각·검색 링크를 안전하게 표시한다', () => {
-  const html = googleDiagnosticsHtml({ googleDiagnostics: [{ title: '<script>x</script>', queryUrl: 'javascript:1', ok: false, status: 'unavailable', error: 'HTTP 503' },
-    { title: 'OpenAI', queryUrl: 'https://news.google.com/rss/search?q=OpenAI', ok: true, reports: 0, status: 'cached', checkedAt: new Date(now).toISOString() }] });
-  assert.ok(!html.includes('<script>') && !html.includes('javascript:'));
-  assert.ok(html.includes('HTTP 503') && html.includes('0건') && html.includes('1시간 내 확인 결과'));
-  assert.ok(html.includes('href="https://news.google.com/'));
-});
-
-test('국내·해외 참고 기사는 각각 최대 10개이며 중복·행사·다른 매체를 제외한다', () => {
-  const articles = Array.from({ length: 18 }, (_, i) => item({ url: 'https://techcrunch.com/' + i, title: 'OpenAI model release ' + i, at: now - i * 1000 }));
-  const korean = Array.from({ length: 18 }, (_, i) => item({ source: 'aitimes', lang: 'ko', title: '오픈AI 모델 출시 ' + i, url: 'https://aitimes.com/' + i, at: now - i * 1000 }));
-  const list = latestArticles([...articles, ...korean, articles[0], item({ title: 'AI seminar event' }), item({ url: 'https://other.com/a' })], now);
-  assert.equal(list.filter((i) => i.lang === 'ko').length, 10);
-  assert.equal(list.filter((i) => i.lang === 'en').length, 10);
-  assert.ok(list.every((i) => i.summary === ''));
-});
-
-test('인기도 순위 Top 5는 한 매체라도 최대 5건을 선정한다', () => {
-  const titles = ['OpenAI launches model', 'EU approves AI regulation', 'Nvidia ships inference chip', 'Anthropic raises funding', 'AI robot learns stairs', 'AI copyright lawsuit settled'];
-  const groups = storyGroups(titles.map((title, i) => item({ title, url: 'https://techcrunch.com/' + i })), now);
-  const popular = groups.map((g, i) => ({ ...g, popularity: { ok: true, reports: 10 - i } }));
-  assert.equal(selectTop(popular).length, 5);
-});
-
-test('수집부터 번역까지: Google 확산도가 낮아도 중요한 기사를 선정하고 참고 제목도 한글로 표시한다', async (t) => {
-  const titles = ['OpenAI launches reasoning model', 'EU approves AI copyright regulation'];
-  const feedItem = (title, url) => `<item><title>${title}</title><link>${url}</link><pubDate>${new Date(now - H).toUTCString()}</pubDate></item>`;
-  t.mock.method(globalThis, 'fetch', async (url) => {
-    const u = String(url);
-    if (u.startsWith('https://techcrunch.com/')) return new Response('<rss>' + titles.map((title, i) => feedItem(title, `https://techcrunch.com/${i}`)).join('') + '</rss>');
-    if (u.startsWith('https://news.google.com/')) {
-      const query = new URL(u).searchParams.get('q');
-      const title = query.includes('OpenAI') ? titles[0] : titles[1];
-      return new Response('<rss>' + Array.from({ length: title.includes('OpenAI') ? 3 : 1 }, (_, i) => feedItem(title, `https://news.google.com/${title.includes('OpenAI') ? 'a' : 'b'}${i}`)).join('') + '</rss>');
-    }
-    return new Response('no', { status: 503 });
-  });
-  const env = fast({ SESSIONS: kv(), AI: { async run(_, options) {
-    const prompt = options.messages[0].content, rows = JSON.parse(options.messages[1].content);
-    if (prompt.includes('title_ko')) {
-      assert.ok(rows.every((r) => !('snippet' in r)), '번역에는 제목만 전달');
-      return { response: { items: rows.map((r) => ({ i: r.i, title_ko: '한글 제목 ' + r.i })) } };
-    }
-    if (prompt.includes('importance 1~5')) return { response: { items: rows.map((r) => ({ i: r.i, ai: true, importance: r.titles[0].includes('EU') ? 5 : 3, type: 'policy' })) } };
-    return { response: { same: [] } };
-  } } });
+test('임베딩·D1 이 없어도 키워드 비교로 동작하고, 모든 출처가 실패하면 지난 화면을 지킨다', async (t) => {
+  t.mock.method(globalThis, 'fetch', feeds());
+  const env = { SESSIONS: kv(), AI: fakeAi({ embedFail: true }) };
   const snap = await buildNews(env, now);
-  assert.deepEqual(snap.top.map((r) => r.googlePopularity.reports), [1, 3]);
-  assert.equal(snap.top[0].title, titles[1]);
-  assert.ok([...snap.top, ...snap.latest].every((r) => r.titleKo.startsWith('한글 제목')));
-  assert.ok(latestCard(snap.latest[0]).includes('한글 제목'));
-});
-
-test('Google 뉴스 주소는 동시에 부르지 않고 하나씩 띄워 부른다', async (t) => {
-  let running = 0, peak = 0;
-  t.mock.method(globalThis, 'fetch', async () => {
-    running++; peak = Math.max(peak, running);
-    await new Promise((r) => setTimeout(r, 5)); running--;
-    return new Response('<rss></rss>');
-  });
-  const sources = Array.from({ length: 3 }, (_, i) => ({ id: 'g' + i, name: 'Google', kind: 'google', lang: 'en', url: 'https://news.google.com/rss/search?q=' + i }));
-  const out = await fetchAll(sources, now, { gap: 1 });
-  assert.equal(out.length, sources.length);
-  assert.equal(peak, 1);
-});
-
-test('AI 주제 판정과 뉴스가 아닌 글 거르기', () => {
-  assert.ok(aboutAi('OpenAI launches GPT-6')); assert.ok(aboutAi('삼성, 생성형 AI 탑재 갤럭시 공개')); assert.ok(aboutAi('Nvidia ships new inference chip'));
-  assert.ok(!aboutAi('Nvidia’s $235 Billion Buyback Offers a Powerful Lesson for Founders'), '엔비디아 이름만으로는 AI 기사가 아니다');
-  assert.ok(!aboutAi('SK하이닉스, 데이터센터용 메모리 증산'));
-  assert.ok(aboutAi('구글, 제미나이 요금제 개편'));
-  assert.ok(isAi('클로드 새 플러그인 출시'));
-  for (const t of ['[월요칼럼] AI 시대, 산업경쟁력의 기준이 바뀐다', 'I have news for Big Tech. We don\'t want AI to do everything | Opinion', '[특징주] 솔트룩스 AI 기대에 급등',
-    '중부발전, AI 안전 세미나 개최', 'AWS Counters AI Backlash | The Morning Download for Oct. 2', 'How to use ChatGPT agents']) assert.ok(lowQuality(t), t);
-  for (const t of ['OpenAI launches new reasoning model', '구글, 제미나이 AI 요금 개편', 'Trump names AI czar']) assert.ok(!lowQuality(t), t);
-  const groups = storyGroups([
-    item({ url: 'https://techcrunch.com/col', title: 'Opinion: AI is overhyped' }),
-    item({ url: 'https://techcrunch.com/buy', title: 'Nvidia stock jumps after buyback' }),
-    item({ url: 'https://techcrunch.com/ok', title: 'Anthropic releases Claude update' }),
-  ], now);
-  assert.deepEqual(groups.map((g) => g.lead.url), ['https://techcrunch.com/ok']);
-});
-
-test('편집 판정: AI 가 주제가 아니거나 중요도 3 미만은 빼고, 신제품 발표·높은 중요도는 앞으로', async () => {
-  const groups = storyGroups([
-    item({ url: 'https://techcrunch.com/1', title: 'AI startup hosts community meetup in Austin' }),
-    item({ url: 'https://theverge.com/2', source: 'verge', publisher: 'The Verge', title: 'Google launches Gemini 4 model' }),
-    item({ url: 'https://ft.com/3', source: 'ft', publisher: 'Financial Times', title: 'Bank uses AI chatbot for loan forms' }),
-    item({ url: 'https://wired.com/4', source: 'wired', publisher: 'Wired', title: 'EU finalizes AI Act enforcement rules' }),
-  ], now);
-  const at = (re) => groups.findIndex((g) => re.test(g.lead.title));
-  const judged = applyJudgement(groups, [
-    { i: at(/meetup/), ai: true, importance: 2, type: 'other' },
-    { i: at(/Gemini/), ai: true, importance: 5, type: 'launch' },
-    { i: at(/loan/), ai: false, importance: 3, type: 'business' },
-    { i: at(/AI Act/), ai: true, importance: 4, type: 'policy' },
-  ]);
-  assert.deepEqual(judged.map((g) => g.lead.title), ['Google launches Gemini 4 model', 'EU finalizes AI Act enforcement rules']);
-  const top = selectTop(judged);
-  assert.equal(top[0].importance, 5); assert.equal(top[0].type, 'launch'); assert.ok(top[0].reasons.includes('신제품·모델 발표'));
-
-  let prompt;
-  const env = { AI: { async run(_, o) { prompt = JSON.parse(o.messages[1].content); return { response: `{"items":[{"i":${at(/Gemini/)},"ai":true,"importance":5,"type":"launch"}]}` }; } } };
-  const viaAi = await judgeImportance(env, groups);
-  assert.equal(prompt.length, groups.length);
-  assert.equal(viaAi[0].lead.title, 'Google launches Gemini 4 model', '판정이 일부만 오면 판정된 것을 앞에, 판정 없는 후보로 채운다');
-  const broken = await judgeImportance({ AI: { async run() { throw new Error('quota'); } } }, groups);
-  assert.equal(broken.length, groups.length, 'AI 가 실패하면 규칙 필터 결과 그대로');
-  const distinct = ['OpenAI ships agents', 'Anthropic raises funds', 'Gemini tops benchmark', 'Mistral opens Paris lab', 'Perplexity sued by publishers', 'xAI hires chip team', 'Copilot adds voice'];
-  assert.equal(rank(distinct.map((title, i) => item({ url: `https://x${i}.com/a`, publisher: `P${i}`, title })), now).top.length, 5, 'Top 5 까지만');
-});
-
-test('기사 시각이 수정으로 늦어져도 처음 본 시각을 쓴다', async (t) => {
-  let at = now - 2 * H;
-  t.mock.method(globalThis, 'fetch', async (url) => {
-    const u = String(url);
-    if (u.includes('techcrunch')) return new Response(rssAt('OpenAI launches model', 'https://techcrunch.com/a', at));
-    if (u.includes('algolia')) return Response.json({ hits: [] });
-    return new Response('x', { status: 500 });
-  });
-  const env = fast({ SESSIONS: kv() });
-  await buildNews(env, now);
-  at = now + 20 * H;
-  const later = await buildNews(env, now + 23 * H);
-  assert.equal(later.top[0].backfill, true, '25시간 전 기사는 부족할 때 보완으로 표시한다');
-  assert.equal(later.top[0].firstAt, new Date(now - 2 * H).toISOString(), '수정 시각으로 최초 보도 시각을 덮지 않는다');
-  const oldest = await buildNews(env, now + 73 * H);
-  assert.equal(oldest.top.length, 0, '최초 보도가 72시간을 넘으면 보완에서도 제외한다');
-});
-
-test('모든 매체가 실패하면 빈 순위를 저장하지 않는다', async (t) => {
+  assert.ok(snap.top.length > 0); assert.equal(snap.learning.method, 'keyword'); assert.equal(snap.learning.ready, false);
   t.mock.method(globalThis, 'fetch', async () => new Response('x', { status: 500 }));
-  const env = fast({ SESSIONS: kv() });
-  const snap = await buildNews(env, now);
-  assert.equal(snap.top.length, 0); assert.equal(env.SESSIONS.values.size, 0);
+  const again = await buildNews(env, now + H);
+  assert.equal(again.builtAt, snap.builtAt);
+  assert.equal(applyVotes(snap, { [snap.top[0].key]: -1 }).top[0].key, snap.top[1].key);
+  assert.equal(learnedSource({ domain: 'x.com', name: 'X', feed_url: 'https://x.com', format: 'html', kind: 'news', link_prefix: '/blog/' }).format, 'html');
+  assert.equal(typeof rescoreNews, 'function');
 });
 
-test('카드 HTML은 이스케이프하고 스크립트 링크를 만들지 않는다', () => {
-  const html = topCard({ rank: 1, previousRank: null, title: '<img src=x onerror=alert(1)>', titleKo: null, summary: '<script>', url: 'javascript:alert(1)', publisher: '<b>', at: new Date(now).toISOString(),
-    firstAt: new Date(now).toISOString(), coverage: 2, paywall: true, reasons: ['<i>x</i>'], related: [{ publisher: 'R', title: 't', url: 'javascript:1' }] });
-  assert.ok(!html.includes('<img')); assert.ok(!html.includes('<script>')); assert.ok(!html.includes('<i>x')); assert.ok(!html.includes('href="javascript:'));
-  assert.ok(html.includes('NEW')); assert.ok(html.includes('유료')); assert.ok(html.includes('최초 보도')); assert.ok(!html.includes('news-related'), '안전한 링크가 없으면 관련 보도 목록을 만들지 않는다');
-  const row = latestCard({ title: 'T', url: 'https://techcrunch.com/a', publisher: 'TechCrunch', at: new Date(now).toISOString() });
-  assert.ok(row.includes('href="https://techcrunch.com/a"') && row.includes('target="_blank"') && row.includes('noopener'));
-  const talk = communityCard({ rank: 1, title: '<b>', url: 'javascript:1', publisher: 'x', at: new Date(now).toISOString(), hn: { points: 5, comments: 1, url: 'https://news.ycombinator.com/item?id=1' }, delta: 3 });
-  assert.ok(!talk.includes('<b>') && !talk.includes('javascript:') && talk.includes('+3점'));
-  assert.match(builtLine({ builtAt: new Date(now).toISOString(), windowHours: 24, stats: { articles: 400, stories: 250 } }), /기사 400건\(중복 포함\)을 이야기 250개로 묶어 비교/);
+test('카드 HTML은 이스케이프하고 스크립트 링크를 만들지 않으며 평가 단추를 단다', () => {
+  const html = topCard({ rank: 1, key: 'k', title: '<img src=x onerror=alert(1)>', titleKo: null, url: 'javascript:alert(1)', publisher: '<b>', kind: 'official', at: new Date(now).toISOString(),
+    paywall: true, reasons: ['<i>x</i>'], related: [{ publisher: 'R', title: 't', url: 'javascript:1' }], vote: 1 });
+  assert.ok(!html.includes('<img')); assert.ok(!html.includes('<i>x')); assert.ok(!html.includes('href="javascript:'));
+  assert.ok(html.includes('공식 발표') && html.includes('유료') && html.includes('data-vote="-1"') && html.includes('aria-pressed="true"'));
+  const row = moreRow({ key: 'k', title: 'T', url: 'https://techcrunch.com/a', publisher: 'TechCrunch', kind: 'report', categoryLabel: '분석 리포트', at: new Date(now).toISOString(), score: 50, vote: 0 });
+  assert.ok(row.includes('href="https://techcrunch.com/a"') && row.includes('noopener') && row.includes('리포트·인사이트'));
+  assert.match(builtLine({ builtAt: new Date(now).toISOString(), learning: { likes: 3, dislikes: 1, learnedSources: 2, method: 'embedding' } }), /좋아요 3 · 싫어요 1 · 학습한 출처 2 · AI 임베딩/);
   assert.ok(warningHtml({ warnings: ['<b>'] }).includes('&lt;b&gt;')); assert.equal(warningHtml({ warnings: [] }), '');
+  assert.ok(!warningHtml({ warnings: [] }).includes('데이터 경고'));
+  assert.match(topListsHtml({ top: [] }), /찾지 못했습니다/);
+  assert.equal(sourcesLine({ sources: [{ name: 'A', ok: true, count: 2 }, { name: 'B', ok: false, learned: true }] }), 'A 2건 · B(학습) 실패');
+  assert.equal(safeNewsUrl('javascript:1'), '');
 });
 
-test('메뉴: AI NEWS 는 개인서비스에, SNS 는 링크 모음으로', () => {
-  const news = SERVICES.find((s) => s.key === 'news'), sns = SERVICES.find((s) => s.key === 'sns');
+test('메뉴: AI NEWS 는 개인서비스에', () => {
+  const news = SERVICES.find((s) => s.key === 'news');
   assert.equal(news.group, 'personal'); assert.equal(news.route, '#/news');
-  assert.equal(sns.label, 'SNS'); assert.equal(sns.route, '#/sns');
-  assert.ok(sns.links.some((l) => l.url.includes('linkedin.com')) && sns.links.some((l) => l.url === 'https://x.com'));
 });
 
-test('AI NEWS API는 로그인 없이 열리지 않는다', async () => {
-  const res = await worker.fetch(new Request('https://japis.example/api/news'), { SESSION_SECRET: 'test-secret-not-for-production', SESSIONS: kv(), DB: { prepare() { return { bind() { return this; }, async first() { return null; }, async all() { return { results: [] }; }, async run() {} }; } } }, {});
-  assert.equal(res.status, 401);
+test('AI NEWS API(조회·등록·평가·학습 현황)는 로그인 없이 열리지 않는다', async () => {
+  const env = { SESSION_SECRET: 'test-secret-not-for-production', SESSIONS: kv(), DB: { prepare() { return { bind() { return this; }, async first() { return null; }, async all() { return { results: [] }; }, async run() {} }; } } };
+  for (const [path, method] of [['/api/news', 'GET'], ['/api/news/likes', 'POST'], ['/api/news/feedback', 'POST'], ['/api/news/preferences', 'GET'], ['/api/news/preferences/1', 'DELETE'], ['/api/news/sources/a.com', 'DELETE']]) {
+    const res = await worker.fetch(new Request('https://japis.example' + path, { method, ...(method === 'POST' ? { body: '{}' } : {}) }), env, {});
+    assert.equal(res.status, 401, path);
+  }
 });
 
 test('매시 예약 작업은 뉴스만 갱신하고 하루 정리 작업과 섞지 않는다', async (t) => {
   t.mock.method(globalThis, 'fetch', async () => new Response('x', { status: 500 }));
   const waits = [];
-  let dbUsed = false;
-  await worker.scheduled({ cron: '3 * * * *' }, { SESSIONS: kv(), DB: { prepare() { dbUsed = true; throw new Error('no'); } } }, { waitUntil: (p) => waits.push(p) });
+  await worker.scheduled({ cron: '3 * * * *' }, { SESSIONS: kv() }, { waitUntil: (p) => waits.push(p) });
   await Promise.all(waits);
-  assert.equal(waits.length, 1); assert.equal(dbUsed, false);
+  assert.equal(waits.length, 1);
 });

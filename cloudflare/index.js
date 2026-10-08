@@ -26,7 +26,7 @@ import {
 } from './connect.js';
 import { apiAsk } from './ask.js';
 import { snsStart, snsCallback, snsFeed, snsSettings, snsDisconnect, snsConversation } from './sns.js';
-import { newsFeed, buildNews } from './news.js';
+import { newsFeed, buildNews, submitLikes, voteNews, newsPreferences, removePreference, removeSource } from './news.js';
 import {
   healthOverview,
   examDetail,
@@ -1628,6 +1628,32 @@ export default {
       if (path === '/api/news' && method === 'GET') {
         return requireScreen('news')(request, env, async () =>
           json(await newsFeed(env, { refresh: url.searchParams.get('refresh') === '1', ctx })));
+      }
+      // 좋아하는 기사 주소 등록(여러 개) · 카드 👍/👎 · 학습 현황. 같은 'news' 권한.
+      if (path === '/api/news/likes' && method === 'POST') {
+        return requireScreen('news')(request, env, async (user) => {
+          const body = await request.json().catch(() => ({}));
+          if (typeof body.urls !== 'string' && !Array.isArray(body.urls)) return fail('기사 주소를 넣어주세요.');
+          if (String(body.urls).length > 8000) return fail('입력이 너무 깁니다.');
+          try { return json(await submitLikes(env, user.id, body.urls)); } catch (e) { return fail(e.message); }
+        });
+      }
+      if (path === '/api/news/feedback' && method === 'POST') {
+        return requireScreen('news')(request, env, async (user) => {
+          const body = await request.json().catch(() => ({}));
+          try { return json(await voteNews(env, user.id, body)); } catch (e) { return fail(e.message); }
+        });
+      }
+      if (path === '/api/news/preferences' && method === 'GET') {
+        return requireScreen('news')(request, env, async () => json(await newsPreferences(env)));
+      }
+      const mNewsPref = path.match(/^\/api\/news\/preferences\/(\d{1,12})$/);
+      if (mNewsPref && method === 'DELETE') {
+        return requireScreen('news')(request, env, async () => { await removePreference(env, Number(mNewsPref[1])); return json({ ok: true }); });
+      }
+      const mNewsSource = path.match(/^\/api\/news\/sources\/([a-z0-9.-]{3,120})$/);
+      if (mNewsSource && method === 'DELETE') {
+        return requireScreen('news')(request, env, async () => { await removeSource(env, mNewsSource[1]); return json({ ok: true }); });
       }
 
       // ---- Jaden AI SNS — existing SNS screen permission applies to every endpoint ----

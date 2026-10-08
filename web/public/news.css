@@ -26,3 +26,33 @@
 .news-region{grid-column:1/-1;min-width:0}.news-region-title{font-size:17px;margin:4px 0 12px}.news-region-items{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.news-window-note{font-size:12px;color:var(--sns-muted);margin:0 0 12px}.news-region-items>.sns-empty{grid-column:1/-1}
 @media(max-width:760px){.news-region-items{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:480px){.news-region-items{grid-template-columns:1fr}}
+/* 취향 학습형 (2026-10-09) — 추천 6개 격자 · 종류 표시 · 👍/👎 · 등록 창 */
+.news-top-items{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.news-top-items>.sns-empty{grid-column:1/-1}
+@media(max-width:760px){.news-top-items{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:480px){.news-top-items{grid-template-columns:1fr}}
+.news-kind{margin-left:auto;flex-shrink:0;font-size:10px;font-weight:700;border-radius:5px;padding:2px 7px;color:#425a81;background:#eef3ff}
+.news-kind-official .news-kind{color:#0f6a4f;background:#e3f5ec}.news-kind-report .news-kind{color:#7a3fb0;background:#f3eafc}
+.news-app .news-cat{color:#33507f!important;background:#eef3ff!important}
+.news-card-foot{display:flex;align-items:center;gap:12px}.news-votes{margin-left:auto;display:flex;gap:6px}
+.news-vote{border:1px solid #d5deef;background:#fff;border-radius:999px;padding:3px 10px;font-size:14px!important;line-height:1.4;cursor:pointer;filter:grayscale(.6);opacity:.75}
+.news-vote:hover{opacity:1;filter:none}.news-vote[aria-pressed=true].is-up{background:#e6f6ef;border-color:#7cc8a5;filter:none;opacity:1}.news-vote[aria-pressed=true].is-down{background:#fdeeea;border-color:#e7a594;filter:none;opacity:1}
+.news-vote:disabled{cursor:wait}
+.news-app .is-hidden{opacity:.35;pointer-events:none;transition:opacity .3s}
+.news-like-open{border:1px solid #c9d6f2;background:#fff;color:#24334d;border-radius:10px;padding:10px 14px;font-size:13px!important;font-weight:700!important;cursor:pointer;margin-right:8px}
+.news-like-open:hover{border-color:#2563eb;color:#2563eb}
+.news-sources-box summary{cursor:pointer;font-size:12.5px;color:var(--sns-muted)}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.news-dialog{width:min(640px,calc(100vw - 32px));max-height:calc(100vh - 48px);border:0;border-radius:16px;padding:22px 24px;box-shadow:0 20px 60px #14244040;color:#18243b}
+.news-dialog::backdrop{background:#14244066}
+.news-dialog-head{display:flex;align-items:center}.news-dialog-head h2{margin:0;font-size:19px}.news-dialog-x{margin-left:auto;border:0;background:none;font-size:24px;cursor:pointer;color:#6b7a93}
+.news-dialog-help{font-size:12.5px;line-height:1.7;color:#4a5a75;margin:8px 0 12px}
+.news-dialog textarea{width:100%;box-sizing:border-box;border:1px solid #aab5c8;border-radius:10px;padding:12px;font:13px/1.6 ui-monospace,Consolas,monospace;resize:vertical}
+.news-dialog-acts{display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-top:10px}.news-dialog-count{font-size:12px;color:#6b7a93}
+.news-dialog-submit{background:#2563eb;color:#fff;border:0;border-radius:10px;padding:10px 18px;font-weight:700;cursor:pointer}.news-dialog-submit:disabled{opacity:.6;cursor:wait}
+.news-dialog-result{font-size:12.5px;line-height:1.7;margin-top:10px}.news-dialog-result ul{margin:0;padding-left:4px;list-style:none}.news-dialog-result small{color:#6b7a93}
+.news-dialog-sub{font-size:15px;margin:18px 0 6px;padding-top:14px;border-top:1px solid #e3e8f2}
+.news-prefs details{margin:6px 0}.news-prefs summary{cursor:pointer;font-weight:700;font-size:13px;padding:4px 0}
+.news-pref-list{list-style:none;margin:4px 0 8px;padding:0;display:grid;gap:6px;max-height:240px;overflow:auto}
+.news-pref-list li{display:flex;align-items:flex-start;gap:8px;font-size:12.5px;line-height:1.5}.news-pref-text{min-width:0;flex:1;overflow-wrap:anywhere}.news-pref-text small{display:block;color:#6b7a93}
+.news-pref-text a{color:#18243b}.news-pref-del{border:0;background:#f1f5f9;border-radius:6px;cursor:pointer;color:#6b7a93;padding:0 8px;font-size:15px}.news-pref-del:hover{color:#b4452c}
+.news-pref-empty{color:#6b7a93}.news-pref-note{font-size:12px;color:#7a4b00}
