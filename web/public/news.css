@@ -1,58 +1,159 @@
-/* Jaden AI NEWS — sns.css 의 카드·타임라인 모양을 그대로 쓰고 기사용 차이만 더한다. */
-.news-card{display:flex!important;flex-direction:column}.news-card-head{display:flex;align-items:center;gap:10px;margin-bottom:4px}.news-card-head strong{font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.news-card-head .news-move{margin-left:auto;flex-shrink:0}
-.news-app .sns-top-card .sns-rank{position:static;margin:0;font-size:26px;line-height:1;color:#abbbe0;flex-shrink:0}.news-app .sns-post-meta{flex-wrap:wrap}.news-app .sns-top-card:first-child .sns-rank{color:#2563eb}
-.news-move{font-size:10px;font-weight:700;color:var(--sns-muted);background:#f1f5f9;border-radius:5px;padding:2px 6px}.news-move.is-new{color:#b45309;background:#fff4dc}.news-move.is-up{color:#0f8a5f;background:#e6f6ef}.news-move.is-down{color:#b4452c;background:#fdeeea}
-.news-app .news-paywall{color:#8a5f12!important;background:#fff6df!important;border-color:#f3e2b5!important}
-.news-title{font-size:15px;line-height:1.55;letter-spacing:-.3px;margin:12px 0 0;font-weight:750;overflow-wrap:anywhere}.news-title a{color:#18243b!important}.news-title a:hover{color:var(--sns-blue)!important}
-.news-original{font-size:11px;line-height:1.6;color:var(--sns-muted);margin:6px 0 0;overflow-wrap:anywhere}
-.news-app .sns-top-card .sns-text{min-height:0;-webkit-line-clamp:4;margin:10px 0 0;font-size:12.5px;line-height:1.8;color:#3b4a63}
-.news-note{font-size:11px;line-height:1.7;color:#8a5f12;margin:8px 0 0}
-.news-related{margin-top:10px;font-size:11.5px}.news-related summary{cursor:pointer;color:var(--sns-blue);font-weight:600}.news-related ul{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:7px}.news-related li a{color:#425a81!important;line-height:1.55;display:block}.news-related b{color:#18243b;margin-right:4px}
-.news-card .sns-metrics{margin-top:auto;padding-top:12px}.news-card .sns-metrics a{font-weight:600}
-.news-row .news-title{font-size:15px;margin-top:8px}.news-row .sns-text{margin:8px 0 12px;font-size:13px;color:#3b4a63;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
-.news-app .sns-tabs{overflow-x:auto;gap:18px;scrollbar-width:none}.news-app .sns-tabs button{white-space:nowrap}
-.news-about{margin-top:24px}.news-sources{padding-top:12px;border-top:1px solid var(--sns-line)}
-@media(max-width:760px){.news-app .sns-tabs{padding:0 12px;gap:6px}.news-title{font-size:14px}}
-@media(max-width:480px){.news-app .sns-header{grid-template-columns:40px minmax(0,1fr)}.news-app .sns-refresh-group{grid-column:1/-1}}
-.news-app .sns-section-head h2 a{color:inherit!important;text-decoration:none!important}.news-app .sns-section-head h2 a:hover span{color:#2563eb}
-/* 선정 이유 · 데이터 경고 · 주요 뉴스/커뮤니티 탭 */
-.news-why{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:5px}.news-why li{font-size:10.5px;line-height:1.4;color:#33507f;background:#eef3ff;border-radius:5px;padding:2px 7px}
-.news-warn{margin-top:12px;padding:10px 14px;border:1px solid #f3d38a;background:#fff8e6;border-radius:10px;color:#7a4b00;font-size:12px;line-height:1.7}.news-warn ul{margin:2px 0 0;padding-left:18px}
-.news-top-tabs{display:flex;gap:8px;margin:0 0 14px;flex-wrap:wrap}.news-top-tabs button{border:1px solid #c9d6f2;background:#fff;color:#425a81;border-radius:999px;padding:7px 14px;font-size:12.5px!important;font-weight:700!important;cursor:pointer}.news-top-tabs button[aria-pressed=true]{background:#2563eb;border-color:#2563eb;color:#fff}
-.news-talk .sns-metrics{display:flex;gap:14px}
-.news-about ul{margin:0 0 12px;padding-left:18px;font-size:12.5px;line-height:1.85;color:#3b4a63}
-/* 대시보드 맨 위 칸 — 같은 카드, 바깥 여백만 대시보드에 맞춘다. */
-.news-dash .sns-top{margin-bottom:0}
-.news-region{grid-column:1/-1;min-width:0}.news-region-title{font-size:17px;margin:4px 0 12px}.news-region-items{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.news-window-note{font-size:12px;color:var(--sns-muted);margin:0 0 12px}.news-region-items>.sns-empty{grid-column:1/-1}
-@media(max-width:760px){.news-region-items{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:480px){.news-region-items{grid-template-columns:1fr}}
-/* 취향 학습형 (2026-10-09) — 추천 6개 격자 · 종류 표시 · 👍/👎 · 등록 창 */
-.news-top-items{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.news-top-items>.sns-empty{grid-column:1/-1}
-@media(max-width:760px){.news-top-items{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:480px){.news-top-items{grid-template-columns:1fr}}
-.news-kind{margin-left:auto;flex-shrink:0;font-size:10px;font-weight:700;border-radius:5px;padding:2px 7px;color:#425a81;background:#eef3ff}
-.news-kind-official .news-kind{color:#0f6a4f;background:#e3f5ec}.news-kind-report .news-kind{color:#7a3fb0;background:#f3eafc}
-.news-app .news-cat{color:#33507f!important;background:#eef3ff!important}
-.news-card-foot{display:flex;align-items:center;gap:12px}.news-votes{margin-left:auto;display:flex;gap:6px}
-.news-vote{border:1px solid #d5deef;background:#fff;border-radius:999px;padding:3px 10px;font-size:14px!important;line-height:1.4;cursor:pointer;filter:grayscale(.6);opacity:.75}
-.news-vote:hover{opacity:1;filter:none}.news-vote[aria-pressed=true].is-up{background:#e6f6ef;border-color:#7cc8a5;filter:none;opacity:1}.news-vote[aria-pressed=true].is-down{background:#fdeeea;border-color:#e7a594;filter:none;opacity:1}
-.news-vote:disabled{cursor:wait}
-.news-app .is-hidden{opacity:.35;pointer-events:none;transition:opacity .3s}
-.news-like-open{border:1px solid #c9d6f2;background:#fff;color:#24334d;border-radius:10px;padding:10px 14px;font-size:13px!important;font-weight:700!important;cursor:pointer;margin-right:8px}
-.news-like-open:hover{border-color:#2563eb;color:#2563eb}
-.news-sources-box summary{cursor:pointer;font-size:12.5px;color:var(--sns-muted)}
-.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-.news-dialog{width:min(640px,calc(100vw - 32px));max-height:calc(100vh - 48px);border:0;border-radius:16px;padding:22px 24px;box-shadow:0 20px 60px #14244040;color:#18243b}
-.news-dialog::backdrop{background:#14244066}
-.news-dialog-head{display:flex;align-items:center}.news-dialog-head h2{margin:0;font-size:19px}.news-dialog-x{margin-left:auto;border:0;background:none;font-size:24px;cursor:pointer;color:#6b7a93}
-.news-dialog-help{font-size:12.5px;line-height:1.7;color:#4a5a75;margin:8px 0 12px}
-.news-dialog textarea{width:100%;box-sizing:border-box;border:1px solid #aab5c8;border-radius:10px;padding:12px;font:13px/1.6 ui-monospace,Consolas,monospace;resize:vertical}
-.news-dialog-acts{display:flex;align-items:center;justify-content:flex-end;gap:12px;margin-top:10px}.news-dialog-count{font-size:12px;color:#6b7a93}
-.news-dialog-submit{background:#2563eb;color:#fff;border:0;border-radius:10px;padding:10px 18px;font-weight:700;cursor:pointer}.news-dialog-submit:disabled{opacity:.6;cursor:wait}
-.news-dialog-result{font-size:12.5px;line-height:1.7;margin-top:10px}.news-dialog-result ul{margin:0;padding-left:4px;list-style:none}.news-dialog-result small{color:#6b7a93}
-.news-dialog-sub{font-size:15px;margin:18px 0 6px;padding-top:14px;border-top:1px solid #e3e8f2}
-.news-prefs details{margin:6px 0}.news-prefs summary{cursor:pointer;font-weight:700;font-size:13px;padding:4px 0}
-.news-pref-list{list-style:none;margin:4px 0 8px;padding:0;display:grid;gap:6px;max-height:240px;overflow:auto}
-.news-pref-list li{display:flex;align-items:flex-start;gap:8px;font-size:12.5px;line-height:1.5}.news-pref-text{min-width:0;flex:1;overflow-wrap:anywhere}.news-pref-text small{display:block;color:#6b7a93}
-.news-pref-text a{color:#18243b}.news-pref-del{border:0;background:#f1f5f9;border-radius:6px;cursor:pointer;color:#6b7a93;padding:0 8px;font-size:15px}.news-pref-del:hover{color:#b4452c}
-.news-pref-empty{color:#6b7a93}.news-pref-note{font-size:12px;color:#7a4b00}
+/* Jaden AI NEWS — 갤러리처럼 흰 바탕에 검정 글자. 구조는 아주 옅은 회색 단계와 1px 선으로만 나눈다(그림자 없음).
+   눌리는 것은 모두 알약 모양, 카드는 24px, 파란색(accent)은 '무료 사용·토큰' 표시에만 쓴다.
+   sns.css 에 기대지 않는다(이 파일 하나로 대시보드 칸과 AI NEWS 화면을 모두 그린다). */
+.nw, .news-dialog {
+  --nw-ink: #141414; --nw-ink-soft: #262626; --nw-muted: #707070; --nw-faint: #adadad;
+  --nw-canvas: #ffffff; --nw-soft: #f3f3f3; --nw-field: #f0f0f0; --nw-hair-soft: #f0f0f0; --nw-hair: #e0e0e0;
+  --nw-accent: #0066ff;
+  color: var(--nw-ink); font-family: var(--font, 'Geist', 'Noto Sans KR', sans-serif); letter-spacing: 0;
+}
+.nw { background: var(--nw-canvas); border-radius: 24px; padding: 40px; }
+.nw a { color: inherit; text-decoration: none; }
+.nw h1, .nw h2, .nw h3 { font-weight: 650; letter-spacing: 0; margin: 0; color: var(--nw-ink); }
+
+/* ── 머리 ─────────────────────────────────────────── */
+.nw-hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; flex-wrap: wrap; padding-bottom: 48px; }
+.nw-hero-text { min-width: 0; max-width: 720px; }
+.nw-eyebrow { display: flex; align-items: center; gap: 8px; margin: 0 0 16px; font-size: 14px; font-weight: 600; color: var(--nw-muted); }
+.nw-ico svg { width: 28px; height: 28px; display: block; }
+.nw-hero h1 { font-size: 44px; line-height: 1.13; }
+.nw-lead { margin: 12px 0 0; font-size: 20px; font-weight: 300; line-height: 1.38; color: var(--nw-muted); }
+.nw-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.nw-btn, .news-dialog .nw-btn { height: 44px; padding: 0 20px; border-radius: 9999px; font: 600 15px/1 var(--font, sans-serif); cursor: pointer; white-space: nowrap; transition: background .15s, border-color .15s; }
+.nw-btn-primary { background: var(--nw-ink); color: #fff; border: 0; }
+.nw-btn-primary:hover { background: var(--nw-ink-soft); }
+.nw-btn-outline { background: var(--nw-canvas); color: var(--nw-ink); border: 1px solid var(--nw-hair); }
+.nw-btn-outline:hover { background: var(--nw-soft); }
+.nw-btn:disabled { opacity: .55; cursor: wait; }
+.nw-btn:focus-visible, .nw-pill:focus-visible, .nw-vote:focus-visible, .nw-seg button:focus-visible { outline: 2px solid var(--nw-ink); outline-offset: 2px; }
+
+/* ── 추천 6개 ─────────────────────────────────────── */
+.nw-section-head { margin-bottom: 24px; }
+.nw-section-head h2 { font-size: 32px; line-height: 1.13; }
+.nw-section-head h2 a:hover span { color: var(--nw-muted); }
+.nw-built { margin: 8px 0 0; font-size: 14px; line-height: 1.43; color: var(--nw-muted); }
+.nw-note { margin-top: 16px; padding: 12px 16px; background: var(--nw-soft); border-radius: 16px; font-size: 14px; color: var(--nw-ink-soft); }
+.nw-note ul { margin: 0; padding-left: 18px; }
+
+.nw-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.nw-grid > .nw-empty { grid-column: 1 / -1; }
+.nw-card { display: flex; flex-direction: column; min-width: 0; padding: 24px; background: var(--nw-canvas); border: 1px solid var(--nw-hair-soft); border-radius: 24px; transition: border-color .15s, opacity .3s; }
+.nw-card:hover { border-color: var(--nw-hair); }
+.nw-card:first-child { background: var(--nw-soft); border-color: transparent; } /* 1위는 테두리 대신 옅은 바탕으로 */
+.nw-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.nw-rank { font-size: 32px; font-weight: 650; line-height: 1; color: var(--nw-ink); font-variant-numeric: tabular-nums; }
+.nw-card:not(:first-child) .nw-rank { color: var(--nw-faint); }
+.nw-badges { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
+.nw-badge { display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 9999px; background: var(--nw-soft); color: var(--nw-ink-soft); font-size: 12px; font-weight: 600; line-height: 1; white-space: nowrap; }
+.nw-card:first-child .nw-badge { background: var(--nw-canvas); }
+.nw-badge.is-accent { background: var(--nw-accent) !important; color: #fff; }
+.nw-badge.is-line { background: transparent !important; border: 1px solid var(--nw-hair); color: var(--nw-muted); }
+.nw-title { font-size: 19px !important; line-height: 1.42; font-weight: 650; word-break: keep-all; overflow-wrap: anywhere; }
+.nw-title a:hover, .nw-row-title a:hover { text-decoration: underline; text-underline-offset: 3px; text-decoration-thickness: 1px; }
+.nw-original { margin: 8px 0 0; font-size: 13px; line-height: 1.43; color: var(--nw-muted); overflow-wrap: anywhere; }
+.nw-source { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0 0; font-size: 14px; color: var(--nw-muted); }
+.nw-source strong { color: var(--nw-ink); font-weight: 600; }
+.nw-source time::before, .nw-row-meta time::before, .nw-score::before { content: '·'; margin-right: 8px; color: var(--nw-faint); }
+.nw-why { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 4px; }
+.nw-why li { font-size: 12px; line-height: 1.33; color: var(--nw-muted); }
+.nw-why li:not(:last-child)::after { content: ' ·'; color: var(--nw-faint); }
+.nw-related { margin-top: 12px; font-size: 13px; }
+.nw-related summary { cursor: pointer; color: var(--nw-muted); font-weight: 600; }
+.nw-related ul { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+.nw-related li a { display: block; line-height: 1.5; color: var(--nw-ink-soft); }
+.nw-related b { font-weight: 600; margin-right: 4px; }
+.nw-card-foot { display: flex; align-items: center; gap: 8px; margin-top: auto; padding-top: 24px; }
+
+.nw-pill { display: inline-flex; align-items: center; height: 36px; padding: 0 16px; border-radius: 9999px; background: var(--nw-soft); color: var(--nw-ink) !important; font-size: 14px; font-weight: 600; white-space: nowrap; }
+.nw-pill:hover { background: var(--nw-field); }
+.nw-card:first-child .nw-pill { background: var(--nw-canvas); }
+.nw-votes { display: flex; gap: 4px; margin-left: auto; }
+.nw-vote { width: 40px; height: 36px; border-radius: 9999px; border: 1px solid var(--nw-hair); background: var(--nw-canvas); font-size: 15px; line-height: 1; cursor: pointer; filter: grayscale(1); opacity: .6; transition: opacity .15s, background .15s; }
+.nw-vote:hover { opacity: 1; filter: none; }
+.nw-vote[aria-pressed=true] { background: var(--nw-ink); border-color: var(--nw-ink); filter: none; opacity: 1; }
+.nw-vote:disabled { cursor: wait; }
+.nw .is-hidden { opacity: .3; pointer-events: none; }
+
+/* ── 더 보기 ──────────────────────────────────────── */
+.nw-more { margin-top: 80px; }
+.nw-more-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.nw-more-head h2 { font-size: 32px; line-height: 1.13; }
+.nw-seg { display: inline-flex; gap: 2px; padding: 4px; background: var(--nw-soft); border-radius: 9999px; overflow-x: auto; max-width: 100%; scrollbar-width: none; }
+.nw-seg button { height: 36px; padding: 0 16px; border: 0; border-radius: 9999px; background: transparent; color: var(--nw-muted); font: 600 14px/1 var(--font, sans-serif); cursor: pointer; white-space: nowrap; }
+.nw-seg button[aria-pressed=true] { background: var(--nw-canvas); color: var(--nw-ink); box-shadow: 0 1px 2px rgba(20, 20, 20, .08); }
+.nw-hint { margin: 12px 0 24px; font-size: 14px; color: var(--nw-muted); }
+.nw-list { border-top: 1px solid var(--nw-hair-soft); }
+.nw-list > .nw-empty { padding: 32px 0; }
+.nw-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 24px; padding: 20px 0; border-bottom: 1px solid var(--nw-hair-soft); transition: opacity .3s; }
+.nw-row-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 8px; font-size: 13px; color: var(--nw-muted); }
+.nw-row-meta strong { color: var(--nw-ink); font-weight: 600; margin-right: 2px; }
+.nw-row-meta time::before { margin-left: 2px; }
+.nw-row-title { font-size: 17px !important; line-height: 1.45; font-weight: 600 !important; word-break: keep-all; overflow-wrap: anywhere; }
+.nw-row .nw-original { margin-top: 4px; }
+.nw-row-side { display: flex; align-items: center; gap: 8px; }
+.nw-row-side .nw-votes { margin-left: 0; }
+
+/* ── 고르는 방법 ──────────────────────────────────── */
+.nw-about { margin-top: 80px; padding: 32px; background: var(--nw-soft); border-radius: 24px; }
+.nw-about h2 { font-size: 24px; line-height: 1.25; margin-bottom: 16px; }
+.nw-about dl { margin: 0; display: grid; gap: 16px; }
+.nw-about dl > div { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 16px; }
+.nw-about dt { font-size: 14px; font-weight: 600; }
+.nw-about dd { margin: 0; font-size: 14px; line-height: 1.6; color: var(--nw-ink-soft); }
+.nw-sources { margin-top: 24px; font-size: 13px; color: var(--nw-muted); }
+.nw-sources summary { cursor: pointer; font-weight: 600; }
+.nw-sources p { margin: 8px 0 0; line-height: 1.7; }
+.nw-status { min-height: 20px; margin: 24px 0 0; font-size: 14px; color: var(--nw-muted); }
+.nw-empty { margin: 0; font-size: 15px; color: var(--nw-muted); }
+
+/* ── 대시보드 칸 ──────────────────────────────────── */
+.nw-dash { padding: 32px; border: 1px solid var(--nw-hair-soft); }
+.nw-dash .nw-section-head h2 { font-size: 24px; line-height: 1.25; }
+
+/* ── 좋아하는 기사 등록 창 ────────────────────────── */
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.news-dialog { width: min(640px, calc(100vw - 32px)); max-height: calc(100vh - 48px); border: 0; border-radius: 24px; padding: 32px; background: var(--nw-canvas); box-shadow: 0 24px 64px rgba(20, 20, 20, .18); }
+.news-dialog::backdrop { background: rgba(20, 20, 20, .4); }
+.news-dialog-head { display: flex; align-items: center; }
+.news-dialog-head h2 { margin: 0; font-size: 24px; font-weight: 650; line-height: 1.25; }
+.news-dialog-x { margin-left: auto; width: 36px; height: 36px; border: 0; border-radius: 9999px; background: var(--nw-soft); font-size: 20px; line-height: 1; cursor: pointer; color: var(--nw-ink); }
+.news-dialog-help { margin: 12px 0 16px; font-size: 14px; line-height: 1.6; color: var(--nw-muted); }
+.news-dialog textarea { width: 100%; box-sizing: border-box; border: 0; border-radius: 16px; background: var(--nw-field); padding: 12px 16px; font: 14px/1.6 'Geist Mono', ui-monospace, Consolas, monospace; color: var(--nw-ink); resize: vertical; }
+.news-dialog textarea::placeholder { color: var(--nw-faint); }
+.news-dialog textarea:focus { outline: 2px solid var(--nw-ink); outline-offset: 0; }
+.news-dialog-acts { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 12px; }
+.news-dialog-count { font-size: 13px; color: var(--nw-muted); }
+.news-dialog-result { margin-top: 12px; font-size: 14px; line-height: 1.7; }
+.news-dialog-result ul { margin: 0; padding: 0; list-style: none; }
+.news-dialog-result small { color: var(--nw-muted); }
+.news-dialog-sub { margin: 24px 0 8px; padding-top: 24px; border-top: 1px solid var(--nw-hair-soft); font-size: 17px; font-weight: 650; }
+.news-prefs details { margin: 4px 0; }
+.news-prefs summary { cursor: pointer; padding: 10px 16px; border-radius: 16px; background: var(--nw-soft); font-size: 14px; font-weight: 600; }
+.news-pref-list { list-style: none; margin: 8px 0 12px; padding: 0 4px; display: grid; gap: 8px; max-height: 240px; overflow: auto; }
+.news-pref-list li { display: flex; align-items: flex-start; gap: 8px; font-size: 14px; line-height: 1.5; }
+.news-pref-text { min-width: 0; flex: 1; overflow-wrap: anywhere; }
+.news-pref-text a { color: var(--nw-ink); }
+.news-pref-text small { display: block; color: var(--nw-muted); font-size: 12px; }
+.news-pref-del { flex-shrink: 0; width: 28px; height: 28px; border: 1px solid var(--nw-hair); border-radius: 9999px; background: var(--nw-canvas); color: var(--nw-muted); cursor: pointer; font-size: 15px; line-height: 1; }
+.news-pref-del:hover { color: var(--nw-ink); border-color: var(--nw-ink); }
+.news-pref-empty, .news-pref-note { color: var(--nw-muted); font-size: 13px; }
+
+/* ── 좁은 화면 ────────────────────────────────────── */
+@media (max-width: 1024px) { .nw-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 720px) {
+  .nw { padding: 24px 16px; border-radius: 16px; }
+  .nw-hero { padding-bottom: 32px; }
+  .nw-hero h1 { font-size: 32px; }
+  .nw-lead { font-size: 17px; }
+  .nw-actions, .nw-actions .nw-btn { width: 100%; }
+  .nw-actions .nw-btn { flex: 1; }
+  .nw-grid { grid-template-columns: 1fr; }
+  .nw-section-head h2, .nw-more-head h2 { font-size: 26px; }
+  .nw-more, .nw-about { margin-top: 48px; }
+  .nw-row { grid-template-columns: 1fr; gap: 12px; }
+  .nw-about { padding: 24px 20px; }
+  .nw-about dl > div { grid-template-columns: 1fr; gap: 4px; }
+  .nw-dash { padding: 20px 16px; }
+  .news-dialog { padding: 24px 20px; }
+}
