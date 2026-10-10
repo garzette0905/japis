@@ -853,11 +853,15 @@ async function openEditor(page, id) {
   wireEditor();
   paintShareButton();
   markSaved(note.updatedAt ? '저장됨 · ' + when(note.updatedAt) : '');
+  // 이미 있는 메모는 '보기'로 연다 — 읽으러 들어온 것이고, 고치려면 '편집'을 누른다.
+  // 새 메모만 곧장 쓸 수 있게 편집칸으로 연다.
+  if (id) {
+    setMode('view');
+    return;
+  }
   // 모바일에서는 자동 포커스가 곧 소프트 키보드 호출이다. 메모를 여는 첫 순간에는
   // 내용을 온전히 보여주고, 사용자가 제목이나 본문을 직접 누를 때만 키보드를 연다.
-  if (!window.matchMedia('(max-width: 860px)').matches) {
-    el(id ? 'ed-body' : 'ed-title').focus();
-  }
+  if (!window.matchMedia('(max-width: 860px)').matches) el('ed-title').focus();
 }
 
 // ---------- 서식 단추 ----------
@@ -1082,6 +1086,7 @@ function wireEditor() {
 
   title.addEventListener('input', touched);
   body.addEventListener('input', touched);
+  body.addEventListener('keydown', linkOnEnter);
   body.addEventListener('keyup', syncTools);
   body.addEventListener('mouseup', syncTools);
 
@@ -1159,6 +1164,42 @@ function editorKeys(e) {
     e.preventDefault();
     doAct('link');
   }
+}
+
+// 주소를 적고 그 **바로 끝에서** 엔터를 치면 그 주소를 링크로 감싼다. 엔터 자체는
+// 그대로 흘려보내 줄은 평소처럼 바뀐다. 끝에 붙은 마침표·쉼표 같은 것은 링크에서 뺀다.
+const TAIL_URL = /(?:^|[\s ])((?:https?:\/\/|www\.)[^\s <>"]+)$/i;
+
+function linkOnEnter(e) {
+  if (e.key !== 'Enter' || e.isComposing || e.ctrlKey || e.metaKey || e.altKey) return;
+  const sel = window.getSelection();
+  if (!sel || !sel.isCollapsed || !sel.rangeCount) return;
+  const node = sel.anchorNode;
+  if (!node || node.nodeType !== Node.TEXT_NODE || node.parentElement?.closest('a')) return;
+  const before = node.data.slice(0, sel.anchorOffset);
+  const m = before.match(TAIL_URL);
+  if (!m) return;
+  const url = m[1].replace(/[.,;:!?'"]+$/, '');
+  if (url.length < 5 || /^www\.$/i.test(url)) return;
+
+  const start = before.length - m[1].length;
+  const range = document.createRange();
+  range.setStart(node, start);
+  range.setEnd(node, start + url.length);
+  const a = document.createElement('a');
+  a.href = /^www\./i.test(url) ? 'https://' + url : url;
+  a.target = '_blank';
+  a.rel = 'noopener noreferrer';
+  range.surroundContents(a);
+
+  // 커서를 링크 **바깥** 뒤로 — 그래야 다음 줄이 링크를 이어받지 않는다.
+  const after = document.createRange();
+  if (a.nextSibling && a.nextSibling.nodeType === Node.TEXT_NODE) after.setStart(a.nextSibling, before.length - start - url.length);
+  else after.setStartAfter(a);
+  after.collapse(true);
+  sel.removeAllRanges();
+  sel.addRange(after);
+  touched();
 }
 
 /** 무언가 바뀌었다. 저장 단추를 깨우고, 2초 뒤에 조용히 저장한다. */
