@@ -9,14 +9,14 @@ Google News 확산도 순위와 국내 3·해외 3 할당을 없앴다. 좋아�
 ### 수집 대상 (cloudflare/news.js 의 SOURCES)
 
 - 뉴스: AI타임스 · 인공지능신문 · 지디넷코리아 · TechCrunch(AI) · The Verge(AI) · MIT Technology Review(AI) · Reuters(Bing 사이트 검색) · Bloomberg · The Information
-- 공식 발표: OpenAI · Anthropic(RSS가 없어 /news 목록 화면을 읽음) · Google DeepMind · Google AI 블로그 · NVIDIA · Hugging Face
-- 리포트·인사이트: McKinsey Insights · Bain(Bing 사이트 검색) · Section(/blog 목록 화면) · 컨설팅사(McKinsey·Bain·BCG·Deloitte·Accenture·Gartner) AI 보고서 보도
+- 공식 발표: OpenAI · Anthropic(RSS가 없어 /news 목록 화면을 읽음) · Google DeepMind · Google AI 블로그 · Google Gemini 전용 RSS · NVIDIA · Hugging Face
+- 리포트·인사이트: McKinsey Insights · Bain(Bing 사이트 검색) · Section(/blog 목록 화면) · BCG(AI 인사이트 본문 목록) · Deloitte(AI Institute의 공식 Insights 기사 목록) · 컨설팅사(McKinsey·Bain·BCG·Deloitte·Accenture·Gartner) AI 보고서 보도
 - 무료 사용·토큰 소식: 프런티어 AI 회사의 무료 토큰·크레딧·무료 개방 보도(영문·국문 Bing 검색)
 - 학습 출처: 등록한 기사의 사이트가 위 목록에 없으면 RSS(페이지가 알려주는 주소 → 첫 화면) → 기사 상위 경로의 목록 화면 → Bing 사이트 검색 순으로 찾아 `news_sources` 에 저장하고, 매시 수집에 최대 8곳을 더한다.
 - 기간: 뉴스 72시간, 공식 발표 7일, 리포트 21일. 칼럼·행사·주가 시황은 제외하고 같은 사건은 묶어 대표 기사 하나(공식 발표 우선)와 관련 보도로 보여 준다.
-- 날짜가 없는 목록 화면 글은 처음 본 시각을 발행 시각으로 쓴다. 출처를 처음 읽을 때 이미 있던 글은 30일 전 글로 둔다. 새 글은 매시 최대 5개까지 기사 페이지를 열어 제목·요약·발행 시각을 보완한다(`news:pages`).
+- 날짜가 없는 목록 화면 글은 처음 본 시각을 발행 시각으로 쓴다. 출처를 처음 읽을 때 이미 있던 글은 30일 전 글로 둔다. 새 글은 출처별로 돌아가며 매시 최대 5개까지 기사 페이지를 열어 제목·요약·발행 시각을 보완한다(`news:pages`).
 
-### 점수 (100점 안팎) — 성격 기반 선호 (2026-10-11)
+### 점수 (최대 97점) — 성격 기반 선호 (2026-10-11)
 
 좋아요는 **기사 자체가 아니라 기사의 성격**에 점수를 준다. 예전에는 좋아요한 기사가 자기 자신과 유사도 100%가 되어 추천 위쪽을 계속 차지했고, 새 기사(예: Bloomberg 나델라 '비상 브레이크')가 올라오지 못했다.
 매시 수집한 기사에 점수를 처음부터 다시 매긴다(`news:pool` 의 옛 규칙 분류는 쓰지 않고, 편집 판정은 `JUDGE_VERSION` 이 바뀌면 다시 받는다).
@@ -24,7 +24,7 @@ Google News 확산도 순위와 국내 3·해외 3 할당을 없앴다. 좋아�
 | 항목 | 배점 |
 |---|---|
 | 좋아요한 회사·발표자(OpenAI·Anthropic·Microsoft·NVIDIA… / 올트먼·나델라·젠슨 황…) 비중 | 10 |
-| 좋아요한 주제와의 닮음(가장 닮은 3개 평균) | 10 |
+| 좋아요한 주제와의 닮음(유사도 × 시간 감쇠가 가장 큰 3개 평균) | 10 |
 | 좋아요한 종류(신제품·무료 토큰·리포트·리더 발언…) 비중 | 8 |
 | 좋아요한 매체 비중 | 7 |
 | 중요도(Workers AI 편집 판정 1~5, 실패하면 규칙): 2=5 · 3=12 · 4=19 · 5=25 | 25 |
@@ -39,7 +39,7 @@ Google News 확산도 순위와 국내 3·해외 3 할당을 없앴다. 좋아�
 - 오늘의 주요 소식: 중요도 5이고 36시간 안의 기사는 취향과 상관없이 추천 6개에 2개까지 먼저 올린다. 이름이 나온 빅테크 CEO 발언은 규칙만으로도 '리더 발언'·중요도 5.
 - 유사도: Workers AI `@cf/baai/bge-m3` 다국어 임베딩(한·영 기사 비교 가능)의 코사인. 0.5 이하 0, 0.8 이상 1. 임베딩을 못 쓰면 제목 키워드 겹침으로 대신한다.
 - 제외: AI 주제 아님, 중요도 2 미만, 👎 기사와 거의 같음(코사인 0.8 이상이고 좋아요 유사도보다 높음), 👎 한 기사 자체, 싫어요 3번 이상·좋아요 0인 사이트(수집에서 뺌).
-- 선정: 추천 6개(한 매체 2개까지) + 더 보기 24개. 국내·해외 할당은 없다. 영문 제목은 한국어로 번역한다.
+- 선정: 추천 6개(한 매체 2개까지) + 더 보기 24개. 국내·해외 할당은 없다. 주요 소식 우선 배치와 매체 제한으로 추천 순서는 점수순과 다를 수 있다. 추천 카드(대시보드 포함)와 더 보기 모두 점수를 표시한다. 영문 제목은 한국어로 번역한다.
 
 ### 평가와 등록
 
@@ -52,9 +52,9 @@ Google News 확산도 순위와 국내 3·해외 3 할당을 없앴다. 좋아�
 ## 운영
 
 - D1: `migrations/020_news_preferences.sql`(`news_feedback`, `news_sources`). 표가 없으면 학습 없이 기본 점수로 동작한다.
-- KV(SESSIONS): `news:snapshot`(화면, 버전 7) · `news:pool`(후보 묶음) · `news:seen`(처음 본 시각) · `news:pages`(목록 글 보완) · `news:prefs`(평가 사본·버전).
+- KV(SESSIONS): `news:snapshot`(화면, 버전 8) · `news:pool`(후보 묶음) · `news:seen`(처음 본 시각) · `news:pages`(목록 글 보완) · `news:prefs`(평가 사본·버전).
 - API(모두 'news' 권한): `GET /api/news[?refresh=1]` · `POST /api/news/likes {urls}` · `POST /api/news/feedback {url, vote: 1|-1|0}` · `GET /api/news/preferences` · `DELETE /api/news/preferences/:id` · `DELETE /api/news/sources/:domain`.
-- Cloudflare 무료 플랜: 수집 한 번의 외부 호출을 40개 안으로 묶는다(출처 21 + 학습 출처 ≤8 + 기사 보완 ≤5 + 출처 학습). Workers AI 는 새 후보만 임베딩·판정·번역하고 지난 결과를 재사용해 일일 무료 한도(10,000 Neurons) 안에 머문다.
+- Cloudflare 무료 플랜: 수집 한 번의 외부 호출을 40개 안으로 묶는다(출처 24 + 학습 출처 ≤8 + 기사 보완 ≤5 + 출처 학습). Workers AI 는 새 후보만 임베딩·판정·번역하고 지난 결과를 재사용해 일일 무료 한도(10,000 Neurons) 안에 머문다.
 - 매시 3분 예약 갱신, 저장본 유효 65분. 출처 실패는 경고 상자 대신 **고르는 방법 → 수집 상태**에만 표시한다.
 - 검증: `npm test`.
 

@@ -22,7 +22,7 @@ const KEY = 'news:snapshot';
 const POOL_KEY = 'news:pool';
 const SEEN_KEY = 'news:seen';            // 기사 주소 → 처음 본 시각. 수정 시각으로 오래된 기사가 '신규'가 되지 않게 한다.
 const PAGES_KEY = 'news:pages';          // 목록 화면에서 읽은 글의 제목·요약·발행 시각(한 번 읽으면 다시 부르지 않는다)
-const SNAPSHOT_VERSION = 7;              // 성격 기반 선호(7)
+const SNAPSHOT_VERSION = 8;              // 주제 감쇠·컨설팅 원문 출처(8)
 const STALE_MS = 65 * 60 * 1000;         // 예약 작업이 한 번 빠져도 버티는 한도
 const MANUAL_MIN_MS = 10 * 60 * 1000;    // 수동 '다시 수집'은 10분에 한 번까지
 const SEEN_TTL_MS = 40 * 24 * H;      // 목록 화면의 옛 글(30일 전으로 둔 것)보다 길게 기억한다
@@ -62,10 +62,13 @@ export const SOURCES = [
   { id: 'anthropic', name: 'Anthropic', domain: 'anthropic.com', url: 'https://www.anthropic.com/news', format: 'html', prefix: '/news/', kind: 'official', aiOnly: true },
   { id: 'deepmind', name: 'Google DeepMind', domain: 'deepmind.google', url: 'https://deepmind.google/blog/rss.xml', kind: 'official', aiOnly: true },
   { id: 'googleai', name: 'Google AI', domain: 'blog.google', url: 'https://blog.google/technology/ai/rss/', kind: 'official', aiOnly: true },
+  { id: 'gemini', name: 'Google Gemini', domain: 'blog.google', url: 'https://blog.google/products/gemini/rss/', kind: 'official', aiOnly: true },
   { id: 'nvidia', name: 'NVIDIA', domain: 'nvidia.com', url: 'https://blogs.nvidia.com/feed/', kind: 'official' },
   { id: 'huggingface', name: 'Hugging Face', domain: 'huggingface.co', url: 'https://huggingface.co/blog/feed.xml', kind: 'official', aiOnly: true },
   { id: 'mckinsey', name: 'McKinsey', domain: 'mckinsey.com', url: 'https://www.mckinsey.com/insights/rss', kind: 'report' },
   { id: 'bain', name: 'Bain & Company', domain: 'bain.com', url: bing('site:bain.com AI'), kind: 'report', bing: true },
+  { id: 'bcg', name: 'BCG', domain: 'bcg.com', url: 'https://www.bcg.com/capabilities/artificial-intelligence/insights', format: 'html', prefix: '/publications/', mainOnly: true, maxChars: 1500000, kind: 'report', aiOnly: true },
+  { id: 'deloitte', name: 'Deloitte', domain: 'deloitte.com', url: 'https://www.deloitte.com/us/en/services/consulting/content/advancing-human-ai-collaboration.html', format: 'html', prefix: '/us/en/insights/', listingStart: '<!-- Begin tile -->', kind: 'report' },
   { id: 'sectionai', name: 'Section', domain: 'sectionai.com', url: 'https://www.sectionai.com/blog', format: 'html', prefix: '/blog/', kind: 'report', aiOnly: true },
   { id: 'consulting', name: '컨설팅 리포트 보도', url: bing('(McKinsey OR Bain OR BCG OR Deloitte OR Accenture OR Gartner) AI report'), kind: 'report', bing: true, anyDomain: true, mustMatch: 'consult' },
   { id: 'freeoffer', name: '무료 사용 소식', url: bing('(OpenAI OR Anthropic OR Gemini OR Claude OR ChatGPT OR Grok) free (tokens OR credits OR access OR tier)'), kind: 'news', bing: true, anyDomain: true },
@@ -91,7 +94,7 @@ export function allowedArticle(item, source) {
 // ──────────────────────────────────────────────────────────────
 
 const AI_RE = /\b(ai|a\.i\.|agi|llms?|gpt[-\w.]*|chatgpt|openai|anthropic|claude|gemini|deepmind|copilot|llama|mistral|nvidia|gpus?|machine learning|neural|chatbots?|generative|agents?|agentic|xai|grok|perplexity|hugging ?face|transformer|inference|datacenters?|data centers?|deepseek|qwen)\b|인공지능|생성형|챗GPT|챗봇|오픈AI|엔비디아|딥마인드|앤트로픽|에이전트|데이터센터|제미나이|클로드|챗지피티|코파일럿|딥시크|(?<![a-z])(?:ai|llm|gpu|sllm)(?![a-z])/i;
-export const isAi = (text) => AI_RE.test(text);
+export const isAi = (text) => AI_RE.test(text) || /\bgenai\b/i.test(text);
 // 뉴스가 아닌 글(칼럼·사설·기고·사진·행사·교육 모집·주가 시황·뉴스레터 묶음)은 후보에서 뺀다.
 const LOW_QUALITY_RE = /\b(opinion|op-ed|editorial|commentary|podcast|newsletter|webinar|sponsored|livestream|quiz|coupon|stocks? to (buy|watch)|buy (the|this) (stock|dip)|price target|motley fool|morning download)\b|\| (opinion|technology for)\b|^(what|who) is\b|\[(?:[^\]]*칼럼|사설|기고|오피니언|시론|기자수첩|데스크|포토|사진|영상|카드뉴스|광고|인사|부고|알림|게시판|채용|AD)[^\]]*\]|특징주|목표\s?주가|주가\s?(급등|급락|강세|약세)|(세미나|웨비나|포럼|설명회|공모전|교육생|수강생|참가자)\s?(개최|모집|성료|연다|열어)|(모집|개최|성료)$/i;
 export const lowQuality = (title) => LOW_QUALITY_RE.test(title);
@@ -117,7 +120,7 @@ const TYPES = Object.keys(CATEGORY);
 export function ruleCategory(c) {
   const text = `${c.title} ${c.summary || ''}`;
   if (FREE_RE.test(c.title) || (FREE_RE.test(text) && FRONTIER_RE.test(text))) return 'free';
-  if ((c.kind === 'report' && (CONSULT_RE.test(text) || REPORT_RE.test(text) || c.source === 'sectionai')) || (CONSULT_RE.test(text) && REPORT_RE.test(c.title))) return 'report';
+  if ((c.kind === 'report' && (CONSULT_RE.test(text) || REPORT_RE.test(text) || ['mckinsey', 'bain', 'bcg', 'deloitte', 'sectionai'].includes(c.source) || kindOfDomain(c.domain || '') === 'report')) || (CONSULT_RE.test(text) && REPORT_RE.test(c.title))) return 'report';
   if (FRONTIER_RE.test(c.title) && LAUNCH_RE.test(c.title)) return 'launch';
   if (c.kind === 'official' && LAUNCH_RE.test(c.title)) return 'launch';
   if (LEADER_RE.test(c.title) && FRONTIER_RE.test(c.title)) return 'leader';
@@ -132,7 +135,7 @@ const ruleImportance = (c, category) => (category === 'leader' && PEOPLE.some(([
 // ──────────────────────────────────────────────────────────────
 
 async function fetchSource(source) {
-  const { text } = await fetchText(source.url, { accept: source.format === 'html' ? undefined : 'application/rss+xml, application/atom+xml, application/xml;q=0.9, */*;q=0.5' });
+  const { text } = await fetchText(source.url, { maxChars: source.maxChars, accept: source.format === 'html' ? undefined : 'application/rss+xml, application/atom+xml, application/xml;q=0.9, */*;q=0.5' });
   if (source.format === 'html') return parseListing(text, source);
   if (!/<(rss|feed|rdf:RDF)\b/i.test(text)) throw new Error('RSS 형식 아님');
   return parseFeed(text, source);
@@ -170,7 +173,17 @@ async function enrichListings(items, cache, now, budget) {
     const hit = next[normUrl(i.url)];
     if (hit) Object.assign(i, { title: hit.title || i.title, summary: hit.summary || i.summary, ...(hit.at ? { at: hit.at, undated: false } : {}) });
   }
-  const todo = items.filter((i) => !next[normUrl(i.url)]).slice(0, Math.min(META_FETCH_LIMIT, Math.max(0, budget.left)));
+  // 한 목록이 보완 5개를 독점하지 않게 출처별로 돌아가며 고른다.
+  const queues = new Map();
+  for (const i of items.filter((i) => !next[normUrl(i.url)])) {
+    const q = queues.get(i.source) || []; q.push(i); queues.set(i.source, q);
+  }
+  const todo = [], limit = Math.min(META_FETCH_LIMIT, Math.max(0, budget.left));
+  while (todo.length < limit && queues.size) for (const [source, q] of queues) {
+    todo.push(q.shift());
+    if (!q.length) queues.delete(source);
+    if (todo.length >= limit) break;
+  }
   budget.left -= todo.length;
   const got = await settledPool(todo.map((i) => async () => parseMeta((await fetchText(i.url, { timeout: 8000 })).text, i.url)), 3);
   todo.forEach((i, k) => {
@@ -325,8 +338,8 @@ export function affinity(c, prefs, now = Date.now(), traits = null) {
     return (v) => (top && m.get(v) ? m.get(v) / top : 0);
   };
   const t = traits || { category: ruleCategory(c), entities: entitiesOf(c.title), domain: c.domain };
-  const top3 = [...likes].sort((x, y) => y.a - x.a).slice(0, 3);
-  out.topic = top3.reduce((x, l) => x + l.a, 0) / top3.length;
+  const top3 = [...likes].sort((x, y) => y.a * y.w - x.a * x.w).slice(0, 3);
+  out.topic = top3.reduce((x, l) => x + l.a * l.w, 0) / top3.length;
   out.likeOf = top3[0].a > 0.3 ? top3[0].r : null;
   out.category = share('category')(t.category);
   const ent = share('entities');
@@ -403,7 +416,7 @@ export function selectNews(pool, prefs, now, votes = {}) {
     importance: x.s.importance, coverage: x.c.coverage, related: x.c.related || [], reasons: [...(x.headline ? ['오늘의 주요 소식'] : []), ...reasons(x.c, x.s)].slice(0, 4), vote: votes[x.c.key] || 0 });
   return {
     top: top.map(card),
-    more: rest.slice(0, MORE_SIZE).map((x, i) => card(x, i + TOP_SIZE + 1)),
+    more: rest.slice(0, MORE_SIZE).map((x, i) => card(x, i + TOP_SIZE)),
     excluded: excluded.filter((x) => x.s.excluded === '싫어요한 기사와 거의 같음' || votes[x.c.key] === -1).slice(0, 20)
       .map((x) => ({ title: x.c.titleKo || x.c.title, url: x.c.url, publisher: x.c.publisher, reason: votes[x.c.key] === -1 ? '싫어요' : `"${x.s.aff.dislikeOf?.title || ''}"와 비슷함` })),
     method: scored.some((x) => x.s.aff.method === 'embedding') ? 'embedding' : 'keyword',

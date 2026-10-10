@@ -204,6 +204,35 @@ test('좋아요의 무게는 시간이 갈수록 줄고 60일이 지나면 점�
   assert.equal(scoreCandidate(c, prefsOf([at(90)]), now).parts.likePublisher, 3.5, '60일 지난 좋아요만 있으면 좋아요가 없는 것과 같다');
 });
 
+test('주제 점수도 좋아요 14일 반감기를 적용하고 자기 기사에는 가산하지 않는다', () => {
+  const c = { ...cand({ url: 'https://techcrunch.com/new', title: 'AI enterprise adoption' }), vec: unpackVec(packVec([1, 0])), feat: new Set() };
+  const topic = (days) => scoreCandidate(c, prefsOf([{ title: 'AI workplace strategy', url: 'other', vec: unpackVec(packVec([0.7, Math.sqrt(0.51)])), domain: 'example.com', created_at: new Date(now - days * 24 * H).toISOString() }]), now).parts.topic;
+  assert.ok(Math.abs(topic(14) - topic(0) / 2) < 1e-8);
+  assert.ok(Math.abs(topic(28) - topic(0) / 4) < 1e-8);
+  const self = scoreCandidate(c, prefsOf([{ title: c.title, url: c.key, vec: c.vec }]), now);
+  assert.equal(self.parts.topic, 0);
+});
+
+test('컨설팅 원문은 회사명이 제목에 없어도 분석 리포트이며 새 출처는 중복 등록하지 않는다', () => {
+  for (const id of ['mckinsey', 'bain', 'bcg', 'deloitte', 'sectionai']) {
+    const s = src(id);
+    assert.equal(SOURCES.filter((x) => x.id === id).length, 1);
+    assert.equal(ruleCategory({ title: 'Scaling AI across your organization', kind: s.kind, source: id, domain: s.domain }), 'report');
+  }
+  assert.equal(src('gemini').kind, 'official');
+  assert.ok(isAi('Managing GenAI risks'));
+});
+
+test('큰 BCG 메뉴 뒤의 본문과 Deloitte 타일의 실제 제목을 읽는다', () => {
+  const nav = '<a href="/menu">Navigation menu</a>'.repeat(15000);
+  const bcg = parseListing(nav + '<main><a href="/publications/2026/ai-value"><h3>AI value creation strategy</h3></a></main>', src('bcg'));
+  assert.equal(bcg.length, 1);
+  assert.equal(bcg[0].title, 'AI value creation strategy');
+  const deloitte = parseListing(nav + '<!-- Begin tile --><a href="/us/en/insights/topics/ai-risk.html"><!-- <h2>INSIGHTS</h2> --><p>Managing GenAI risks</p></a>', src('deloitte'));
+  assert.equal(deloitte.length, 1);
+  assert.equal(deloitte[0].title, 'Managing GenAI risks');
+});
+
 test('중요도 5 소식은 취향과 상관없이 추천에 먼저 오르고, 빅테크 CEO 발언은 리더 발언으로 분류된다', () => {
   const nadella = 'Microsoft CEO Nadella Calls for ‘Emergency Brake’ on Advanced AI';
   assert.equal(ruleCategory({ title: nadella, kind: 'news' }), 'leader');
@@ -292,6 +321,28 @@ test('수집부터 선정까지: 공식 발표·리포트·뉴스를 함께 고�
   assert.ok(!env.AI.calls.includes('@cf/baai/bge-m3'), '새 후보가 없으면 임베딩을 다시 부르지 않는다');
 });
 
+test('목록 보완은 출처별로 나눠 5개만 읽고 새 컨설팅 글의 날짜와 분류를 복원한다', async (t) => {
+  const opened = [];
+  const titles = { anthropic: 'Claude launches new coding assistant', bcg: 'AI manufacturing workforce productivity survey', deloitte: 'GenAI governance cyber risk controls report', sectionai: 'Marketing customer segmentation with artificial intelligence' };
+  const listing = (s) => (s.mainOnly ? '<main>' : s.listingStart || '') + Array.from({ length: 6 }, (_, i) => `<a href="${s.prefix}ai-strategy-${i}"><h3>${titles[s.id]} ${i}</h3></a>`).join('');
+  t.mock.method(globalThis, 'fetch', async (url) => {
+    const s = SOURCES.find((s) => s.url === String(url));
+    if (s) return new Response(s.format === 'html' ? listing(s) : '<rss></rss>');
+    opened.push(String(url));
+    const articleSource = SOURCES.find((s) => s.domain && String(url).includes(s.domain));
+    return new Response(`<meta property="og:title" content="${titles[articleSource.id]}"><meta property="article:published_time" content="${new Date(now - H).toISOString()}">`);
+  });
+  const snap = await buildNews({ SESSIONS: kv(), DB: d1() }, now);
+  assert.equal(opened.length, 5);
+  for (const id of ['anthropic', 'bcg', 'deloitte', 'sectionai']) {
+    assert.ok(opened.some((u) => u.includes(src(id).domain)), `${id}도 페이지 보완 기회를 받는다`);
+  }
+  const reports = [...snap.top, ...snap.more].filter((x) => x.kind === 'report');
+  assert.ok(reports.some((x) => x.publisher === 'BCG' && x.category === 'report'));
+  assert.ok(reports.some((x) => x.publisher === 'Deloitte' && x.category === 'report'));
+  assert.ok(SOURCES.length + opened.length + 8 <= 40, '학습 출처 8개를 더해도 수집 호출 예산 이내');
+});
+
 test('좋아하는 기사 주소 등록: 페이지를 읽어 학습하고 처음 보는 사이트는 RSS 출처로 배우며 다음 수집에 쓴다', async (t) => {
   t.mock.method(globalThis, 'fetch', feeds({ extra: {
     'example-ai.com/feed': rss([['Example AI agents platform launch', 'https://example-ai.com/posts/agents', now - H], ['Example AI second post', 'https://example-ai.com/posts/2', now - 2 * H], ['Example AI third post', 'https://example-ai.com/posts/3', now - 3 * H]]),
@@ -360,9 +411,10 @@ test('임베딩·D1 이 없어도 키워드 비교로 동작하고, 모든 출�
 
 test('카드 HTML은 이스케이프하고 스크립트 링크를 만들지 않으며 평가 단추를 단다', () => {
   const html = topCard({ rank: 1, key: 'k', title: '<img src=x onerror=alert(1)>', titleKo: null, url: 'javascript:alert(1)', publisher: '<b>', kind: 'official', at: new Date(now).toISOString(),
-    paywall: true, reasons: ['<i>x</i>'], related: [{ publisher: 'R', title: 't', url: 'javascript:1' }], vote: 1 });
+    paywall: true, reasons: ['<i>x</i>'], related: [{ publisher: 'R', title: 't', url: 'javascript:1' }], vote: 1, score: 67.4 });
   assert.ok(!html.includes('<img')); assert.ok(!html.includes('<i>x')); assert.ok(!html.includes('href="javascript:'));
   assert.ok(html.includes('공식 발표') && html.includes('유료') && html.includes('data-vote="-1"') && html.includes('aria-pressed="true"'));
+  assert.match(html, /점수 67\.4/);
   const row = moreRow({ key: 'k', title: 'T', url: 'https://techcrunch.com/a', publisher: 'TechCrunch', kind: 'report', categoryLabel: '분석 리포트', at: new Date(now).toISOString(), score: 50, vote: 0 });
   assert.ok(row.includes('href="https://techcrunch.com/a"') && row.includes('noopener') && row.includes('리포트·인사이트'));
   assert.match(builtLine({ builtAt: new Date(now).toISOString(), learning: { likes: 3, dislikes: 1, learnedSources: 2, method: 'embedding' } }), /좋아요 3 · 싫어요 1 · 학습한 출처 2 · AI 임베딩/);

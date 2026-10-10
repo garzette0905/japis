@@ -99,7 +99,8 @@ export function parseListing(html, source) {
   const base = source.url, site = host(base);
   const byUrl = new Map();
   const re = /<a\b[^>]*\bhref="([^"#]+)"[^>]*>([\s\S]*?)<\/a>/gi;
-  const page = html.length > 400000 ? html.slice(0, 400000) : html;
+  const start = source.mainOnly ? Math.max(0, html.search(/<main\b/i)) : source.listingStart ? Math.max(0, html.indexOf(source.listingStart)) : 0;
+  const page = html.slice(start, start + 400000).replace(/<!--[\s\S]*?-->/g, '');
   let m, n = 0;
   while ((m = re.exec(page)) && n++ < 400) {
     const url = safeUrl(decode(m[1]), base);
@@ -203,11 +204,11 @@ export async function settledPool(tasks, limit = FETCH_CONCURRENCY) {
 }
 
 /** 웹페이지 한 장. 앞부분만 읽는다(메타 태그·목록은 거의 앞쪽에 있다). */
-export async function fetchText(url, { timeout = FETCH_TIMEOUT_MS, accept = 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.5' } = {}) {
+export async function fetchText(url, { timeout = FETCH_TIMEOUT_MS, accept = 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.5', maxChars = 600000 } = {}) {
   const res = await fetch(url, { headers: { 'User-Agent': UA, Accept: accept, 'Accept-Language': 'ko,en;q=0.8' }, redirect: 'follow', signal: AbortSignal.timeout(timeout) });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const text = await res.text();
-  return { url: res.url || url, text: text.length > 600000 ? text.slice(0, 600000) : text };
+  return { url: res.url || url, text: text.slice(0, maxChars) };
 }
 
 /** 모델이 객체 여러 개·JSON 배열·코드블록으로 답해도 문자열 내부의 괄호와 구분해서 읽는다. */
