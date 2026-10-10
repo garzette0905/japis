@@ -153,7 +153,7 @@ test('좋아요 기사와 닮은 기사가 위로, 싫어요와 거의 같은 �
     cand({ url: 'https://theverge.com/b', publisher: 'The Verge', domain: 'theverge.com', title: 'Coding agents from Anthropic now write enterprise software tests' }),
     cand({ url: 'https://techcrunch.com/c', title: 'Crypto token airdrop hype AI meme coins surge' }),
   ].map((c) => ({ ...c, vector: packVec(fakeVec(c.title)) }));
-  const prefs = prefsOf([pref('Anthropic coding agents enterprise software')], [pref('Crypto token airdrop meme coins hype surge', -1)]);
+  const prefs = prefsOf([pref('Anthropic coding agents write enterprise software code')], [pref('Crypto token airdrop meme coins hype surge', -1)]);
   const r = selectNews(pool, prefs, now);
   assert.equal(r.top[0].url, 'https://theverge.com/b');
   assert.ok(r.top[0].reasons.some((x) => /좋아요 기사와/.test(x)));
@@ -171,8 +171,53 @@ test('좋아요가 없을 때는 중요도·종류·최신성으로 고르고, �
   assert.equal(r.top.filter((t) => t.publisher === 'TechCrunch').length, 2);
   assert.ok(r.top.some((t) => t.category === 'report'), '5일 된 컨설팅 리포트도 추천에 오른다');
   assert.equal(r.method, 'keyword');
-  const s = scoreCandidate({ ...pool[0], feat: new Set() }, prefsOf([], [], new Map([['techcrunch.com', { up: 3, down: 0 }]])), now);
-  assert.ok(s.parts.source > 5, '좋아요한 출처는 가산');
+  const s = scoreCandidate({ ...pool[0], feat: new Set() }, prefsOf([{ ...pref('Google unveils Gemini'), url: 'z', domain: 'techcrunch.com' }]), now);
+  assert.ok(s.parts.likePublisher > 5, '좋아요한 매체는 가산');
+  const bad = scoreCandidate({ ...pool[0], feat: new Set() }, prefsOf([], [], new Map([['techcrunch.com', { up: 0, down: 3 }]])), now);
+  assert.ok(bad.parts.source < -3, '싫어요가 많은 매체는 감점');
+});
+
+test('좋아요한 기사 자체는 가산점 없이 추천에서 빠지고, 같은 성격(종류·회사·매체)의 다른 기사가 오른다', () => {
+  const liked = { ...pref('Anthropic launches Claude Haiku 5.5 fast model'), url: normUrl('https://www.aitimes.com/1'), domain: 'aitimes.com', created_at: new Date(now - H).toISOString() };
+  const pool = [
+    cand({ url: 'https://www.aitimes.com/1', publisher: 'AI타임스', domain: 'aitimes.com', title: 'Anthropic launches Claude Haiku 5.5 fast model' }),
+    cand({ url: 'https://www.aitimes.com/2', publisher: 'AI타임스', domain: 'aitimes.com', title: 'Anthropic unveils Claude Dashboard for enterprise data' }),
+    cand({ url: 'https://techcrunch.com/3', title: 'Bank earnings beat estimates on trading desks with AI' }),
+  ].map((c) => ({ ...c, vector: packVec(fakeVec(c.title)) }));
+  const r = selectNews(pool, prefsOf([liked]), now);
+  assert.equal(r.top[0].url, 'https://www.aitimes.com/2', '같은 종류·회사·매체의 새 기사가 1위');
+  assert.ok(r.top[0].reasons.some((x) => /좋아요한 Anthropic 소식/.test(x)));
+  assert.ok(!r.top.some((t) => t.url === 'https://www.aitimes.com/1'), '좋아요한 기사는 추천 6개에 다시 올리지 않는다');
+  const self = r.more.find((t) => t.url === 'https://www.aitimes.com/1');
+  assert.deepEqual([self.parts.topic, self.parts.likeType, self.parts.likeEntity, self.parts.likePublisher], [0, 0, 0, 0], '자기 자신으로는 점수를 받지 않는다');
+  // 다른 매체가 쓴 같은 사건 기사도 가산점을 받지 않는다.
+  const twin = scoreCandidate({ ...cand({ url: 'https://theverge.com/x', domain: 'theverge.com', title: 'Anthropic launches Claude Haiku 5.5 fast model' }), vec: liked.vec, feat: new Set() }, prefsOf([liked]), now);
+  assert.equal(twin.aff.self, 1); assert.equal(twin.parts.likeEntity, 0);
+});
+
+test('좋아요의 무게는 시간이 갈수록 줄고 60일이 지나면 점수에 쓰지 않는다', () => {
+  const c = { ...cand({ url: 'https://www.aitimes.com/9', domain: 'aitimes.com', title: 'OpenAI launches new agent' }), feat: new Set() };
+  const at = (days) => ({ ...pref('Google unveils Gemini tool'), url: 'x', domain: 'aitimes.com', created_at: new Date(now - days * 24 * H).toISOString() });
+  const fresh = { ...pref('OpenAI unveils GPT tool'), url: 'y', domain: 'theverge.com', created_at: new Date(now).toISOString() };
+  const oldPub = (days) => scoreCandidate(c, prefsOf([at(days), fresh]), now).parts.likePublisher;
+  assert.ok(oldPub(1) > oldPub(30), '오래된 좋아요의 매체 비중은 작아진다');
+  assert.equal(scoreCandidate(c, prefsOf([at(90)]), now).parts.likePublisher, 3.5, '60일 지난 좋아요만 있으면 좋아요가 없는 것과 같다');
+});
+
+test('중요도 5 소식은 취향과 상관없이 추천에 먼저 오르고, 빅테크 CEO 발언은 리더 발언으로 분류된다', () => {
+  const nadella = 'Microsoft CEO Nadella Calls for ‘Emergency Brake’ on Advanced AI';
+  assert.equal(ruleCategory({ title: nadella, kind: 'news' }), 'leader');
+  const likes = ['Anthropic launches Claude model', 'Google launches Gemini agent', 'OpenAI launches GPT tool']
+    .map((t, i) => ({ ...pref(t), url: 'like' + i, domain: 'aitimes.com', created_at: new Date(now).toISOString() }));
+  const pubs = [['AI타임스', 'aitimes.com'], ['The Verge', 'theverge.com'], ['TechCrunch', 'techcrunch.com'], ['인공지능신문', 'aitimes.kr']];
+  const pool = Array.from({ length: 8 }, (_, i) => cand({ url: `https://${pubs[i % 4][1]}/${i}`, publisher: pubs[i % 4][0], domain: pubs[i % 4][1], title: `Anthropic launches Claude feature ${i}`, judge: { ai: true, importance: 4, type: 'launch' } }))
+    .concat([cand({ url: 'https://www.bloomberg.com/n', publisher: 'Bloomberg', domain: 'bloomberg.com', title: nadella, at: now - 3 * H }),
+      cand({ url: 'https://www.bloomberg.com/old', publisher: 'Bloomberg', domain: 'bloomberg.com', title: 'Old big AI deal', at: now - 50 * H, judge: { ai: true, importance: 5, type: 'deal' } })]);
+  const r = selectNews(pool, prefsOf(likes), now);
+  assert.equal(r.top[0].url, 'https://www.bloomberg.com/n');
+  assert.equal(r.top[0].importance, 5); assert.equal(r.top[0].category, 'leader');
+  assert.ok(r.top[0].reasons.includes('오늘의 주요 소식'));
+  assert.ok(!r.top.some((t) => t.url === 'https://www.bloomberg.com/old'), '36시간 지난 중요 소식은 먼저 올리지 않는다');
 });
 
 test('같은 사건은 묶어 대표 기사 하나와 관련 보도로, 종류별 기간과 칼럼은 거른다', () => {

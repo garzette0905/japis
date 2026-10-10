@@ -220,7 +220,7 @@ export async function renderNews(page) {
       <div class="nw-list news-more-items" aria-live="polite"><p class="nw-empty">기사를 불러오는 중입니다…</p></div></section>
     <section class="nw-about"><h2>고르는 방법.</h2>
       <dl><div><dt>대상</dt><dd>뉴스(AI타임스·인공지능신문·지디넷코리아·TechCrunch·The Verge·MIT Technology Review·Reuters·Bloomberg·The Information), 공식 발표(OpenAI·Anthropic·Google DeepMind·Google AI·NVIDIA·Hugging Face), 리포트·인사이트(McKinsey·Bain·Section·컨설팅사 보고서 보도), 무료 사용·토큰 소식, 등록한 기사에서 배운 사이트. 국내·해외 개수는 정해 두지 않습니다.</dd></div>
-      <div><dt>점수</dt><dd>좋아요 기사와의 유사도 35 · 중요도 25 · 신제품/무료 토큰/분석 리포트 가산 최대 16 · 최신성 15(뉴스 24시간, 공식 발표 3일, 리포트 7일 반감) · 좋아요한 출처 ±8 · 여러 매체 보도 최대 6 − 싫어요 기사와의 유사도 최대 35. 유사도는 Cloudflare Workers AI 임베딩(bge-m3)으로 계산하고, 안 될 때는 제목 키워드로 비교합니다.</dd></div>
+      <div><dt>점수</dt><dd>매시 새로 모은 기사에 처음부터 다시 매깁니다. 좋아요는 그 기사 자체가 아니라 기사의 성격에 점수를 줍니다: 좋아요한 회사·발표자 10 · 종류(신제품·무료 토큰·리포트·리더 발언 등) 8 · 매체 7 · 주제 10. 여기에 중요도 25 · 종류 가산 최대 16 · 최신성 15(뉴스 24시간, 공식 발표 3일, 리포트 7일 반감) · 여러 매체 보도 최대 6 − 싫어요 기사와의 유사도 최대 35. 좋아요한 기사 자체와 같은 사건 기사는 가산점이 없고 추천 6개에 다시 오르지 않습니다. 좋아요의 무게는 14일마다 절반으로 줄고 60일이 지나면 쓰지 않습니다. 중요도 5(판도를 바꾸는 소식, 36시간 안)는 취향과 상관없이 추천 6개에 2개까지 먼저 올립니다. 유사도는 Cloudflare Workers AI 임베딩(bge-m3)으로, 안 될 때는 제목 키워드로 비교합니다.</dd></div>
       <div><dt>평가</dt><dd>👎 기사와 거의 같은 기사는 빼고, 비슷한 기사는 감점합니다. 싫어요가 3번 이상이고 좋아요가 없는 사이트는 수집에서 뺍니다. 등록 창의 학습 현황에서 걸러진 기사와 학습 내용을 확인·취소할 수 있습니다.</dd></div></dl>
       <details class="nw-sources"><summary>수집 상태</summary><p class="news-sources"></p></details></section>
     <p class="nw-status" role="status" aria-live="polite"></p></div>`;

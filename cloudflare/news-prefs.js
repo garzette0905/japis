@@ -30,7 +30,7 @@ export async function loadPrefs(env) {
   if (!env?.DB?.prepare) return empty();
   try {
     const [rows, sources] = await Promise.all([
-      env.DB.prepare('SELECT id, url, link, vote, origin, title, summary, domain, vector, created_at FROM news_feedback ORDER BY id DESC LIMIT 400').all(),
+      env.DB.prepare('SELECT id, url, link, vote, origin, title, summary, domain, vector, created_at, updated_at FROM news_feedback ORDER BY id DESC LIMIT 400').all(),
       env.DB.prepare('SELECT domain, name, feed_url, format, kind, link_prefix, created_at FROM news_sources ORDER BY created_at DESC LIMIT 40').all(),
     ]);
     const list = (rows.results || []).map((r) => ({ ...r, vec: unpackVec(r.vector), feat: features(`${r.title} ${r.summary || ''}`) }));
