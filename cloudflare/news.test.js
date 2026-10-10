@@ -177,7 +177,7 @@ test('좋아요가 없을 때는 중요도·종류·최신성으로 고르고, �
   assert.ok(bad.parts.source < -3, '싫어요가 많은 매체는 감점');
 });
 
-test('좋아요한 기사 자체는 가산점 없이 추천에서 빠지고, 같은 성격(종류·회사·매체)의 다른 기사가 오른다', () => {
+test('좋아요한 기사도 추천에 유지하고, 같은 성격의 다른 기사에 취향을 반영한다', () => {
   const liked = { ...pref('Anthropic launches Claude Haiku 5.5 fast model'), url: normUrl('https://www.aitimes.com/1'), domain: 'aitimes.com', created_at: new Date(now - H).toISOString() };
   const pool = [
     cand({ url: 'https://www.aitimes.com/1', publisher: 'AI타임스', domain: 'aitimes.com', title: 'Anthropic launches Claude Haiku 5.5 fast model' }),
@@ -187,12 +187,12 @@ test('좋아요한 기사 자체는 가산점 없이 추천에서 빠지고, 같
   const r = selectNews(pool, prefsOf([liked]), now);
   assert.equal(r.top[0].url, 'https://www.aitimes.com/2', '같은 종류·회사·매체의 새 기사가 1위');
   assert.ok(r.top[0].reasons.some((x) => /좋아요한 Anthropic 소식/.test(x)));
-  assert.ok(!r.top.some((t) => t.url === 'https://www.aitimes.com/1'), '좋아요한 기사는 추천 6개에 다시 올리지 않는다');
-  const self = r.more.find((t) => t.url === 'https://www.aitimes.com/1');
-  assert.deepEqual([self.parts.topic, self.parts.likeType, self.parts.likeEntity, self.parts.likePublisher], [0, 0, 0, 0], '자기 자신으로는 점수를 받지 않는다');
+  assert.ok(r.top.some((t) => t.url === 'https://www.aitimes.com/1'), '좋아요한 기사도 메인 선정 대상이다');
+  const self = r.top.find((t) => t.url === 'https://www.aitimes.com/1');
+  assert.deepEqual([self.parts.topic, self.parts.likeType, self.parts.likeEntity, self.parts.likePublisher], [5, 4, 5, 3.5], '독립적인 좋아요가 없으면 중립점수를 잃지 않는다');
   // 다른 매체가 쓴 같은 사건 기사도 가산점을 받지 않는다.
   const twin = scoreCandidate({ ...cand({ url: 'https://theverge.com/x', domain: 'theverge.com', title: 'Anthropic launches Claude Haiku 5.5 fast model' }), vec: liked.vec, feat: new Set() }, prefsOf([liked]), now);
-  assert.equal(twin.aff.self, 1); assert.equal(twin.parts.likeEntity, 0);
+  assert.equal(twin.aff.self, 1); assert.equal(twin.parts.likeEntity, 5);
 });
 
 test('좋아요의 무게는 시간이 갈수록 줄고 60일이 지나면 점수에 쓰지 않는다', () => {
@@ -204,13 +204,41 @@ test('좋아요의 무게는 시간이 갈수록 줄고 60일이 지나면 점�
   assert.equal(scoreCandidate(c, prefsOf([at(90)]), now).parts.likePublisher, 3.5, '60일 지난 좋아요만 있으면 좋아요가 없는 것과 같다');
 });
 
-test('주제 점수도 좋아요 14일 반감기를 적용하고 자기 기사에는 가산하지 않는다', () => {
+test('주제 점수도 좋아요 14일 반감기를 적용하고 자기 기사에는 중립점을 유지한다', () => {
   const c = { ...cand({ url: 'https://techcrunch.com/new', title: 'AI enterprise adoption' }), vec: unpackVec(packVec([1, 0])), feat: new Set() };
   const topic = (days) => scoreCandidate(c, prefsOf([{ title: 'AI workplace strategy', url: 'other', vec: unpackVec(packVec([0.7, Math.sqrt(0.51)])), domain: 'example.com', created_at: new Date(now - days * 24 * H).toISOString() }]), now).parts.topic;
   assert.ok(Math.abs(topic(14) - topic(0) / 2) < 1e-8);
   assert.ok(Math.abs(topic(28) - topic(0) / 4) < 1e-8);
   const self = scoreCandidate(c, prefsOf([{ title: c.title, url: c.key, vec: c.vec }]), now);
-  assert.equal(self.parts.topic, 0);
+  assert.equal(self.parts.topic, 5);
+});
+
+test('고득점 기사에 좋아요를 눌러도 점수와 메인 순위를 낮추지 않는다', () => {
+  const target = cand({ url: 'https://techcrunch.com/new-model', title: 'OpenAI launches new reasoning model', at: now, judge: { ai: true, importance: 4, type: 'launch' } });
+  const pool = [target, ...Array.from({ length: 7 }, (_, i) => cand({ url: `https://example${i}.com/ai`, domain: `example${i}.com`, publisher: `Publisher ${i}`, title: 'AI industry news', judge: { ai: true, importance: 3, type: 'other' } }))];
+  const before = selectNews(pool, prefsOf(), now);
+  const liked = { ...pref(target.title), url: target.key, domain: target.domain };
+  const after = selectNews(pool, prefsOf([liked]), now, { [target.key]: 1 });
+  assert.equal(before.top[0].key, target.key);
+  assert.equal(after.top[0].key, target.key);
+  assert.equal(after.top[0].score, before.top[0].score);
+  assert.equal(after.top[0].vote, 1);
+});
+
+test('나델라의 중대한 경고는 AI가 중요도 4·정책으로 판정해도 5·리더 발언으로 보호하고 좋아요와 무관하게 메인에 올린다', () => {
+  const target = cand({ url: 'https://techcrunch.com/nadella', title: 'Microsoft’s Satya Nadella says AI models need an ‘emergency brake’', at: now - 4 * H, judge: { ai: true, importance: 4, type: 'policy' } });
+  const likes = [{ ...pref('OpenAI launches new agent'), url: 'old-like', domain: 'aitimes.com' }];
+  const pool = [target, ...Array.from({ length: 8 }, (_, i) => cand({ url: `https://example${i}.com/ai`, domain: `example${i}.com`, publisher: `Publisher ${i}`, title: 'OpenAI launches new agent', judge: { ai: true, importance: 4, type: 'launch' } }))];
+  const selected = selectNews(pool, prefsOf(likes), now, { [target.key]: 1 });
+  assert.equal(selected.top[0].key, target.key);
+  assert.equal(selected.top[0].importance, 5);
+  assert.equal(selected.top[0].category, 'leader');
+  assert.ok(selected.top[0].reasons.includes('오늘의 주요 소식'));
+  assert.equal(selected.top[0].parts.importance, 25);
+  for (const title of ['Microsoft CEO Nadella discusses AI productivity', 'Microsoft CEO Nadella says car needs an emergency brake', 'AI models need an emergency brake']) {
+    assert.equal(scoreCandidate({ ...cand({ title }), feat: new Set() }, prefsOf(), now).importance < 5, true, title);
+  }
+  assert.equal(scoreCandidate({ ...cand({ title: '마이크로소프트 나델라, AI 모델에 비상 정지 장치 필요 제언' }), feat: new Set() }, prefsOf(), now).importance, 5);
 });
 
 test('컨설팅 원문은 회사명이 제목에 없어도 분석 리포트이며 새 출처는 중복 등록하지 않는다', () => {
