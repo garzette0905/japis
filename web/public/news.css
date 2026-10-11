@@ -68,6 +68,7 @@
 .nw-pill { display: inline-flex; align-items: center; height: 36px; padding: 0 16px; border-radius: 9999px; background: var(--nw-soft); color: var(--nw-ink) !important; font-size: 14px; font-weight: 600; white-space: nowrap; }
 .nw-pill:hover { background: var(--nw-field); }
 .nw-card:first-child .nw-pill { background: var(--nw-canvas); }
+.nw-copy { border: 0; font-family: inherit; cursor: pointer; }
 .nw-votes { display: flex; gap: 4px; margin-left: auto; }
 .nw-vote { width: 40px; height: 36px; border-radius: 9999px; border: 1px solid var(--nw-hair); background: var(--nw-canvas); font-size: 15px; line-height: 1; cursor: pointer; filter: grayscale(1); opacity: .6; transition: opacity .15s, background .15s; }
 .nw-vote:hover { opacity: 1; filter: none; }

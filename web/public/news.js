@@ -19,7 +19,8 @@ const dataAttrs = (t, url) => `data-key="${esc(t.key)}" data-url="${esc(url)}" d
 const badges = (t) => `<span class="nw-badge">${esc(KIND[t.kind] || '뉴스')}</span>` +
   (t.categoryLabel ? `<span class="nw-badge${t.category === 'free' ? ' is-accent' : ''}">${esc(t.categoryLabel)}</span>` : '') +
   (t.paywall ? '<span class="nw-badge is-line">유료</span>' : '');
-const outLink = (url) => (url ? `<a class="nw-pill" href="${esc(url)}" target="_blank" rel="noopener noreferrer">원문 ↗</a>` : '');
+const outLink = (url) => (url ? `<a class="nw-pill" href="${esc(url)}" target="_blank" rel="noopener noreferrer">원문 ↗</a>` +
+  '<button type="button" class="nw-pill nw-copy" data-copy-news title="기사 제목과 원문 주소를 복사합니다">원문복사</button>' : '');
 
 export function topCard(t) {
   const url = safeNewsUrl(t.url);
@@ -97,6 +98,32 @@ function bindVotes(root, { onSettled, status }) {
   });
 }
 
+/** 원문복사 단추: 카드의 제목과 원문 주소를 두 줄로 클립보드에 넣는다. */
+export const copyText = (card) => `${card.querySelector('.nw-title, .nw-row-title')?.textContent.trim() || card.dataset.title}
+${card.dataset.url}`;
+async function writeClipboard(text) {
+  try { await navigator.clipboard.writeText(text); return; } catch { /* 권한이 없거나 http 면 아래 방식 */ }
+  const area = Object.assign(document.createElement('textarea'), { value: text });
+  area.setAttribute('readonly', ''); area.style.position = 'fixed'; area.style.opacity = '0';
+  document.body.appendChild(area); area.select();
+  const ok = document.execCommand('copy');
+  area.remove();
+  if (!ok) throw new Error('클립보드를 쓸 수 없습니다');
+}
+function bindCopy(root, status) {
+  root.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-copy-news]');
+    if (!b) return;
+    const card = b.closest('[data-key]');
+    if (!card?.dataset.url) return;
+    try {
+      await writeClipboard(copyText(card));
+      b.textContent = '복사됨 ✓'; status?.('기사 제목과 원문 주소를 복사했습니다.');
+      setTimeout(() => { b.textContent = '원문복사'; }, 1500);
+    } catch (err) { status?.(`복사하지 못했습니다: ${err.message}`); }
+  });
+}
+
 /** 대시보드 맨 위 칸. 붙일 자리만 받고, 실패해도 대시보드의 나머지는 그대로 둔다. */
 export const newsDashHtml = () => `<div class="nw nw-dash" id="news-dash">${topSectionHtml(true)}</div>`;
 export async function loadNewsDash(root) {
@@ -113,7 +140,9 @@ export async function loadNewsDash(root) {
       root.querySelector('.news-top-items').innerHTML = `<p class="nw-empty">AI 뉴스를 불러오지 못했습니다: ${esc(e.message)}</p>`;
     }
   };
-  bindVotes(root, { onSettled: () => load(true), status: (m) => { root.querySelector('.news-built').textContent = m; } });
+  const dashStatus = (m) => { root.querySelector('.news-built').textContent = m; };
+  bindVotes(root, { onSettled: () => load(true), status: dashStatus });
+  bindCopy(root, dashStatus);
   await load();
 }
 
@@ -125,12 +154,10 @@ const FORMAT = { rss: 'RSS', html: '목록 화면', bing: 'Bing 사이트 검색
 function prefsHtml(p, data) {
   const likes = p.items.filter((i) => i.vote > 0), dislikes = p.items.filter((i) => i.vote < 0);
   const row = (i) => `<li><span class="news-pref-vote">${i.vote > 0 ? '👍' : '👎'}</span><span class="news-pref-text">${link(safeNewsUrl(i.url), esc(i.title || i.url))}<small>${esc(i.domain)} · ${i.origin === 'submit' ? '주소 등록' : '카드 평가'} · ${esc(when(i.createdAt))}${i.embedded ? '' : ' · 키워드 비교'}</small></span><button type="button" class="news-pref-del" data-del-pref="${esc(i.id)}" aria-label="학습에서 빼기">×</button></li>`;
-  const blocked = p.domains.filter((d) => d.blocked);
   return `${p.ready ? '' : '<p class="nw-note">학습 저장소(D1 표)가 아직 준비되지 않았습니다. 관리자에게 migrations/020 적용을 요청하세요.</p>'}
     <details open><summary>좋아요 ${likes.length}건</summary><ul class="news-pref-list">${likes.map(row).join('') || '<li class="news-pref-empty">아직 없습니다.</li>'}</ul></details>
     <details><summary>싫어요 ${dislikes.length}건</summary><ul class="news-pref-list">${dislikes.map(row).join('') || '<li class="news-pref-empty">아직 없습니다.</li>'}</ul></details>
-    <details><summary>싫어요로 걸러진 기사 ${(data?.excluded || []).length}건</summary><ul class="news-pref-list">${(data?.excluded || []).map((x) => `<li><span class="news-pref-text">${link(safeNewsUrl(x.url), esc(x.title))}<small>${esc(x.publisher)} · ${esc(x.reason)}</small></span></li>`).join('') || '<li class="news-pref-empty">없습니다.</li>'}</ul>
-      ${blocked.length ? `<p class="news-pref-note">수집에서 뺀 사이트(싫어요 3번 이상, 좋아요 없음): ${blocked.map((d) => esc(d.domain)).join(', ')}</p>` : ''}</details>
+    <details><summary>싫어요로 걸러진 기사 ${(data?.excluded || []).length}건</summary><ul class="news-pref-list">${(data?.excluded || []).map((x) => `<li><span class="news-pref-text">${link(safeNewsUrl(x.url), esc(x.title))}<small>${esc(x.publisher)} · ${esc(x.reason)}</small></span></li>`).join('') || '<li class="news-pref-empty">없습니다.</li>'}</ul></details>
     <details><summary>등록 기사에서 배운 출처 ${p.sources.length}곳</summary><ul class="news-pref-list">${p.sources.map((s) => `<li><span class="news-pref-text"><b>${esc(s.name)}</b><small>${esc(s.domain)} · ${esc(FORMAT[s.format] || s.format)} · ${esc(KIND[s.kind] || '뉴스')}</small></span><button type="button" class="news-pref-del" data-del-source="${esc(s.domain)}" aria-label="출처 빼기">×</button></li>`).join('') || '<li class="news-pref-empty">아직 없습니다. 기본 출처에 없는 사이트의 기사를 등록하면 배웁니다.</li>'}</ul></details>`;
 }
 
@@ -211,7 +238,7 @@ export function sourcesLine(data) {
 
 export async function renderNews(page) {
   page.innerHTML = `<div class="nw news-app"><header class="nw-hero"><div class="nw-hero-text"><p class="nw-eyebrow"><span class="nw-ico">${serviceIco('news')}</span>Jaden AI NEWS</p>
-      <h1>좋아하는 기사를 닮은 AI 소식.</h1><p class="nw-lead">좋아요·싫어요와 등록한 기사로 학습해 뉴스, 공식 발표, 리포트를 고릅니다.</p></div>
+      <h1>Jaden 맞춤형 AI News</h1><p class="nw-lead">뉴스에 피드백을 지속 제공하여 개인 맞춤형 뉴스가 나오도록 학습합니다.</p></div>
       <div class="nw-actions"><button class="nw-btn nw-btn-primary" type="button" data-likes>＋ 좋아하는 기사 등록</button><button class="nw-btn nw-btn-outline" type="button" data-refresh>새로고침 ↻</button></div></header>
     ${topSectionHtml()}
     <section class="nw-more" aria-labelledby="news-more-title"><div class="nw-more-head"><h2 id="news-more-title">더 보기.</h2>
@@ -220,8 +247,8 @@ export async function renderNews(page) {
       <div class="nw-list news-more-items" aria-live="polite"><p class="nw-empty">기사를 불러오는 중입니다…</p></div></section>
     <section class="nw-about"><h2>고르는 방법.</h2>
       <dl><div><dt>대상</dt><dd>뉴스(AI타임스·인공지능신문·지디넷코리아·TechCrunch·The Verge·MIT Technology Review·Reuters·Bloomberg·The Information), 공식 발표(OpenAI·Anthropic·Google DeepMind·Google AI·Google Gemini·NVIDIA·Hugging Face), 리포트·인사이트(McKinsey·Bain·BCG·Deloitte·Section·컨설팅사 보고서 보도), 무료 사용·토큰 소식, 등록한 기사에서 배운 사이트. 국내·해외 개수는 정해 두지 않습니다.</dd></div>
-      <div><dt>점수</dt><dd>매시 새로 모은 기사에 처음부터 다시 매깁니다. 좋아요는 그 기사 자체가 아니라 기사의 성격에 점수를 줍니다: 좋아요한 회사·발표자 10 · 종류(신제품·무료 토큰·리포트·리더 발언 등) 8 · 매체 7 · 주제 10. 총점은 최대 97점이며, 여기에 중요도 25 · 종류 가산 최대 16 · 최신성 15(뉴스 24시간, 공식 발표 3일, 리포트 7일 반감) · 여러 매체 보도 최대 6 − 싫어요 기사와의 유사도 최대 35 · 싫어요가 더 많은 매체 최대 6 감점. 좋아요는 취향 표시이며 읽음으로 처리하지 않습니다. 좋아요한 기사도 점수에 따라 추천 6개에 유지됩니다. 자기 기사·같은 사건을 이용한 유사도 가산은 제외하되, 다른 학습 자료가 없으면 중립점수를 유지합니다. 좋아요의 무게는 14일마다 절반으로 줄고 60일이 지나면 쓰지 않습니다. 핵심 인물의 비상 정지·통제 상실·실존적 위험 등 중대한 AI 안전 경고는 중요도 5로 반영합니다. 중요도 5(판도를 바꾸는 소식, 36시간 안)는 취향과 상관없이 추천 6개에 2개까지 먼저 올립니다. 추천 순서는 주요 소식 우선 배치와 한 매체 최대 2개 제한 때문에 점수순과 다를 수 있습니다. 유사도는 Cloudflare Workers AI 임베딩(bge-m3)으로, 안 될 때는 제목 키워드로 비교합니다.</dd></div>
-      <div><dt>평가</dt><dd>👎 기사와 거의 같은 기사는 빼고, 비슷한 기사는 감점합니다. 싫어요가 3번 이상이고 좋아요가 없는 사이트는 수집에서 뺍니다. 등록 창의 학습 현황에서 걸러진 기사와 학습 내용을 확인·취소할 수 있습니다.</dd></div></dl>
+      <div><dt>점수</dt><dd>매시 새로 모은 기사에 처음부터 다시 매깁니다. 좋아요는 그 기사 자체가 아니라 기사의 성격에 점수를 줍니다: 좋아요한 회사·발표자 10 · 종류(신제품·무료 토큰·리포트·리더 발언 등) 8 · 매체 7 · 주제 10. 총점은 최대 97점이며, 여기에 중요도 25 · 종류 가산 최대 16 · 최신성 15(뉴스 24시간, 공식 발표 3일, 리포트 7일 반감) · 여러 매체 보도 최대 6 − 싫어요 기사와의 유사도 최대 35 · 싫어요가 더 많은 매체 최대 6 감점. 좋아요는 취향 표시이며 읽음으로 처리하지 않습니다. 좋아요한 기사도 점수에 따라 추천 6개에 유지됩니다. 자기 기사·같은 사건을 이용한 유사도 가산은 제외하되, 다른 학습 자료가 없으면 중립점수를 유지합니다. 좋아요의 무게는 14일마다 절반으로 줄고 60일이 지나면 쓰지 않습니다. 핵심 인물의 비상 정지·통제 상실·실존적 위험 등 중대한 AI 안전 경고는 중요도 5로 반영합니다. 중요도 5(판도를 바꾸는 소식, 36시간 안)는 취향과 상관없이 추천 6개에 2개까지 먼저 올립니다. 매체·언어만 다른 같은 사건 기사(한·영 보도 포함)는 점수가 가장 높은 하나만 남기고 나머지는 관련 보도로 묶습니다. 공식 블로그의 고객 도입 사례는 신제품이 아닌 경영 소식(중요도 최대 3)으로 봅니다. 추천 순서는 주요 소식 우선 배치와 한 매체 최대 2개 제한 때문에 점수순과 다를 수 있습니다. 유사도는 Cloudflare Workers AI 임베딩(bge-m3)으로, 안 될 때는 제목 키워드로 비교합니다.</dd></div>
+      <div><dt>평가</dt><dd>👎 기사와 거의 같은 기사는 빼고, 비슷한 기사는 감점합니다. 싫어요가 좋아요보다 많은 매체는 최대 6점 감점하되, 수집에서 빼지는 않습니다. 등록 창의 학습 현황에서 걸러진 기사와 학습 내용을 확인·취소할 수 있습니다.</dd></div></dl>
       <details class="nw-sources"><summary>수집 상태</summary><p class="news-sources"></p></details></section>
     <p class="nw-status" role="status" aria-live="polite"></p></div>`;
   const root = page.querySelector('.news-app');
@@ -259,6 +286,7 @@ export async function renderNews(page) {
     if (await openLikesDialog(data) && active()) { status('학습 내용으로 순위를 다시 매기는 중입니다…'); await load(true); status('새 학습 내용을 반영했습니다.'); }
   };
   bindVotes(root, { onSettled: () => load(true), status });
+  bindCopy(root, status);
   root.addEventListener('click', (e) => {
     const f = e.target.closest('[data-filter]');
     if (!f || !data) return;

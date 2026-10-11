@@ -6,7 +6,7 @@
 //   3. 후보    규칙 점수 상위 80개를 Workers AI 로 임베딩(bge-m3)하고 상위 24개는 편집 판정(중요도·종류)
 //   4. 점수    좋아요 기사의 '성격'(주제·종류·회사/발표자·매체) 닮음 35 · 중요도 25 · 종류 가산 16 · 최신성 15 · 복수 보도 6 − 싫어요
 //              좋아요는 읽음 표시가 아니다. 좋아요한 기사도 점수에 따라 추천에 남는다.
-//   5. 선정    추천 6개(한 매체 2개까지) + 더 보기 24개. 국내·해외 할당은 없다.
+//   5. 선정    한·영 같은 사건 합치기(임베딩) → 추천 6개(한 매체 2개까지) + 더 보기 24개. 국내·해외 할당은 없다.
 // 후보 묶음(news:pool)을 저장해 두므로 👍/👎·주소 등록 뒤에는 다시 수집하지 않고 점수만 다시 매긴다(rescoreNews).
 // Google News 는 쓰지 않는다.
 
@@ -14,7 +14,7 @@ import {
   H, FETCH_CONCURRENCY, decode, stripHtml, safeUrl, host, sameSite, normUrl, langOf, bing, parseDate, parseFeed, parseListing, parseMeta,
   features, overlap, settledPool, withTimeout, fetchText, translationRows, embed, unpackVec, cosine,
 } from './news-util.js';
-import { loadPrefs, blockedDomain, kindOfDomain, prefsSnapshot, learnPending, setVote, addLikes, listPrefs, deletePref, deleteSource, MAX_LEARNED } from './news-prefs.js';
+import { loadPrefs, kindOfDomain, prefsSnapshot, learnPending, setVote, addLikes, listPrefs, deletePref, deleteSource, MAX_LEARNED } from './news-prefs.js';
 
 export { decode, stripHtml, parseDate, parseFeed, parseListing, parseMeta, safeUrl, features, settledPool, translationRows };
 
@@ -22,7 +22,7 @@ const KEY = 'news:snapshot';
 const POOL_KEY = 'news:pool';
 const SEEN_KEY = 'news:seen';            // 기사 주소 → 처음 본 시각. 수정 시각으로 오래된 기사가 '신규'가 되지 않게 한다.
 const PAGES_KEY = 'news:pages';          // 목록 화면에서 읽은 글의 제목·요약·발행 시각(한 번 읽으면 다시 부르지 않는다)
-const SNAPSHOT_VERSION = 9;              // 좋아요 추천 유지·중대한 리더 경고(9)
+const SNAPSHOT_VERSION = 10;             // 한·영 같은 사건 합치기·고객 사례 분류(10)
 const STALE_MS = 65 * 60 * 1000;         // 예약 작업이 한 번 빠져도 버티는 한도
 const MANUAL_MIN_MS = 10 * 60 * 1000;    // 수동 '다시 수집'은 10분에 한 번까지
 const SEEN_TTL_MS = 40 * 24 * H;      // 목록 화면의 옛 글(30일 전으로 둔 것)보다 길게 기억한다
@@ -41,6 +41,7 @@ const LIKE_HALF_LIFE_D = 14;              // 좋아요의 무게는 14일마다 
 const LIKE_MAX_AGE_D = 60;               // 60일 지난 평가는 점수에 쓰지 않는다
 const JUDGE_VERSION = 3;                 // 중대한 AI 안전 경고 판정 보완
 const SAME_STORY = 0.85;                 // 임베딩 코사인이 이 이상이면 같은 사건을 다룬 기사로 본다
+const SAME_EVENT = 0.70;                 // 제목에 같은 회사·인물이 나오면 이 코사인부터 같은 사건(언어·매체가 달라도)
 const AI_MODEL = '@cf/zai-org/glm-4.7-flash';
 const TRANSLATION_MODEL = '@cf/meta/m2m100-1.2b';
 
@@ -113,6 +114,10 @@ const MAJOR_WARNING_RE = /\bemergency (brake|stop|shutdown)\b|\bkill switch\b|\b
 export const majorLeaderWarning = (c) => PEOPLE.some(([, re]) => re.test(c.title)) &&
   isAi(`${c.title} ${c.summary || ''}`) && MAJOR_WARNING_RE.test(c.title);
 
+// 공식 블로그의 고객 사례("Asana cuts costs … with GPT-6.1")는 신제품이 아니라 도입 사례다.
+const CUSTOMER_RE = /\s(?:with|using)\s+(?:openai|chatgpt|codex|claude|gemini|gpt[-\w.]*)(?=\s|$)/i;
+export const customerStory = (c) => c.kind === 'official' && CUSTOMER_RE.test(c.title) && !FRONTIER_RE.test(c.title.split(CUSTOMER_RE)[0]);
+
 export const CATEGORY = {
   launch: { label: '프런티어 AI 신제품', bonus: 14 }, free: { label: '무료 사용·토큰', bonus: 14 }, report: { label: '분석 리포트', bonus: 12 },
   leader: { label: '빅테크 리더 발언', bonus: 14 }, deal: { label: '투자·제휴', bonus: 4 }, policy: { label: '정책·규제', bonus: 4 }, security: { label: '보안', bonus: 4 }, research: { label: '연구', bonus: 3 },
@@ -124,6 +129,7 @@ const TYPES = Object.keys(CATEGORY);
 export function ruleCategory(c) {
   const text = `${c.title} ${c.summary || ''}`;
   if (majorLeaderWarning(c)) return 'leader';
+  if (customerStory(c)) return 'business';
   if (FREE_RE.test(c.title) || (FREE_RE.test(text) && FRONTIER_RE.test(text))) return 'free';
   if ((c.kind === 'report' && (CONSULT_RE.test(text) || REPORT_RE.test(text) || ['mckinsey', 'bain', 'bcg', 'deloitte', 'sectionai'].includes(c.source) || kindOfDomain(c.domain || '') === 'report')) || (CONSULT_RE.test(text) && REPORT_RE.test(c.title))) return 'report';
   if (FRONTIER_RE.test(c.title) && LAUNCH_RE.test(c.title)) return 'launch';
@@ -249,8 +255,8 @@ function lead(items) {
 }
 
 /** 수집한 기사 → 후보(같은 사건 하나에 한 장). */
-export function candidates(items, now, prefs = null) {
-  const fresh = items.filter((i) => i.at <= now + H && now - i.at <= (WINDOW[i.kind] || WINDOW.news) && !lowQuality(i.title) && !(prefs && blockedDomain(prefs, host(i.url))));
+export function candidates(items, now) {
+  const fresh = items.filter((i) => i.at <= now + H && now - i.at <= (WINDOW[i.kind] || WINDOW.news) && !lowQuality(i.title));
   return cluster(fresh).map((g) => {
     const l = lead(g.items);
     const publishers = new Set(g.items.map((i) => i.publisher.toLowerCase()));
@@ -360,8 +366,11 @@ const PREF_WEIGHT = { topic: 10, category: 8, entity: 10, publisher: 7 };   // �
 /** 후보 한 장의 점수와 그 내역. excluded 가 있으면 화면에 올리지 않는다. */
 export function scoreCandidate(c, prefs, now) {
   const warning = majorLeaderWarning(c);
-  const category = warning ? 'leader' : TYPES.includes(c.judge?.type) && c.judge.type !== 'other' ? c.judge.type : ruleCategory(c);
-  const importance = warning ? 5 : c.judge?.importance ?? ruleImportance(c, category);
+  const customer = !warning && customerStory(c);
+  const category = warning ? 'leader' : customer ? 'business' : TYPES.includes(c.judge?.type) && c.judge.type !== 'other' ? c.judge.type : ruleCategory(c);
+  // 고객 사례는 편집 판정이 높게 줘도 3(주목할 만한 소식)까지.
+  const judged = c.judge?.importance ?? ruleImportance(c, category);
+  const importance = warning ? 5 : customer ? Math.min(judged, 3) : judged;
   const aff = affinity(c, prefs, now, { category, entities: entitiesOf(c.title), domain: c.domain });
   const d = prefs.domains.get(c.domain);
   // 자기 기사·같은 사건은 학습에서 제외하되, 독립적인 좋아요가 없으면 중립값을 유지한다.
@@ -402,11 +411,45 @@ function reasons(c, s) {
   return out.slice(0, 4);
 }
 
+/**
+ * 언어·매체가 달라도 같은 사건인가. 묶기(cluster)는 같은 언어의 제목만 비교하므로
+ * 한·영 보도나 제목 표현이 다른 보도는 여기서 임베딩으로 한 번 더 본다.
+ * 아주 가까우면(0.85) 같은 사건, 꽤 가까우면(0.70) 제목에 같은 회사·인물이 있어야 같은 사건이다.
+ */
+export function sameEvent(a, b) {
+  const cos = a.vec && b.vec ? cosine(a.vec, b.vec) : null;
+  if (cos == null) return false;
+  return cos >= SAME_STORY || (cos >= SAME_EVENT && a.entities.some((e) => b.entities.includes(e)));
+}
+
+/** 같은 사건 기사는 점수가 가장 높은 하나만 남기고, 나머지는 관련 보도와 보도 매체 수로 합친다. */
+function mergeSameEvents(ranked) {
+  const kept = [];
+  for (const x of ranked) {
+    const k = kept.find((y) => sameEvent(x, y));
+    if (k) k.merged.push(x); else kept.push({ ...x, merged: [] });
+  }
+  for (const k of kept) {
+    if (!k.merged.length) continue;
+    const seen = new Set([k.c.publisher.toLowerCase()]);
+    const others = k.merged.flatMap((m) => [{ publisher: m.c.publisher, title: m.c.title, titleKo: m.c.titleKo, url: m.c.url, lang: m.c.lang }, ...(m.c.related || [])]);
+    const related = [...(k.c.related || []), ...others].filter((r) => !seen.has(r.publisher.toLowerCase()) && seen.add(r.publisher.toLowerCase())).slice(0, 5);
+    const coverage = k.c.coverage + k.merged.reduce((n, m) => n + m.c.coverage, 0);
+    const parts = { ...k.s.parts, coverage: Math.min(Math.max(coverage - 1, 0), 4) * 1.5 };
+    k.c = { ...k.c, related, coverage };
+    k.s = { ...k.s, parts, score: Math.round(Object.values(parts).reduce((x, y) => x + y, 0) * 10) / 10 };
+  }
+  return kept.sort((a, b) => b.s.score - a.s.score || b.c.at - a.c.at);
+}
+
 /** 후보 전체에 점수를 매기고 추천 6개 · 더 보기 · 싫어요로 걸러진 기사로 나눈다. */
 export function selectNews(pool, prefs, now, votes = {}) {
-  const scored = pool.map((c) => ({ c, s: scoreCandidate({ ...c, vec: unpackVec(c.vector), feat: features(`${c.title} ${c.summary}`) }, prefs, now) }));
+  const scored = pool.map((c) => {
+    const vec = unpackVec(c.vector);
+    return { c, vec, entities: entitiesOf(c.title), s: scoreCandidate({ ...c, vec, feat: features(`${c.title} ${c.summary}`) }, prefs, now) };
+  });
   const excluded = scored.filter((x) => x.s.excluded || votes[x.c.key] === -1);
-  const ranked = scored.filter((x) => !x.s.excluded && votes[x.c.key] !== -1).sort((a, b) => b.s.score - a.s.score || b.c.at - a.c.at);
+  const ranked = mergeSameEvents(scored.filter((x) => !x.s.excluded && votes[x.c.key] !== -1).sort((a, b) => b.s.score - a.s.score || b.c.at - a.c.at));
   // 판도를 바꾸는 소식(중요도 5, 36시간 안)은 취향과 상관없이 추천 6개에 먼저 2개까지 올린다.
   const headline = new Set(ranked.filter((x) => x.s.importance >= 5 && now - x.c.at <= HEADLINE_MS).slice(0, HEADLINES).map((x) => x.c.key));
   const per = new Map(), top = [], rest = [];
@@ -541,7 +584,8 @@ export async function buildNews(env, now = Date.now()) {
   ]);
   const budget = { left: FETCH_BUDGET };
   const learned = prefs.sources.filter((s) => !KNOWN_DOMAINS.some((d) => sameSite(s.domain, d))).slice(0, MAX_LEARNED).map(learnedSource);
-  const sources = [...SOURCES, ...learned].filter((s) => !(s.domain && blockedDomain(prefs, s.domain)));
+  // 싫어요가 많은 사이트도 수집은 계속한다(점수에서 매체 감점만 받는다).
+  const sources = [...SOURCES, ...learned];
   budget.left -= sources.length;
   const results = await fetchAll(sources);
   const items = [], status = [];
@@ -565,7 +609,7 @@ export async function buildNews(env, now = Date.now()) {
   // 후보 → 규칙·키워드 점수로 상위 POOL_SIZE 개 → 지난 묶음의 임베딩·판정·번역 재사용 → 새 것만 계산.
   const prior = new Map((oldPool?.items || []).map((c) => [c.key, c]));
   const lexical = { ...prefs, likes: prefs.likes.map((r) => ({ ...r, vec: null })), dislikes: prefs.dislikes.map((r) => ({ ...r, vec: null })) };
-  const pool = candidates(items, now, prefs).map((c) => {
+  const pool = candidates(items, now).map((c) => {
     const p = prior.get(c.key);
     return p ? { ...c, vector: p.vector || null, judge: p.judge?.v === JUDGE_VERSION ? p.judge : null, titleKo: p.title === c.title ? p.titleKo : null } : c;
   }).map((c) => ({ c, s: scoreCandidate({ ...c, feat: features(`${c.title} ${c.summary}`) }, lexical, now).score }))

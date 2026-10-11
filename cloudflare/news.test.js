@@ -241,6 +241,51 @@ test('나델라의 중대한 경고는 AI가 중요도 4·정책으로 판정해
   assert.equal(scoreCandidate({ ...cand({ title: '마이크로소프트 나델라, AI 모델에 비상 정지 장치 필요 제언' }), feat: new Set() }, prefsOf(), now).importance, 5);
 });
 
+test('매체·언어만 다른 같은 사건은 하나로 합쳐 관련 보도로 묶고, 같은 회사의 다른 소식은 그대로 둔다', () => {
+  // 실제 운영 임베딩(2026-10-11)의 코사인: TechCrunch↔AI타임스 0.79, TechCrunch↔The Verge 0.79, AI타임스↔The Verge 0.71
+  // 공통 축 10개 + 기사마다 다른 축 하나(1.68): 서로 코사인 10/(10+1.68²) ≈ 0.78
+  const near = (k) => packVec(Array.from({ length: 64 }, (_, i) => (i < 10 ? 1 : i === 20 + k ? 1.68 : 0)));
+  const pool = [
+    cand({ url: 'https://techcrunch.com/nadella', title: 'Microsoft’s Satya Nadella says AI models need an ‘emergency brake’', at: now - 4 * H, vector: near(0) }),
+    cand({ url: 'https://www.aitimes.com/news/articleView.html?idxno=216126', publisher: 'AI타임스', domain: 'aitimes.com', lang: 'ko', title: '나델라 “AI에도 비상 브레이크 필요”...인간 통제·독립 감사 강조', at: now - 3 * H, vector: near(1) }),
+    cand({ url: 'https://www.theverge.com/nadella', publisher: 'The Verge', domain: 'theverge.com', title: 'Satya Nadella says we should assume all AI models are ‘compromised’', at: now - 3 * H, vector: near(2) }),
+    cand({ url: 'https://www.theverge.com/other', publisher: 'The Verge', domain: 'theverge.com', title: 'Anthropic launches Claude Haiku 5.5', vector: packVec(Array.from({ length: 64 }, (_, i) => (i >= 40 ? 1 : 0))) }),
+  ];
+  const vecs = pool.map((c) => unpackVec(c.vector));
+  assert.ok(cosine(vecs[0], vecs[1]) >= 0.7 && cosine(vecs[0], vecs[1]) < 0.85, '같은 회사·인물이 있어야 합치는 구간');
+  const r = selectNews(pool, prefsOf(), now);
+  const nadella = [...r.top, ...r.more].filter((t) => /nadella|나델라/i.test(t.title));
+  assert.equal(nadella.length, 1, '나델라 기사는 한 장만');
+  assert.deepEqual([nadella[0].publisher, ...nadella[0].related.map((x) => x.publisher)].sort(), ['AI타임스', 'TechCrunch', 'The Verge'], '나머지 두 매체는 관련 보도로');
+  assert.equal(nadella[0].coverage, 3);
+  assert.ok(nadella[0].reasons.includes('3개 매체 보도'));
+  assert.ok(r.top.some((t) => t.url === 'https://www.theverge.com/other'), '다른 사건은 남는다');
+  // 임베딩이 꽤 가까워도 같은 회사·인물이 없으면 다른 사건이다.
+  const topicOnly = [cand({ url: 'https://a.com/1', title: 'New innovation is required to fund the $6 trillion buildout', vector: near(0) }),
+    cand({ url: 'https://b.com/2', publisher: 'B', domain: 'b.com', title: 'Data center boom: can we build it if they come?', vector: near(1) })];
+  assert.equal(selectNews(topicOnly, prefsOf(), now).top.length, 2);
+});
+
+test('공식 블로그의 고객 사례는 신제품이 아니라 경영 소식(중요도 최대 3)이고, 회사의 새 모델 발표는 그대로 신제품이다', () => {
+  for (const title of ['Asana cuts model costs 76x in browser tests with GPT-6.1 Sol', 'Pollo AI turns creative ideas into campaigns with OpenAI']) {
+    const c = cand({ url: 'https://openai.com/index/x', publisher: 'OpenAI', domain: 'openai.com', source: 'openai', kind: 'official', title, judge: { ai: true, importance: 4, type: 'launch' } });
+    const s = scoreCandidate({ ...c, feat: new Set() }, prefsOf(), now);
+    assert.equal(s.category, 'business', title); assert.equal(s.importance, 3, title);
+  }
+  const launch = cand({ url: 'https://openai.com/index/gpt-6', kind: 'official', title: 'Introducing GPT-6 with ChatGPT agent mode', judge: { ai: true, importance: 5, type: 'launch' } });
+  assert.equal(scoreCandidate({ ...launch, feat: new Set() }, prefsOf(), now).category, 'launch');
+  assert.equal(ruleCategory({ title: 'Asana cuts model costs with GPT-6.1 Sol', kind: 'news' }) === 'business', false, '뉴스 매체의 기사에는 적용하지 않는다');
+});
+
+test('싫어요가 3번 이상인 사이트도 수집에서 빼지 않고 매체 감점만 준다', () => {
+  const domains = new Map([['theverge.com', { up: 0, down: 5 }]]);
+  const items = [{ source: 'theverge', kind: 'news', publisher: 'The Verge', title: 'OpenAI launches GPT-6 reasoning model', url: 'https://theverge.com/1', summary: '', at: now - H, lang: 'en' }];
+  const c = candidates(items, now);
+  assert.equal(c.length, 1);
+  const s = scoreCandidate({ ...c[0], feat: new Set() }, prefsOf([], [], domains), now);
+  assert.ok(!s.excluded && s.parts.source < 0 && s.parts.source >= -6);
+});
+
 test('컨설팅 원문은 회사명이 제목에 없어도 분석 리포트이며 새 출처는 중복 등록하지 않는다', () => {
   for (const id of ['mckinsey', 'bain', 'bcg', 'deloitte', 'sectionai']) {
     const s = src(id);
@@ -445,6 +490,9 @@ test('카드 HTML은 이스케이프하고 스크립트 링크를 만들지 않�
   assert.match(html, /점수 67\.4/);
   const row = moreRow({ key: 'k', title: 'T', url: 'https://techcrunch.com/a', publisher: 'TechCrunch', kind: 'report', categoryLabel: '분석 리포트', at: new Date(now).toISOString(), score: 50, vote: 0 });
   assert.ok(row.includes('href="https://techcrunch.com/a"') && row.includes('noopener') && row.includes('리포트·인사이트'));
+  assert.ok(row.includes('data-copy-news') && row.includes('원문복사'), '더 보기에도 원문복사');
+  assert.ok(topCard({ rank: 2, key: 'k', title: 'T', url: 'https://techcrunch.com/a', publisher: 'P', kind: 'news', at: new Date(now).toISOString() }).includes('원문복사'), '추천 카드에도 원문복사');
+  assert.ok(!html.includes('data-copy-news'), '안전하지 않은 주소에는 원문 단추를 달지 않는다');
   assert.match(builtLine({ builtAt: new Date(now).toISOString(), learning: { likes: 3, dislikes: 1, learnedSources: 2, method: 'embedding' } }), /좋아요 3 · 싫어요 1 · 학습한 출처 2 · AI 임베딩/);
   assert.ok(warningHtml({ warnings: ['<b>'] }).includes('&lt;b&gt;')); assert.equal(warningHtml({ warnings: [] }), '');
   assert.ok(!warningHtml({ warnings: [] }).includes('데이터 경고'));

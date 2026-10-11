@@ -47,9 +47,6 @@ export async function loadPrefs(env) {
   }
 }
 
-/** 싫어요가 3번 이상이고 좋아요가 하나도 없는 사이트는 아예 빼고 수집한다. */
-export const blockedDomain = (prefs, domain) => { const d = prefs.domains.get(domain); return !!d && d.down >= 3 && d.up === 0; };
-
 /** D1 의 최신 평가 600건으로 KV 사본을 다시 만든다. version 이 바뀌면 화면이 다음 새로고침에 순위를 다시 매긴다. */
 export async function syncPrefs(env, now = Date.now()) {
   let votes = {};
@@ -202,7 +199,7 @@ export async function setVote(env, userId, { url, vote, title = '', summary = ''
 /** 등록 창의 '학습 현황'. 임베딩 값은 내보내지 않는다. */
 export async function listPrefs(env) {
   const prefs = await loadPrefs(env);
-  const domains = [...prefs.domains.entries()].map(([domain, d]) => ({ domain, ...d, blocked: blockedDomain(prefs, domain) }))
+  const domains = [...prefs.domains.entries()].map(([domain, d]) => ({ domain, ...d }))
     .sort((a, b) => b.up + b.down - (a.up + a.down)).slice(0, 30);
   return {
     ready: prefs.ok,
