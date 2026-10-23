@@ -14,7 +14,7 @@ wepic·가계부와 **같은 얼개**입니다: Cloudflare Worker 하나가 백�
 이 문구는 복사용이며 포털이 직접 메일을 발송하지 않습니다. 관리자는 기본으로 접근하고,
 일반 사용자는 **관리 → 화면 권한 → SWW-pro**를 허용해야 합니다.
 
-**Jaden AI NEWS** (`#/news`, 개인서비스): 좋아하는 기사 주소 등록과 카드 👍/👎 로 취향을 학습해(Workers AI 임베딩) 뉴스 매체 · 프런티어 AI 회사 공식 발표 · 컨설팅 리포트 · 무료 토큰 소식 중 비슷한 기사를 추천 6개로 고릅니다. 등록한 기사의 사이트는 수집 출처로 배웁니다. [운영 안내](docs/AI-NEWS.md)를 참고하세요.
+**Jaden AI NEWS** (개인서비스): [Jaden AI News](https://jadenainews.garzette.chatgpt.site/)로 연결합니다. [소스 저장소](https://github.com/garzette0905/jadenainews). 기존 `#/news` 바로가기도 로그인·접근 권한 확인 후 새 사이트로 이동합니다. 대시보드의 기존 뉴스 미리보기 운영은 [운영 안내](docs/AI-NEWS.md)를 참고하세요.
 **Jaden AI SNS**(X·Threads, `#/sns`)는 홈페이지 메뉴에 그대로 있습니다([안내](docs/AI-SNS.md)).
 
 | 폴더 · 파일 | 내용 |

@@ -10,7 +10,7 @@ import { renderWiki, wikiLeaving } from './wiki.js';
 import { renderBookmarks } from './bookmarks.js';
 import { renderPlaylists } from './playlists.js';
 import { renderHealth } from './health.js';
-import { renderNews, newsDashHtml, loadNewsDash } from './news.js';
+import { newsDashHtml, loadNewsDash } from './news.js';
 import { ico, serviceIco, brandIco } from './icons.js';
 
 const state = {
@@ -586,10 +586,11 @@ function route() {
   if (hash === '#/' || hash === '') return renderDashboard(page);
   if (hash.startsWith('#/g/')) return renderGroup(page, hash.slice(4));
   document.title = hash.startsWith('#/news') ? 'Jaden AI NEWS · JAPIS' : hash === '#/sns' ? 'SNS · JAPIS' : 'JAPIS';
-  // Jaden AI NEWS — 개인서비스의 'news' 화면.
+  // 기존 바로가기도 서버의 권한 확인을 거쳐 독립 뉴스 사이트로 보낸다.
   if (hash === '#/news') {
     if (!state.services.some((s) => s.key === 'news')) { location.hash = '#/'; return; }
-    return renderNews(page);
+    location.replace('/go/news');
+    return;
   }
   // SNS — 공식 사이트로 가는 링크만 모아 둔 화면(services.js 의 links).
   if (hash === '#/sns') return renderLinks(page, 'sns');

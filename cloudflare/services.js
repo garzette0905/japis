@@ -88,18 +88,17 @@ export const SERVICES = [
   },
   // ── 개인서비스 ────────────────────────────────────────────────────────
   {
-    // 최근 24시간 AI 주요 뉴스 Top 5(cloudflare/news.js). 2026-10-03 한때 'sns' 카드 자리를 빌렸다가
-    // 따로 섰다 — 'sns' 권한이 있던 사람에게는 migrations/019 가 이 권한을 같이 준다.
+    // 기존 news 권한을 유지하면서 독립 Jaden AI News 사이트로 연결한다.
     key: 'news',
     label: 'Jaden AI NEWS',
     group: 'personal',
-    desc: '국내외 언론 보도로 고른 최근 24시간 AI 주요 뉴스 Top 5',
-    url: '/#/news',
-    route: '#/news',
+    desc: 'Jaden AI News에서 최신 AI 뉴스와 추천 기사를 확인한다',
+    url: 'https://jadenainews.garzette.chatgpt.site/',
+    repo: 'garzette0905/jadenainews',
     accent: 'blue',
     icon: '📰',
     reauth: false,
-    external: false,
+    external: true,
   },
   {
     // 예전에는 이 자리가 옵시디언(obsidian://open?vault=Jaden)이었다. 그 주소는 이 컴퓨터의

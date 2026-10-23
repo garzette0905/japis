@@ -501,9 +501,44 @@ test('카드 HTML은 이스케이프하고 스크립트 링크를 만들지 않�
   assert.equal(safeNewsUrl('javascript:1'), '');
 });
 
-test('메뉴: AI NEWS 는 개인서비스에', () => {
+test('메뉴: AI NEWS 는 개인서비스에서 독립 사이트와 저장소로 연결한다', () => {
   const news = SERVICES.find((s) => s.key === 'news');
-  assert.equal(news.group, 'personal'); assert.equal(news.route, '#/news');
+  assert.equal(news.group, 'personal');
+  assert.equal(news.url, 'https://jadenainews.garzette.chatgpt.site/');
+  assert.equal(news.repo, 'garzette0905/jadenainews');
+  assert.equal(news.route, undefined);
+  assert.equal(news.external, true);
+});
+
+test('뉴스 사이트 연결은 로그인·기존 화면 권한을 확인하고 프레임과 새 탭에 같은 주소를 쓴다', async () => {
+  const secret = 'news-link-test-secret';
+  const user = { id: 1, role: 'user', status: 'active', password_hash: 'test-password-fingerprint', session_epoch: 0 };
+  const sessions = kv();
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const signature = Buffer.from(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode('news-test'))).toString('base64url').slice(0, 32);
+  await sessions.put('sess:news-test', JSON.stringify({ uid: user.id, pwv: user.password_hash.slice(-16), sev: 0 }));
+  let allowed = true;
+  const env = {
+    SESSION_SECRET: secret, SESSIONS: sessions,
+    DB: { prepare() { return {
+      bind() { return this; }, async first() { return user; },
+      async all() { return { results: [{ service_key: 'news', allowed: Number(allowed), reauth: 0 }] }; },
+      async run() { return { meta: { changes: 1 } }; },
+    }; } },
+  };
+  const request = (suffix = '', loggedIn = true) => new Request('https://japis.example/go/news' + suffix, {
+    headers: loggedIn ? { Cookie: `jsid=news-test.${signature}` } : {},
+  });
+  const ctx = { waitUntil() {} };
+  assert.equal((await worker.fetch(request('', false), env, ctx)).status, 401);
+  for (const suffix of ['', '?in=frame']) {
+    const res = await worker.fetch(request(suffix), env, ctx);
+    assert.equal(res.status, 302);
+    assert.equal(res.headers.get('location'), 'https://jadenainews.garzette.chatgpt.site/');
+  }
+  allowed = false;
+  const denied = await worker.fetch(request(), env, ctx);
+  assert.equal(denied.headers.get('location'), '/?denied=news');
 });
 
 test('AI NEWS API(조회·등록·평가·학습 현황)는 로그인 없이 열리지 않는다', async () => {
