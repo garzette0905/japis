@@ -37,3 +37,4 @@ npx wrangler d1 execute japis-db --remote --file=./migrations/00X_....sql
 | `019_news_service.sql` | Jaden AI NEWS 를 개인서비스의 새 화면(`news`)으로 분리 — `sns` 권한이 있던 사용자에게 `news` 권한 부여 |
 | `020_news_preferences.sql` | Jaden AI NEWS 선호 학습 — 좋아요/싫어요 기사 `news_feedback`(임베딩 포함)와 등록 기사에서 배운 출처 `news_sources` |
 | `021_health_2026_checkup.sql` | 2026-10-01 강북삼성병원 종합검진 167항목·InBody 770 40항목. 영상·내시경·구강·마음건강·자율신경·위험도 평가와 원문 페이지 보존. 지정 관리자에게만 적용하며 재실행 가능 |
+| `022_health_details.sql` | 삼성헬스 시간별 요약 `health_hourly`와 개별 운동·식사·영양·원본 코드 기록 `health_records`. 기존 데이터 유지, 재실행 가능 |

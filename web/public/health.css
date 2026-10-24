@@ -483,3 +483,10 @@ body.route-health .page .sh-blank .btn-primary:hover { background: #242424; bord
   .sh-tile .hp-tile-v { font-size: 18px; }
   .sh-range { padding: 6px 11px; }
 }
+/* Samsung export details keep wide tables usable on phones. */
+.sh-details { margin-top: 20px; }
+.sh-detail-scroll { overflow-x: auto; margin-top: 12px; max-height: 540px; }
+.sh-detail-table { width: 100%; border-collapse: collapse; font-size: 13px; white-space: nowrap; }
+.sh-detail-table th, .sh-detail-table td { padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--border, #ddd); }
+.sh-detail-table th { position: sticky; top: 0; background: var(--surface, #fff); }
+.sh-details select, #sh-hour-day { padding: 6px; margin: 8px; color: inherit; background: inherit; border: 1px solid var(--border, #aaa); border-radius: 6px; }

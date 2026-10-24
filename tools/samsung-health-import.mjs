@@ -21,7 +21,8 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const { datasetOf, parseSamsungHealth } = await import(pathToFileURL(path.join(root, 'web/public/shealth-parse.js')).href);
+const { datasetOf } = await import(pathToFileURL(path.join(root, 'web/public/shealth-parse.js')).href);
+const { parseSamsungHealthExport } = await import(pathToFileURL(path.join(root, 'web/public/shealth-extra.js')).href);
 
 // ── 인자 ──────────────────────────────────────────────────────
 const args = process.argv.slice(2);
@@ -30,7 +31,7 @@ const opt = (name) => {
   const i = args.indexOf(name);
   return i >= 0 ? args[i + 1] : undefined;
 };
-const positional = args.filter((a, i) => !a.startsWith('--') && !['--since', '--email', '--days'].includes(args[i - 1]));
+const positional = args.filter((a, i) => !a.startsWith('--') && !['--since', '--email', '--days', '--out'].includes(args[i - 1]));
 
 const folder = path.resolve(positional[0] || path.join(root, 'Samsung Health'));
 const remote = !flag('--local');
@@ -75,14 +76,27 @@ if (!found.size) {
 
 const files = {};
 for (const f of found.values()) files[f.dataset] = fs.readFileSync(f.file, 'utf8');
-const rows = parseSamsungHealth(files);
+const parsed = await parseSamsungHealthExport(files, async (dataset, name) => {
+  if (!/^[\w.+ -]+\.json$/.test(name)) return null;
+  const base = path.join(path.dirname(found.get(dataset).file), 'jsons', dataset);
+  for (const f of [path.join(base,name),path.join(base,name[0],name)]) {
+    if (fs.existsSync(f)) return JSON.parse(fs.readFileSync(f,'utf8'));
+  }
+  return null;
+});
+const { rows } = parsed;
 const send = since ? rows.filter(([day]) => day >= since) : rows;
+const hourly = parsed.hourly.filter(([day]) => !since || day >= since);
+const records = parsed.records.filter(r => !since || r.day >= since);
+const dates = [...rows.map(r=>r[0]), ...parsed.hourly.map(r=>r[0]), ...parsed.records.map(r=>r.day)].sort();
+for (const warning of parsed.warnings) console.warn(warning);
 const source = [...found.values()].map((f) => f.folder).sort().pop() || '';
 
 console.log(`읽은 표 ${found.size}개 · ${source}`);
 console.log(`모은 값 ${rows.length.toLocaleString()}개 (${rows[0]?.[0]} ~ ${rows[rows.length - 1]?.[0]})`);
+console.log(`시간별 요약 ${hourly.length.toLocaleString()}개 · 개별 기록 ${records.length.toLocaleString()}개`);
 console.log(`올릴 값 ${send.length.toLocaleString()}개${since ? ` (${since} 부터)` : ' (전체)'} → ${remote ? '운영' : '로컬'} D1, ${email}`);
-if (!send.length) process.exit(0);
+if (!send.length && !hourly.length && !records.length) process.exit(0);
 
 // ── SQL ────────────────────────────────────────────────────────
 // 줄마다 사용자를 찾지 않게 users 와 한 번 묶는다. 문장 하나는 100KB 를 넘지 않게 500줄씩.
@@ -97,16 +111,40 @@ SELECT u.id, v.column2, v.column1, v.column3, ${q(ts)}
   FROM (VALUES
 ${values}) AS v, users u
  WHERE u.email = ${q(email)}
-ON CONFLICT (user_id, code, day) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at;`
+ON CONFLICT (user_id, code, day) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+WHERE health_daily.value IS NOT excluded.value;`
   );
 }
 parts.push(
   `INSERT INTO health_daily_imports (user_id, imported_at, source, rows, first_day, last_day)
-SELECT id, ${q(ts)}, ${q(`${source} (cli)`)}, ${send.length}, ${q(rows[0][0])}, ${q(rows[rows.length - 1][0])}
+SELECT id, ${q(ts)}, ${q(`${source} (cli)`)}, ${send.length}, ${q(dates[0])}, ${q(dates.at(-1))}
   FROM users WHERE email = ${q(email)};`
 );
 
-const sqlFile = path.join(os.tmpdir(), `japis-shealth-${Date.now()}.sql`);
+// Keep every statement below D1's statement-size limit, including record JSON.
+function jsonStatements(items, statement) {
+  let batch=[], bytes=2;
+  for (const item of items) {
+    const size=Buffer.byteLength(JSON.stringify(item))+1;
+    if (batch.length && bytes+size > 55000) {
+      parts.splice(parts.length-1,0,statement(q(JSON.stringify(batch))));batch=[];bytes=2;
+    }
+    batch.push(item);bytes+=size;
+  }
+  if(batch.length)parts.splice(parts.length-1,0,statement(q(JSON.stringify(batch))));
+}
+jsonStatements(hourly, data => `INSERT INTO health_hourly(user_id,code,day,hour,value,minimum,maximum,duration_ms,updated_at)
+SELECT u.id,json_extract(j.value,'$[1]'),json_extract(j.value,'$[0]'),json_extract(j.value,'$[2]'),json_extract(j.value,'$[3]'),json_extract(j.value,'$[4]'),json_extract(j.value,'$[5]'),json_extract(j.value,'$[6]'),${q(ts)}
+FROM json_each(${data}) j, users u WHERE u.email=${q(email)}
+ON CONFLICT(user_id,code,day,hour) DO UPDATE SET value=excluded.value,minimum=excluded.minimum,maximum=excluded.maximum,duration_ms=excluded.duration_ms,updated_at=excluded.updated_at
+WHERE health_hourly.value IS NOT excluded.value OR health_hourly.minimum IS NOT excluded.minimum OR health_hourly.maximum IS NOT excluded.maximum OR health_hourly.duration_ms IS NOT excluded.duration_ms;`);
+jsonStatements(records, data => `INSERT INTO health_records(user_id,kind,source_id,day,data,updated_at)
+SELECT u.id,json_extract(j.value,'$.kind'),json_extract(j.value,'$.id'),json_extract(j.value,'$.day'),json_extract(j.value,'$.data'),${q(ts)}
+FROM json_each(${data}) j, users u WHERE u.email=${q(email)}
+ON CONFLICT(user_id,kind,source_id) DO UPDATE SET day=excluded.day,data=excluded.data,updated_at=excluded.updated_at
+WHERE health_records.day IS NOT excluded.day OR health_records.data IS NOT excluded.data;`);
+
+const sqlFile = opt('--out') ? path.resolve(opt('--out')) : path.join(os.tmpdir(), `japis-shealth-${Date.now()}.sql`);
 fs.writeFileSync(sqlFile, parts.join('\n\n') + '\n');
 if (dry) {
   console.log(`SQL 만 만들었습니다: ${sqlFile}`);
@@ -114,9 +152,9 @@ if (dry) {
 }
 
 const r = spawnSync(
-  'npx',
-  ['wrangler', 'd1', 'execute', 'japis-db', remote ? '--remote' : '--local', `--file=${sqlFile}`, '--yes'],
-  { cwd: root, stdio: 'inherit', shell: process.platform === 'win32' }
+  process.execPath,
+  [path.join(root, 'node_modules/wrangler/bin/wrangler.js'), 'd1', 'execute', 'japis-db', remote ? '--remote' : '--local', `--file=${sqlFile}`, '--yes'],
+  { cwd: root, stdio: 'inherit' }
 );
 fs.rmSync(sqlFile, { force: true });
 process.exit(r.status ?? 1);

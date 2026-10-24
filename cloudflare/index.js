@@ -36,7 +36,7 @@ import {
   deleteExam,
   putResults,
 } from './health.js';
-import { samsungOverview, samsungSeries, samsungImport } from './samsung.js';
+import { samsungOverview, samsungSeries, samsungImport, samsungDetails } from './samsung.js';
 import {
   listMusic,
   createArtist,
@@ -1910,6 +1910,9 @@ export default {
       }
       if (path === '/api/health/daily/import' && method === 'POST') {
         return requireHealth(request, env, (user) => samsungImport(request, env, user.id));
+      }
+      if (path === '/api/health/daily/details' && method === 'GET') {
+        return requireHealth(request, env, user => samsungDetails(env, user.id, url));
       }
 
       // ---- 관리자 ----

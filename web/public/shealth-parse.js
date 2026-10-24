@@ -22,6 +22,11 @@
 
 /** 화면이 그리는 항목. 서버(cloudflare/samsung.js)도 같은 목록으로 거른다. */
 export const DATASETS = [
+  'com.samsung.health.sleep_stage', 'com.samsung.shealth.sleep_snoring',
+  'com.samsung.health.advanced_glycation_endproduct', 'com.samsung.health.hrv',
+  'com.samsung.health.caffeine_intake', 'com.samsung.health.food_intake',
+  'com.samsung.health.nutrition', 'com.samsung.health.hba1c',
+  'com.samsung.health.sleep_apnea', 'com.samsung.shealth.stand_day_summary',
   'com.samsung.shealth.step_daily_trend',
   'com.samsung.shealth.tracker.pedometer_day_summary',
   'com.samsung.shealth.activity.day_summary',

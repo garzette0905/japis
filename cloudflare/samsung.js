@@ -7,6 +7,8 @@
 // 값은 브라우저가 삼성헬스 내보내기 폴더를 읽어 **하루 한 값으로 접은 뒤** 올린다
 // (web/public/shealth-parse.js). 원본(심박 11만 줄)은 서버에 오지 않는다.
 
+import { EXTRA_METRICS, DETAIL_CODES, RECORD_KINDS } from '../web/public/shealth-extra.js';
+
 const json = (data, status = 200) =>
   new Response(JSON.stringify(data), {
     status,
@@ -31,6 +33,7 @@ export const SAMSUNG_GROUPS = [
 ];
 
 export const SAMSUNG_METRICS = [
+  ...EXTRA_METRICS,
   { code: 'steps',         label: '걸음수',         unit: '보',     group: 'activity', chart: 'bar',  digits: 0 },
   { code: 'distance',      label: '이동거리',       unit: 'km',     group: 'activity', chart: 'bar',  digits: 1 },
   { code: 'exercise_min',  label: '운동시간',       unit: '분',     group: 'activity', chart: 'bar',  digits: 0, memo: '직접 기록했거나 워치가 알아챈 운동을 시작한 날에 더한다' },
@@ -75,8 +78,9 @@ const minusDays = (day, n) => new Date(Date.parse(day + 'T00:00:00Z') - n * 8640
 export async function samsungOverview(env, userId) {
   const [{ results: stats }, lastImport] = await Promise.all([
     env.DB.prepare(
-      `SELECT code, COUNT(*) AS n, MIN(day) AS first, MAX(day) AS last
-         FROM health_daily WHERE user_id = ? GROUP BY code`
+      `SELECT h.code, COUNT(*) AS n, MIN(h.day) AS first, MAX(h.day) AS last,
+         (SELECT value FROM health_daily x WHERE x.user_id=h.user_id AND x.code=h.code ORDER BY day DESC LIMIT 1) AS latest_value
+         FROM health_daily h WHERE h.user_id = ? GROUP BY h.code`
     ).bind(userId).all(),
     env.DB.prepare(
       `SELECT imported_at, source, rows, first_day, last_day
@@ -113,7 +117,7 @@ export async function samsungOverview(env, userId) {
         count: s?.n || 0,
         first: s?.first || null,
         last: s?.last || null,
-        latest: r?.latest || (s ? { day: s.last, value: null } : null),
+        latest: r?.latest || (s ? { day: s.last, value: s.latest_value } : null),
         avg7: r ? avg(r.now) : null,
         avgPrev7: r ? avg(r.prev) : null,
       };
@@ -143,6 +147,38 @@ export async function samsungSeries(env, userId, code) {
   return json({ code, points: (results || []).map((r) => [r.day, r.value]) });
 }
 
+export async function samsungDetails(env, userId, url) {
+  const code = url.searchParams.get('code');
+  const kind = url.searchParams.get('kind');
+  const day = url.searchParams.get('day');
+  if (code) {
+    if (!DETAIL_CODES.has(code) || !validDay(day)) return fail('항목과 날짜를 확인해 주세요.');
+    const { results } = await env.DB.prepare(
+      'SELECT hour,value,minimum,maximum,duration_ms FROM health_hourly WHERE user_id=? AND code=? AND day=? ORDER BY hour'
+    ).bind(userId, code, day).all();
+    return json({ points: results || [] });
+  }
+  if (!RECORD_KINDS.has(kind)) return fail('모르는 기록 종류입니다.');
+  const before = url.searchParams.get('before') || '9999-12-31';
+  if (!validDay(before)) return fail('날짜를 확인해 주세요.');
+  // Paginate by day, so multiple records on the boundary day are never lost.
+  const days = await env.DB.prepare(
+    'SELECT DISTINCT day FROM health_records WHERE user_id=? AND kind=? AND day<? ORDER BY day DESC LIMIT 30'
+  ).bind(userId, kind, before).all();
+  const first = days.results?.at(-1)?.day;
+  if (!first) return json({ records: [], next: null });
+  const { results } = await env.DB.prepare(
+    'SELECT source_id,day,data FROM health_records WHERE user_id=? AND kind=? AND day>=? AND day<? ORDER BY day DESC,source_id'
+  ).bind(userId, kind, first, before).all();
+  return json({ records: (results || []).map(r => ({...JSON.parse(r.data),id:r.source_id,day:r.day})), next: days.results.length===30 ? first : null });
+}
+
+function validDay(day) {
+  if (!DAY_RE.test(String(day))) return false;
+  const date = new Date(day + 'T00:00:00Z');
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0,10) === day;
+}
+
 /** 한 번에 받는 줄 수. 브라우저가 이만큼씩 나눠 보낸다(요청 하나 ≈ 100KB). */
 export const IMPORT_CHUNK = 3000;
 
@@ -157,33 +193,56 @@ export const IMPORT_CHUNK = 3000;
 export async function samsungImport(request, env, userId) {
   const body = await request.json().catch(() => ({}));
   const raw = Array.isArray(body.rows) ? body.rows : [];
-  if (raw.length > IMPORT_CHUNK) return fail(`한 번에 ${IMPORT_CHUNK}줄까지만 받습니다.`, 413);
+  const hourlyRaw = Array.isArray(body.hourly) ? body.hourly : [];
+  const recordsRaw = Array.isArray(body.records) ? body.records : [];
+  if (raw.length + hourlyRaw.length + recordsRaw.length > IMPORT_CHUNK) return fail(`한 번에 ${IMPORT_CHUNK}줄까지만 받습니다.`, 413);
+  const tomorrow = new Date(Date.now()+86400000).toISOString().slice(0,10);
+  const acceptableDay = day => validDay(day) && day >= '2000-01-01' && day <= tomorrow;
 
   const rows = [];
   for (const r of raw) {
     if (!Array.isArray(r)) continue;
     const [day, code, value] = r;
-    if (!DAY_RE.test(String(day)) || !CODES.has(code)) continue;
+    if (!acceptableDay(day) || !CODES.has(code) || value === null || value === '') continue;
     const v = Number(value);
     if (!Number.isFinite(v)) continue;
     rows.push([day, code, v]);
   }
 
   const ts = new Date().toISOString();
+  // Travelling across time zones can repeat a local clock hour. Duration is the
+  // union in absolute time, so a local-hour bucket can legitimately exceed 60 min.
+  const hourly = hourlyRaw.filter(r => Array.isArray(r) && r.length===7 && acceptableDay(r[0]) && DETAIL_CODES.has(r[1]) && Number.isInteger(r[2]) && r[2]>=0 && r[2]<=23 && r.slice(3).every(Number.isFinite) && r[5]>=r[3] && r[4]<=r[3] && r[6]>0 && r[6]<=86400000);
+  const records = recordsRaw.filter(r => r && RECORD_KINDS.has(r.kind) && typeof r.id==='string' && r.id.length>0 && r.id.length<=256 && acceptableDay(r.day) && r.data && typeof r.data==='object' && !Array.isArray(r.data) && JSON.stringify(r.data).length<=8000);
+  // A request is atomic across all three stores; the client records completion last.
+  const statements = [];
   if (rows.length) {
-    await env.DB.prepare(
+    statements.push(env.DB.prepare(
       `INSERT INTO health_daily (user_id, code, day, value, updated_at)
        SELECT ?1, json_extract(j.value, '$[1]'), json_extract(j.value, '$[0]'), json_extract(j.value, '$[2]'), ?2
          FROM json_each(?3) AS j
         WHERE 1
-       ON CONFLICT (user_id, code, day) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`
-    ).bind(userId, ts, JSON.stringify(rows)).run();
+       ON CONFLICT (user_id, code, day) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+       WHERE health_daily.value IS NOT excluded.value`
+    ).bind(userId, ts, JSON.stringify(rows)));
   }
+  if (hourly.length) statements.push(env.DB.prepare(
+    `INSERT INTO health_hourly(user_id,code,day,hour,value,minimum,maximum,duration_ms,updated_at)
+     SELECT ?1,json_extract(value,'$[1]'),json_extract(value,'$[0]'),json_extract(value,'$[2]'),json_extract(value,'$[3]'),json_extract(value,'$[4]'),json_extract(value,'$[5]'),json_extract(value,'$[6]'),?2 FROM json_each(?3) WHERE 1
+     ON CONFLICT(user_id,code,day,hour) DO UPDATE SET value=excluded.value,minimum=excluded.minimum,maximum=excluded.maximum,duration_ms=excluded.duration_ms,updated_at=excluded.updated_at
+     WHERE health_hourly.value IS NOT excluded.value OR health_hourly.minimum IS NOT excluded.minimum OR health_hourly.maximum IS NOT excluded.maximum OR health_hourly.duration_ms IS NOT excluded.duration_ms`
+  ).bind(userId,ts,JSON.stringify(hourly)));
+  if (records.length) statements.push(env.DB.prepare(
+    `INSERT INTO health_records(user_id,kind,source_id,day,data,updated_at)
+     SELECT ?1,json_extract(value,'$.kind'),json_extract(value,'$.id'),json_extract(value,'$.day'),json_extract(value,'$.data'),?2 FROM json_each(?3) WHERE 1
+     ON CONFLICT(user_id,kind,source_id) DO UPDATE SET day=excluded.day,data=excluded.data,updated_at=excluded.updated_at
+     WHERE health_records.day IS NOT excluded.day OR health_records.data IS NOT excluded.data`
+  ).bind(userId,ts,JSON.stringify(records)));
 
   // 마지막 조각에만 딸려 온다 — '언제 무엇을 올렸나'를 한 줄 남긴다.
   const f = body.final;
   if (f && typeof f === 'object') {
-    await env.DB.prepare(
+    statements.push(env.DB.prepare(
       `INSERT INTO health_daily_imports (user_id, imported_at, source, rows, first_day, last_day)
        VALUES (?, ?, ?, ?, ?, ?)`
     ).bind(
@@ -192,7 +251,9 @@ export async function samsungImport(request, env, userId) {
       Math.max(0, Math.floor(Number(f.rows) || 0)),
       DAY_RE.test(String(f.first)) ? f.first : null,
       DAY_RE.test(String(f.last)) ? f.last : null
-    ).run();
+    ));
   }
-  return json({ ok: true, saved: rows.length, skipped: raw.length - rows.length });
+  if (statements.length) await env.DB.batch(statements);
+  return json({ ok: true, saved: rows.length, hourly: hourly.length, records: records.length,
+    skipped: raw.length + hourlyRaw.length + recordsRaw.length - rows.length - hourly.length - records.length });
 }

@@ -14,7 +14,8 @@
 // 내보내기(samsunghealth_<id>_<시각>)를 스스로 고른다.
 
 import { el, esc, api, toast } from './util.js';
-import { datasetOf, parseSamsungHealth } from './shealth-parse.js';
+import { datasetOf } from './shealth-parse.js';
+import { parseSamsungHealthExport, DETAIL_CODES } from './shealth-extra.js';
 
 const ss = {
   loaded: false,
@@ -157,6 +158,14 @@ export async function renderSamsung(box) {
         <aside class="hl-side"><div class="hl-codes" id="sh-codes"></div></aside>
         <div class="hl-main"><div id="sh-chart"><div class="hp-loading">불러오는 중…</div></div></div>
       </div>
+      <section class="hp-trend-card sh-details" aria-label="삼성헬스 개별 기록">
+        <h2>개별 기록</h2>
+        <label>기록 종류 <select id="sh-record-kind">
+          <option value="exercise">운동 내역</option><option value="food">식사 내역</option>
+          <option value="nutrition">영양 기록</option><option value="apnea">수면무호흡 결과</option>
+          <option value="stand">서 있기 원본 기록</option>
+        </select></label><div id="sh-records"></div>
+      </section>
     </div>`;
 
   paintRanges();
@@ -164,6 +173,8 @@ export async function renderSamsung(box) {
   paintTiles();
   paintSide();
   await paintChart();
+  el('sh-record-kind')?.addEventListener('change', () => paintRecords());
+  await paintRecords();
 }
 
 function paintRanges() {
@@ -508,6 +519,60 @@ async function paintChart() {
       ${body}
     </div>
     <p class="hp-disclaimer">워치·휴대폰이 잰 값을 하루 한 값으로 모은 것입니다. 기기를 바꾸거나 차지 않은 날은 값이 튀거나 비어 있을 수 있습니다.</p>`;
+  if (DETAIL_CODES.has(m.code)) {
+    box.insertAdjacentHTML('beforeend', `<section class="hp-trend-card"><h3>시간별 상세</h3>
+      <p class="hp-trend-memo">기록된 현지 시각 기준입니다. 시차 이동으로 같은 시간대가 반복되면 측정 시간을 합산합니다.</p>
+      <label>날짜 <input id="sh-hour-day" type="date" value="${esc(m.last)}" max="${esc(m.last)}"></label>
+      <div id="sh-hours"></div></section>`);
+    const refresh = async () => {
+      const dest=el('sh-hours');if(!dest)return;
+      try {
+        const r=await api(`/api/health/daily/details?code=${encodeURIComponent(m.code)}&day=${encodeURIComponent(el('sh-hour-day').value)}`);
+        if(ss.code!==m.code)return;
+        dest.innerHTML=r.points.length ? detailTable(['시간','평균','최저','최고','측정 시간'],r.points.map(p=>[
+          `${String(p.hour).padStart(2,'0')}:00`,fmt(m,p.value),fmt(m,p.minimum),fmt(m,p.maximum),`${Math.round(p.duration_ms/60000)}분`,
+        ])) : '<p>이 날짜에는 세부 측정 기록이 없습니다.</p>';
+      } catch(e){dest.textContent=e.message;}
+    };
+    el('sh-hour-day').addEventListener('change',refresh);
+    await refresh();
+  }
+}
+
+function detailTable(headers, rows) {
+  return `<div class="sh-detail-scroll"><table class="sh-detail-table"><thead><tr>${headers.map(h=>`<th scope="col">${esc(h)}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map(row=>`<tr>${row.map(v=>`<td>${esc(v??'—')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+}
+// Samsung SDK's predefined exercise types; unknown types retain their source code.
+const EXERCISE_NAMES = {0:'기타 운동',1001:'걷기',1002:'달리기',11007:'자전거',13001:'등산',15006:'일립티컬'};
+async function paintRecords(before='', append=false) {
+  const kind=el('sh-record-kind')?.value,dest=el('sh-records');if(!dest)return;
+  if(!append)dest.innerHTML='<p>불러오는 중…</p>';
+  try {
+    const r=await api(`/api/health/daily/details?kind=${encodeURIComponent(kind)}${before?'&before='+encodeURIComponent(before):''}`);
+    if(el('sh-record-kind')?.value!==kind)return;
+    let headers, rows;
+    const n=(v,u='')=>v==null?'—':`${Number(v).toLocaleString('ko-KR',{maximumFractionDigits:2})}${u}`;
+    if(kind==='exercise'){
+      headers=['날짜','종목','운동시간','거리','페이스','평균 심박','VO₂ max'];
+      rows=r.records.map(p=>[ymd(p.day),EXERCISE_NAMES[p.type]||`종목 코드 ${p.type||'미기록'}`,n(p.minutes,'분'),n(p.distance_km,'km'),n(p.pace,'분/km'),n(p.heart_rate,'bpm'),n(p.vo2_max)]);
+    } else if(kind==='food'){
+      headers=['날짜','식사','섭취량','칼로리'];rows=r.records.map(p=>[ymd(p.day),p.name,n(p.amount),n(p.calorie,'kcal')]);
+    } else if(kind==='nutrition'){
+      headers=['날짜','칼로리','단백질','탄수화물','지방','나트륨','당류','기타 영양 원본'];
+      rows=r.records.map(p=>[ymd(p.day),n(p.calorie,'kcal'),n(p.protein,'g'),n(p.carbohydrate,'g'),n(p.total_fat,'g'),n(p.sodium,'mg'),n(p.sugar,'g'),Object.entries(p.other||{}).map(([k,v])=>`${k}: ${v}`).join(' · ')]);
+    } else {
+      headers=['날짜',kind==='apnea'?'원본 결과 코드':'원본 stand_time','설명'];
+      rows=r.records.map(p=>[ymd(p.day),kind==='apnea'?p.result:p.stand_time,p.note]);
+    }
+    if(!append)dest.innerHTML='';
+    dest.querySelector('button')?.remove();
+    dest.insertAdjacentHTML('beforeend', rows.length?detailTable(headers,rows):'<p>가져온 기록이 없습니다.</p>');
+    if(r.next){
+      dest.insertAdjacentHTML('beforeend','<button class="btn-secondary" type="button">이전 기록 더 보기</button>');
+      dest.querySelector('button').addEventListener('click',()=>paintRecords(r.next,true));
+    }
+  }catch(e){dest.textContent=e.message;}
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -562,7 +627,16 @@ async function collectFromHandle(dir, depth = 0, path = '', found = new Map()) {
       const d = datasetOf(name);
       if (!d) continue;
       const cur = found.get(d.dataset);
-      if (!cur || d.stamp > cur.stamp) found.set(d.dataset, { ...d, getFile: () => h.getFile(), folder: path || dir.name });
+      if (!cur || d.stamp > cur.stamp) found.set(d.dataset, { ...d, getFile: () => h.getFile(), folder: path || dir.name,
+        readAttachment: async (name) => {
+          if (!/^[\w.+ -]+\.json$/.test(name)) return null;
+          const jsons = await dir.getDirectoryHandle('jsons');
+          const datasetDir = await jsons.getDirectoryHandle(d.dataset);
+          let file;
+          try { file = await datasetDir.getFileHandle(name); }
+          catch { file = await (await datasetDir.getDirectoryHandle(name[0])).getFileHandle(name); }
+          return JSON.parse(await (await file.getFile()).text());
+        } });
     } else if (depth < 3 && name !== 'jsons' && name !== 'files') {
       await collectFromHandle(h, depth + 1, name, found);
     }
@@ -572,12 +646,19 @@ async function collectFromHandle(dir, depth = 0, path = '', found = new Map()) {
 
 function collectFromList(fileList) {
   const found = new Map();
+  const attachments = new Map([...fileList].filter(f => f.name.endsWith('.json')).map(f => [f.webkitRelativePath, f]));
   for (const f of fileList) {
     const d = datasetOf(f.name);
     if (!d) continue;
     const parts = (f.webkitRelativePath || '').split('/');
     const cur = found.get(d.dataset);
-    if (!cur || d.stamp > cur.stamp) found.set(d.dataset, { ...d, getFile: async () => f, folder: parts[parts.length - 2] || '' });
+    if (!cur || d.stamp > cur.stamp) found.set(d.dataset, { ...d, getFile: async () => f, folder: parts[parts.length - 2] || '',
+      readAttachment: async (name) => {
+        if (!/^[\w.+ -]+\.json$/.test(name)) return null;
+        const base = parts.slice(0,-1).join('/') + '/jsons/' + d.dataset + '/';
+        const a = attachments.get(base+name) || attachments.get(base+name[0]+'/'+name);
+        return a ? JSON.parse(await a.text()) : null;
+      } });
   }
   return found;
 }
@@ -593,7 +674,7 @@ async function openImportDialog() {
   d.innerHTML = `
     <div class="hp-form">
       <h2 class="modal-title">삼성헬스 기록 가져오기</h2>
-      <p class="modal-lead">내보낸 폴더를 이 브라우저가 직접 읽어 <b>하루 한 값</b>으로 모아 올립니다. 원본 파일은 올라가지 않습니다.</p>
+      <p class="modal-lead">내보낸 CSV와 세부 JSON을 이 브라우저가 읽어 <b>일별·시간별 요약과 개별 기록</b>을 올립니다. 원본 파일은 올라가지 않습니다.</p>
       ${howToHtml()}
       <label class="sh-check"><input type="checkbox" id="sh-all"> 전체 기간 다시 올리기 <span class="faint">(보통은 새로 생긴 날만 올립니다)</span></label>
       <div class="sh-prog" id="sh-prog" hidden><div class="sh-prog-bar"><span id="sh-prog-fill"></span></div><p id="sh-prog-t"></p></div>
@@ -680,8 +761,11 @@ async function importFound(found, all, progress) {
   }
   progress(0.42, '하루 단위로 모으는 중…');
   await new Promise((r) => setTimeout(r, 30)); // 글자가 먼저 그려지게 한 박자 쉰다
-  const rows = parseSamsungHealth(files);
-  if (!rows.length) throw new Error('읽은 파일에서 모을 값이 없었습니다.');
+  const parsed = await parseSamsungHealthExport(files, (dataset,name) => found.get(dataset)?.readAttachment(name),
+    (dataset,done,total) => progress(0.42, `세부 측정 읽는 중 — ${dataset.split('.').at(-1)} ${done}/${total}`));
+  const { rows } = parsed;
+  if (!rows.length && !parsed.hourly.length && !parsed.records.length) throw new Error('읽은 파일에서 모을 값이 없었습니다.');
+  const dates = [...rows.map(r=>r[0]), ...parsed.hourly.map(r=>r[0]), ...parsed.records.map(r=>r.day)].sort();
 
   // 새로 생긴 날만 — 항목마다 서버에 있는 마지막 날의 **일주일 전부터** 다시 올린다.
   // 마지막 며칠은 내보낼 때 아직 하루가 끝나지 않아 값이 덜 찼을 수 있어서다.
@@ -689,19 +773,25 @@ async function importFound(found, all, progress) {
   const cut = new Map();
   if (!all) for (const m of ss.metrics) if (m.last) cut.set(m.code, dayStr(tsOf(m.last) - 7 * DAY));
   const send = rows.filter(([day, code]) => !cut.has(code) || day >= cut.get(code));
+  const hourly = parsed.hourly.filter(([day,code]) => !cut.has(code) || day >= cut.get(code));
+  // Individual records are idempotent by source UUID; include history on every import.
+  const records = parsed.records;
 
   const source = entries.map((e) => e.folder).sort().pop() || '';
-  const CHUNK = 3000;
-  const total = Math.max(1, Math.ceil(send.length / CHUNK));
+  const CHUNK = 500;
+  const batches = [];
+  for (const [key,items] of [['rows',send],['hourly',hourly],['records',records]])
+    for(let i=0;i<items.length;i+=CHUNK)batches.push({[key]:items.slice(i,i+CHUNK)});
+  if(!batches.length)batches.push({rows:[]});
+  const total = batches.length;
   for (let k = 0; k < total; k += 1) {
     progress(0.45 + (0.55 * k) / total, `올리는 중 ${k + 1}/${total}`);
-    const part = send.slice(k * CHUNK, (k + 1) * CHUNK);
     const isLast = k === total - 1;
     await api('/api/health/daily/import', {
       method: 'POST',
       body: {
-        rows: part,
-        ...(isLast ? { final: { source, rows: send.length, first: rows[0][0], last: rows[rows.length - 1][0] } } : {}),
+        ...batches[k],
+        ...(isLast ? { final: { source, rows: send.length, first: dates[0], last: dates.at(-1) } } : {}),
       },
     });
   }
@@ -709,7 +799,7 @@ async function importFound(found, all, progress) {
 
   ss.series.clear();
   await loadOverview(true);
-  toast(`${send.length.toLocaleString('ko-KR')}개 값을 반영했습니다 (${ymd(rows[0][0])} ~ ${ymd(rows[rows.length - 1][0])})`);
+  toast(`${send.length.toLocaleString('ko-KR')}개 일별 값 · ${hourly.length.toLocaleString('ko-KR')}개 시간별 값 · ${records.length.toLocaleString('ko-KR')}개 기록을 반영했습니다${parsed.warnings.length ? ' · '+parsed.warnings.join('; ') : ''}`);
   const box = el('hp-tabbody');
   if (box) await renderSamsung(box);
 }
