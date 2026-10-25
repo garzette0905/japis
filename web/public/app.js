@@ -9,6 +9,7 @@ import { $, el, esc, api, toast } from './util.js';
 import { renderWiki, wikiLeaving } from './wiki.js';
 import { renderBookmarks } from './bookmarks.js';
 import { renderPlaylists } from './playlists.js';
+import { renderCar } from './car.js';
 import { renderHealth } from './health.js';
 import { newsDashHtml, loadNewsDash } from './news.js';
 import { ico, serviceIco, brandIco } from './icons.js';
@@ -632,6 +633,10 @@ function route() {
   if (hash === '#/bodylab') {
     location.hash = '#/health/inbody';
     return;
+  }
+  if (hash === '#/car' || hash.startsWith('#/car/')) {
+    if (!state.services.some(s => s.key === 'car')) { location.hash = '#/'; return; }
+    return renderCar(page, hash.split('/')[2] || 'info');
   }
   if (hash === '#/me') return renderMe(page);
   if (state.me.role === 'admin') {

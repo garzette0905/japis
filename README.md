@@ -17,6 +17,10 @@ wepic·가계부와 **같은 얼개**입니다: Cloudflare Worker 하나가 백�
 **Jaden AI NEWS** (개인서비스): [Jaden AI News](https://jadenainews.garzette.chatgpt.site/)로 연결합니다. [소스 저장소](https://github.com/garzette0905/jadenainews). 기존 `#/news` 바로가기도 로그인·접근 권한 확인 후 새 사이트로 이동합니다. 대시보드의 기존 뉴스 미리보기 운영은 [운영 안내](docs/AI-NEWS.md)를 참고하세요.
 **Jaden AI SNS**(X·Threads, `#/sns`)는 홈페이지 메뉴에 그대로 있습니다([안내](docs/AI-SNS.md)).
 
+**내 자동차 정보**(개인서비스, `#/car`)는 등록증 기반 차량 정보, 전체 정비 이력·원본,
+별도 주행거리·엔진오일 화면을 제공합니다. 운행 km와 교환 기록을 추가하고 엔진오일·타이어
+알림 주기를 설정할 수 있습니다. 개인 자료는 계정별 D1/R2에 보관합니다([운영 안내](docs/CAR.md)).
+
 | 폴더 · 파일 | 내용 |
 |---|---|
 | `web/public/` | 화면 (HTML·CSS·JS) — Worker의 정적 자산으로 그대로 서빙 |

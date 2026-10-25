@@ -214,6 +214,12 @@ export const SERVICES = [
     reauth: false,
     external: false,
   },
+  {
+    key: 'car', label: '내 자동차 정보', group: 'personal',
+    desc: '나의 자동차 · 차량 정보, 정비 이력, 주행거리와 엔진오일 관리',
+    url: '/#/car', route: '#/car', accent: 'sky', icon: '🚘',
+    reauth: false, external: false,
+  },
   // ── 취미 ──────────────────────────────────────────────────────────────
   {
     key: 'wepic',

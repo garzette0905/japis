@@ -199,6 +199,8 @@ const BRAND_ICONS = {
 
 /** 화면(서비스) 그림. key 는 services.js 의 key 와 같다. */
 const SERVICE_ICONS = {
+  car: '<path d="m4 10 2-5h12l2 5M3 10h18v8H3z"/><circle cx="7" cy="14" r="1"/><circle cx="17" cy="14" r="1"/><path d="M5 18v2m14-2v2"/>',
+
   // 집 — 지붕과 몸통 하나, 아래에 문을 판다
   dashboard:
     '<path d="M11.36 2.3a1 1 0 0 1 1.28 0l8.7 7.3a1 1 0 0 1-.64 1.77H20v9.1a1.6 1.6 0 0 1-1.6 1.6h-4v-6.2h-4.8v6.2h-4A1.6 1.6 0 0 1 4 20.47v-9.1h-.7a1 1 0 0 1-.64-1.77Z"/>',
@@ -421,7 +423,7 @@ export const hasBrandIco = (name) => !!BRAND_ICONS[name];
 export const brandIco = (name) => (BRAND_ICONS[name] ? wrapBrand(BRAND_ICONS[name]) : null);
 
 /** 화면 그림 — 제 공식 마크가 있으면 그것을 먼저 쓴다(wepic · 가계부 · 구글 넷 …). */
-export const serviceIco = (key) => brandIco(key) || wrap(SERVICE_ICONS[key] || UI_ICONS.dot);
+export const serviceIco = (key) => key === 'car' ? `<span class="car-menu-icon">${wrap(SERVICE_ICONS.car)}<img src="/api/car/files/hero.jpg" alt="" loading="lazy"></span>` : brandIco(key) || wrap(SERVICE_ICONS[key] || UI_ICONS.dot);
 
 /** 포털 그림 하나. */
 export const ico = (name) => wrap(UI_ICONS[name] || UI_ICONS.dot);

@@ -36,6 +36,7 @@ import {
   deleteExam,
   putResults,
 } from './health.js';
+import { carApi } from './car.js';
 import { samsungOverview, samsungSeries, samsungImport, samsungDetails } from './samsung.js';
 import {
   listMusic,
@@ -1566,6 +1567,11 @@ export default {
 
     try {
       if (!sameOriginRequest(request)) return fail('잘못된 요청 출처입니다.', 403);
+
+      // Vehicle data and every original pass the same screen and owner gates.
+      if (path === '/api/car' || path.startsWith('/api/car/')) {
+        return requireScreen('car')(request, env, user => carApi(request, env, user.id, path));
+      }
 
       // ---- 인증 ----
       if (path === '/api/status' && method === 'GET') return apiStatus(request, env);
