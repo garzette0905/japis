@@ -124,3 +124,15 @@ test('연결이 없거나 YouTube API 가 꺼져 있으면 무엇을 할지 알�
     db.close();
   }
 });
+
+test('곡 출처는 주소로 가른다 — 유튜브 · FLO · 직접 입력', async () => {
+  const { sourceOf } = await import('../web/public/playlists.js');
+  assert.equal(sourceOf({ url: 'https://www.youtube.com/watch?v=a' }), 'youtube');
+  assert.equal(sourceOf({ url: 'https://youtu.be/a' }), 'youtube');
+  assert.equal(sourceOf({ url: 'https://music.youtube.com/watch?v=a' }), 'youtube');
+  assert.equal(sourceOf({ url: 'https://www.music-flo.com/detail/track/1' }), 'flo');
+  assert.equal(sourceOf({ url: '', memo: 'FLO 스트리밍 횟수: 3회' }), 'flo');
+  assert.equal(sourceOf({ url: '', memo: '' }), 'manual');
+  assert.equal(sourceOf({ url: 'https://www.melon.com/song/1' }), 'manual');
+  assert.equal(sourceOf({ url: 'https://notyoutube.com.evil/x' }), 'manual');
+});
