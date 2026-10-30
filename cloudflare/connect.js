@@ -5,8 +5,9 @@
 // 돌려준다. 그래서 화면에는 메일 본문도, 파일 내용도 내려가지 않는다.
 //
 // 한 번에 로그인
-//   구글 포토·메일·캘린더는 **연결 하나**(google)를 나눠 쓴다. 한 번 동의하면 셋 다
-//   열린다. OneDrive 는 계정이 달라(garzette@naver.com) 따로 잡는다(microsoft).
+//   구글 메일·캘린더·할일은 연결 하나(google)를 나눠 쓴다.
+//   포토는 Google 정책상 보관함 자동 조회가 불가능해 바로가기만 제공한다.
+//   OneDrive 는 계정이 달라(garzette@naver.com) 따로 잡는다(microsoft).
 //
 // 토큰 보관
 //   Refresh Token 은 AES-GCM 으로 싸서 D1에 둔다. 열쇠는 SESSION_SECRET 에서 뽑는다.
@@ -43,7 +44,7 @@ export const PROVIDERS = {
     label: '구글',
     auth: 'https://accounts.google.com/o/oauth2/v2/auth',
     token: 'https://oauth2.googleapis.com/token',
-    // 네 화면(포토·메일·캘린더·할일)이 이 동의 하나를 함께 쓴다. 전부 읽기 전용이다.
+    // 메일·캘린더·할일이 이 동의 하나를 함께 쓴다.
     //
     // ⚠️ 이 목록을 늘리면 **이미 연결해 둔 사람의 토큰에는 새 권한이 없다.** 구글은
     //    옛 토큰을 조용히 그대로 쓰다가 새 API에서만 403(insufficient scopes)을 낸다.
@@ -51,9 +52,8 @@ export const PROVIDERS = {
     //
     // calendar.events · tasks 는 **쓰기까지** 하는 권한이다. 대시보드의 한 줄 입력칸
     // (/api/ask)이 "내일 오후 3시 치과"를 받아 캘린더에 실제로 넣어야 하기 때문이다.
-    // 나머지 둘(사진·메일)은 읽기 전용 그대로다 — 메일을 대신 보내는 일은 없다.
+    // 메일은 읽기 전용이다. 폐지된 photoslibrary.readonly는 요청하지 않는다.
     scope: [
-      'https://www.googleapis.com/auth/photoslibrary.readonly',
       'https://www.googleapis.com/auth/gmail.readonly',
       'https://www.googleapis.com/auth/calendar.readonly',
       'https://www.googleapis.com/auth/calendar.events',
@@ -376,18 +376,6 @@ async function calendarFeed(token) {
   return { items: ordered, note: ordered.length ? null : '앞으로 잡힌 일정이 없습니다.' };
 }
 
-async function photosFeed(token) {
-  const data = await askJson(`https://photoslibrary.googleapis.com/v1/mediaItems?pageSize=${FEED_MAX}`, token);
-  const items = (data.mediaItems || []).map((m) => ({
-    title: m.filename || '사진',
-    at: m.mediaMetadata?.creationTime || null,
-    // baseUrl 은 한 시간쯤 뒤 만료된다 — 그래서 캐시를 짧게 잡는다.
-    thumb: m.baseUrl ? `${m.baseUrl}=w320-h320-c` : null,
-    link: m.productUrl || null,
-  }));
-  return { items, note: items.length ? null : '최근 사진이 없습니다.' };
-}
-
 async function oneDriveFeed(token) {
   const data = await askJson(`https://graph.microsoft.com/v1.0/me/drive/recent?$top=${FEED_MAX}`, token);
   const items = (data.value || []).slice(0, FEED_MAX).map((f) => ({
@@ -428,17 +416,24 @@ async function tasksFeed(token) {
 const FEEDS = {
   gmail: gmailFeed,
   gcalendar: calendarFeed,
-  gphotos: photosFeed,
   gtasks: tasksFeed,
   onedrive: oneDriveFeed,
 };
 
 /**
  * 카드 앞면에 얹을 것.
- *   { state: 'ok' | 'unconfigured' | 'disconnected' | 'error', items, note }
+ *   { state: 'ok' | 'unconfigured' | 'disconnected' | 'reconnect' | 'unsupported' | 'error', items, note }
  * 무슨 일이 생겨도 던지지 않는다 — 미리보기가 안 나오는 것과 포털이 멈추는 것은 다르다.
  */
 export async function feedFor(env, ctx, userId, key, { fresh = false } = {}) {
+  // 2025-03-31 폐지된 보관함 조회는 재동의로 복구되지 않는다.
+  // 토큰·캐시보다 먼저 반환해 예전 reconnect 캐시도 다시 표시하지 않는다.
+  if (key === 'gphotos') {
+    return {
+      state: 'unsupported', provider: 'google', items: [],
+      note: 'Google 정책 변경으로 기존 사진 보관함의 자동 미리보기를 지원하지 않습니다. 사진과 앨범은 아래 열기로 확인해 주세요.',
+    };
+  }
   const provider = FEED_OF[key];
   const fetcher = FEEDS[key];
   if (!provider || !fetcher) return { state: 'none', items: [] };
@@ -466,7 +461,7 @@ export async function feedFor(env, ctx, userId, key, { fresh = false } = {}) {
     }
     const { items, note } = result;
     const out = { state: 'ok', provider, items, note, at: nowIso() };
-    // 5분만 들고 있는다. 사진 썸네일 주소가 한 시간이면 만료되기 때문이기도 하다.
+    // 최근 항목은 5분만 캐시한다.
     const put = env.SESSIONS.put(cacheKey, JSON.stringify(out), { expirationTtl: 300 });
     if (ctx) ctx.waitUntil(put);
     else await put;

@@ -41,7 +41,7 @@ npx wrangler d1 execute japis-db --remote --file=./schema.sql
 | 이름 | 값 | 필수 |
 |---|---|---|
 | `SESSION_SECRET` | 세션 서명용 임의의 긴 문자열(16자 이상) | ✅ 없으면 로그인 자체가 거부됩니다 |
-| `GOOGLE_CLIENT_ID` · `GOOGLE_CLIENT_SECRET` | 구글 포토·메일·캘린더 최근 항목 미리보기 | 선택 |
+| `GOOGLE_CLIENT_ID` · `GOOGLE_CLIENT_SECRET` | 구글 메일·캘린더·할일 연동 | 선택 |
 | `MS_CLIENT_ID` · `MS_CLIENT_SECRET` | OneDrive 최근 항목 미리보기 | 선택 |
 
 (`ADMIN_EMAIL` 은 비밀이 아니라 `wrangler.toml` 의 `[vars]` 에 있습니다. 대시보드에서
@@ -66,7 +66,7 @@ npx wrangler d1 execute japis-db --remote --file=./schema.sql
 ### 협업 연동 키 만들기 (선택)
 
 **구글** — [Google Cloud Console](https://console.cloud.google.com/) → 프로젝트 생성 →
-*API 및 서비스*에서 **Photos Library API · Gmail API · Calendar API · Tasks API**
+*API 및 서비스*에서 **Gmail API · Calendar API · Tasks API**
 사용 설정 →
 *OAuth 동의 화면*(외부, 테스트 사용자에 본인 계정 추가) → *사용자 인증 정보 →
 OAuth 클라이언트 ID(웹 애플리케이션)*.
@@ -85,12 +85,12 @@ https://<포털주소>/connect/microsoft/callback
 
 구글 쪽에서 빠뜨리기 쉬운 것들:
 
-- **API 네 개를 각각** 사용 설정해야 합니다(Photos Library · Gmail · Calendar · **Tasks**).
+- **API 세 개를 각각** 사용 설정해야 합니다(Gmail · Calendar · **Tasks**).
   하나라도 빠지면 그 카드만 *불러오지 못했습니다* 로 뜹니다(나머지는 잘 나옵니다 —
   그래서 원인이 잘 안 보입니다).
 - **읽기만 하는 것이 아닙니다(2026-09-17).** 대시보드의 한 줄 입력칸이 일정·할 일을
-  실제로 넣으므로 `calendar.events` 와 `tasks` (쓰기)까지 받습니다. 사진·메일은 읽기
-  전용 그대로입니다. 이 줄이 늘어난 뒤 **이미 연결해 둔 계정은 한 번 다시 연결**해야
+  실제로 넣으므로 `calendar.events` 와 `tasks` (쓰기)까지 받습니다. 메일은 읽기
+  전용입니다. 이 줄이 늘어난 뒤 **이미 연결해 둔 계정은 한 번 다시 연결**해야
   합니다(아래 항목과 같은 이유).
 - **한 줄 입력은 Workers AI를 사용합니다(2026-09-19).** `wrangler.toml`의 `[ai]`
   바인딩으로 `@cf/zai-org/glm-4.7-flash`를 부르므로 별도 API 키가 필요 없습니다. 무료
@@ -111,9 +111,16 @@ https://<포털주소>/connect/microsoft/callback
   **포토는 아예 지우고** `photos.google.com/` 로 튕깁니다. 거기서 세션이 없거나 기본
   계정(u/0)이 다른 사람이면 `www.google.com/photos/about/` — **소개 페이지**가 뜹니다.
   `services.js` 의 `googleAs()` 가 넷을 모두 감싸 이 문제를 없앴습니다.
-- **구글 포토는 2025년 3월부터** `photoslibrary.readonly` 로 보관함 전체를 읽을 수 없습니다.
-  이 앱이 올린 사진만 보입니다 — 그래서 포토 카드는 동의가 끝나도 비어 있을 수 있고,
-  그것이 정상입니다(메일·캘린더는 영향 없음).
+- **구글 포토는 2025년 3월 31일부터** `photoslibrary.readonly` 권한이 폐지되어
+  기존 코드의 사진 조회가 403을 반환합니다. 재연결하거나 Library API를 켜도 해결되지
+  않습니다([Google 공식 안내](https://developers.google.com/photos/support/updates)).
+  JAPIS는 폐지된 권한을 요청하지 않고, 포토 카드에 자동 미리보기 제한을 안내하며
+  **열기**로 Google Photos를 새 탭에서 엽니다. 이 바로가기에는 API 설정이 필요 없습니다.
+  기존 Google 연결은 그대로 사용할 수 있으며, 이번 수정 때문에 다시 동의할 필요는 없습니다.
+  OAuth 동의 화면의 데이터 액세스 목록에 폐지된 `photoslibrary.readonly`가 남아 있다면
+  제거해 주세요. 메일·캘린더·할일 권한과 기존 클라이언트 ID/시크릿은 유지합니다.
+  사진을 직접 선택해 가져오는 기능을 추가하려면 **Google Photos Picker API**와
+  `photospicker.mediaitems.readonly` 권한 및 별도 선택 흐름이 필요합니다.
 
 ```bash
 npx wrangler secret put SESSION_SECRET

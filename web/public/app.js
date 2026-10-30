@@ -759,6 +759,7 @@ const feedWhen = (iso, allDay) => {
 
 function feedHtml(key, f) {
   if (!f) return '<span class="spinner"></span>';
+  if (f.state === 'unsupported') return `<p class="feed-note">${esc(f.note || '자동 미리보기를 지원하지 않습니다. 아래 열기를 이용해 주세요.')}</p>`;
   if (f.state === 'locked') {
     return `<p class="feed-note">잠금을 풀면 최근 항목이 보입니다.</p>
       <button class="btn-utility" type="button" data-unlock="${esc(key)}">잠금 해제</button>`;
@@ -1363,7 +1364,7 @@ async function renderConnectBar() {
 
   bar.innerHTML = `<div class="panel connect-panel">
     <div class="panel-title">연결</div>${rows}
-    <p class="field-hint">한 번 연결해 두면 구글 포토·메일·캘린더가 그 로그인 하나를 함께 씁니다.</p>
+    <p class="field-hint">구글 메일·캘린더·할일은 연결 하나를 함께 씁니다. 구글 포토는 별도 로그인된 새 탭에서 열립니다.</p>
   </div>`;
 
   bar.querySelectorAll('[data-off]').forEach((b) =>
