@@ -658,12 +658,12 @@ word 파일로 만들어주세요.
         <div class="fstep"><b>① 문서 유형 선택</b>10가지 문서 유형(기사 정리, 시장동향, 주간보고, 기존 문서 수정, 기업개요 등) 중 만들고 싶은 유형을 고릅니다. ⑦ 기업개요·⑧ CEO Profile·⑩ 지참자료는 다른 유형과 함께 <b>중복 선택</b>할 수 있고, ⑦·⑧은 주 유형 체크를 해제하고 <b>단독 선택</b>하면 기업개요·CEO Profile 단독 문서로 작성됩니다.</div>
         <div class="fstep"><b>② 옵션 입력</b>Prompt 입력(최우선 반영)과 보고서내 도식 포함을 먼저 정하고, <b>'더보기'</b>를 누르면 문서 타이틀, 보고 목적, 작업 방식, 첨부파일 종류, 문서 수정사항 표시, 첫장 목차 페이지 설정, Word 파일 저장경로가 펼쳐집니다.</div>
         <div class="fstep"><b>③ 프롬프트 자동 생성</b>선택한 내용이 반영된 완성형 프롬프트가 화면에 자동으로 만들어집니다.</div>
-        <div class="fstep"><b>④ 열기 → 붙여 넣기 → 전송</b>"ChatGPT 열기"(Web/App) 또는 "Claude 열기"(Web/App) 버튼을 누르면 생성된 프롬프트가 <b>클립보드에 복사</b>되고 해당 서비스의 새 대화가 열립니다. Web은 입력창에 <b>붙여 넣기(Ctrl+V)</b>하고, App(데스크톱 앱)은 입력창에 <b>자동으로 채워진</b> 프롬프트를 확인한 뒤 첨부가 있으면 올리고 전송합니다. (Codex·Claude Code·AI Pro·Antigravity는 "Prompt복사(Claude Code, AI Pro, Antigravity)" / "Prompt복사(Codex)" 후 붙여넣기) 소스와 배포 정보는 버튼 목록 마지막의 <b>"GitHub 저장소 열기"</b>에서 확인합니다.</div>
+        <div class="fstep"><b>④ 열기 → 확인 → 전송</b>"ChatGPT 열기"(Web/App) 또는 "Claude 열기"(Web/App) 버튼을 누르면 해당 서비스의 새 대화가 열리고 입력창에 프롬프트가 <b>자동으로 채워집니다</b>(Web·App 공통, 클립보드에도 예비 복사). 채워진 프롬프트를 확인한 뒤 첨부가 있으면 올리고 전송합니다. 입력창이 비어 있거나 Web에서 '414 URI Too Long' 오류(사내 프록시의 긴 URL 차단)가 나면 새 대화를 열고 클립보드의 프롬프트를 <b>붙여 넣기(Ctrl+V)</b>합니다. 프롬프트에는 <b>결과물 메일 발송 요청</b>(Word 생성·검증 후 garzette.kim@samsung.com 으로 첨부 발송, 메일 제목 = 첨부 파일 제목(확장명 제외), 첨부 불가 시 저장소 링크, 발송 불가·실패 시 안내)이 항상 포함됩니다. (Codex·Claude Code·AI Pro·Antigravity는 "Prompt복사(Claude Code, AI Pro, Antigravity)" / "Prompt복사(Codex)" 후 붙여넣기) 소스와 배포 정보는 버튼 목록 마지막의 <b>"GitHub 저장소 열기"</b>에서 확인합니다.</div>
       </div>
 
 
       <div class="alert"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><path d="M12 8h.01"/></svg><div class="alert-body">
-        <b>보고 목적(독자)을 고르면 문서 깊이가 달라집니다</b> — 기본값은 <b>팀장 보고</b>입니다.
+        <b>보고 목적(독자)을 고르면 문서 깊이가 달라집니다</b> — 기본값은 <b>실무 검토</b>입니다.
         <ul>
           <li><b>경영진 보고 (임원·결재용)</b> : 한 단계 더 깊게, □ 섹션 3~5개·1페이지 원칙. 핵심 요지를 앞에 두고 리스크·대응 → 실행 권고 → 최종 판단 한 줄로 마무리하며, 기업개요·CEO·상세표는 전부 별첨으로 뺍니다.</li>
           <li><b>팀장 보고 (관리자)</b> : 유형 기본 깊이 유지, □ 섹션 5~7개, 현황 → 이슈 → 대응 균형 배치, 별첨 1~2개.</li>

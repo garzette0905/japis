@@ -10,8 +10,9 @@ wepic·가계부와 **같은 얼개**입니다: Cloudflare Worker 하나가 백�
 
 **SWW-pro** (홈페이지, Julie English 바로 아래)는 첨부된 Samsung Word Writer Prompt Builder를
 오른쪽 프레임에서 엽니다. `web/public/sww-pro/`에 HTML·사용 설명서·Skill ZIP을 함께
-배포합니다. 상단 **자주쓰는 문구**에서 결과물 메일 발송 요청을 복사할 수 있습니다.
-이 문구는 복사용이며 포털이 직접 메일을 발송하지 않습니다. 관리자는 기본으로 접근하고,
+배포합니다. 생성되는 프롬프트에는 결과물 메일 발송 요청(실행한 AI가 연결된 메일 기능으로 발송)이
+항상 포함되며 포털이 직접 메일을 발송하지 않습니다. 보고 목적 기본값은 **실무 검토**이고,
+ChatGPT·Claude 열기(Web/App)는 모두 새 대화 입력창에 프롬프트를 채웁니다. 관리자는 기본으로 접근하고,
 일반 사용자는 **관리 → 화면 권한 → SWW-pro**를 허용해야 합니다.
 
 **Jaden AI NEWS** (개인서비스): [Jaden AI News](https://jadenainews.garzette.chatgpt.site/)로 연결합니다. [소스 저장소](https://github.com/garzette0905/jadenainews). 기존 `#/news` 바로가기도 로그인·접근 권한 확인 후 새 사이트로 이동합니다. 대시보드의 기존 뉴스 미리보기 운영은 [운영 안내](docs/AI-NEWS.md)를 참고하세요.

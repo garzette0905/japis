@@ -298,10 +298,6 @@
     }
     .topbar-inner { flex-wrap:wrap; }
     .phrase-tools { display:flex; gap:8px; flex-wrap:wrap; margin-left:auto; }
-    #phraseDialog { width:min(640px, calc(100% - 32px)); padding:24px; border:1px solid var(--border); border-radius:var(--radius-card); }
-    #phraseDialog::backdrop { background:rgba(0,0,0,.35); }
-    #phraseText { width:100%; min-height:190px; margin:12px 0; resize:vertical; }
-    .phrase-actions { display:flex; justify-content:flex-end; gap:8px; }
   </style>
 </head>
 <body>
@@ -311,25 +307,14 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h6"/></svg>
     </div>
     <div>
-      <h1>Samsung Word Writer Prompt Builder<span class="last-modified" id="lastModified">(최종수정일 26-10-04 09:26)</span></h1>
+      <h1>Samsung Word Writer Prompt Builder<span class="last-modified" id="lastModified">(최종수정일 26-10-31 10:00)</span></h1>
       <p class="subtitle">@samsung-word-writer-pro 스킬용 문서작성 프롬프트 작성 지원</p>
     </div>
     <div class="phrase-tools">
-      <button type="button" class="secondary" id="frequentPhrases" aria-haspopup="dialog">자주쓰는 문구</button>
       <a class="button ghost" href="user-manual.html" target="_blank" rel="noopener">사용 설명서</a>
     </div>
   </div>
 </header>
-<dialog id="phraseDialog" aria-labelledby="phraseTitle">
-  <h2 id="phraseTitle">자주 사용하는 문구1</h2>
-  <label for="phraseText">결과물 메일 발송 요청</label>
-  <textarea id="phraseText" readonly>Word 문서 생성과 검증을 완료한 후, 연결된 메일 기능으로 garzette.kim@samsung.com에 결과물을 첨부파일로 보내주세요. 첨부가 지원되지 않으면 접근 가능한 저장소에 파일을 저장하고 링크를 보내주세요. 발송 기능이 없거나 실패하면 그 사실을 알려주세요. 메일 발송시 메일 제목은 첨부 파일제목과 동일하게 만들어주세요 (확장명 제외)</textarea>
-  <p id="phraseStatus" role="status" aria-live="polite"></p>
-  <div class="phrase-actions">
-    <button type="button" class="secondary" id="closePhrases">닫기</button>
-    <button type="button" class="primary" id="copyPhrase">문구 복사</button>
-  </div>
-</dialog>
 
 
 <div class="page">
@@ -340,8 +325,9 @@
         <h2>사용 방법</h2>
         <ol>
           <li>문서 종류 선택, Prompt 입력, 추가 옵션(&#39;더보기&#39; 클릭)을 선택합니다.</li>
-          <li>"ChatGPT 열기"(Web/App) 또는 "Claude 열기"(Web/App)를 클릭하면 생성된 프롬프트가 <b>클립보드에 복사</b>되고 해당 서비스의 새 대화가 열립니다. App은 입력창에 프롬프트가 <b>자동으로 채워집니다</b>. (Codex, Claude Code, AI Pro, Antigravity는 "Prompt복사" 후 붙여 넣기)</li>
-          <li>(AI 서비스 실행 후) Web은 입력창에 프롬프트를 <b>붙여 넣기(Ctrl+V)</b>하고, App은 채워진 프롬프트를 확인한 뒤, 첨부 파일이 있으면 업로드하고 전송합니다.</li>
+          <li>"ChatGPT 열기"(Web/App) 또는 "Claude 열기"(Web/App)를 클릭하면 해당 서비스의 새 대화가 열리고 입력창에 프롬프트가 <b>자동으로 채워집니다</b> (클립보드에도 예비로 복사). (Codex, Claude Code, AI Pro, Antigravity는 "Prompt복사" 후 붙여 넣기)</li>
+          <li>(AI 서비스 실행 후) 채워진 프롬프트를 확인하고, 첨부 파일이 있으면 업로드한 뒤 전송합니다. 입력창이 비어 있거나 Web이 '414 URI Too Long' 오류이면 새 대화에 클립보드의 프롬프트를 붙여 넣기(Ctrl+V)합니다.</li>
+          <li>프롬프트에는 결과물 메일 발송 요청(garzette.kim@samsung.com, 메일 제목 = 첨부 파일 제목)이 항상 포함됩니다.</li>
           <li>소스와 배포 정보는 버튼 목록 마지막의 "GitHub 저장소 열기"에서 확인할 수 있습니다.</li>
         </ol>
       </div>
@@ -388,10 +374,10 @@
               <label class="section-label" for="audience">보고 목적 (Optional)</label>
               <select id="audience">
                 <option value="executive">경영진 보고 (임원&middot;결재용)</option>
-                <option value="manager" selected>팀장 보고 (관리자)</option>
-                <option value="working">실무 검토 (상세 내용 포함)</option>
+                <option value="manager">팀장 보고 (관리자)</option>
+                <option value="working" selected>실무 검토 (상세 내용 포함)</option>
               </select>
-              <div class="hint">디폴트는 팀장 보고입니다.</div>
+              <div class="hint">디폴트는 실무 검토입니다.</div>
             </div>
             <div>
               <label class="section-label" for="workMode">작업 방식 (Optional)</label>
@@ -452,10 +438,10 @@
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h6"/></svg>
           2. 프롬프트
         </h2>
-        <p class="card-description mini">"열기" 버튼을 누르면 아래 프롬프트가 클립보드에 복사되고 ChatGPT·Claude 새 대화가 열립니다. Web은 입력창에 붙여 넣기(Ctrl+V), App은 입력창에 자동으로 채워집니다. Codex, Claude Code, AI Pro, Antigravity는 "Prompt복사"로 복사해 붙여 넣으세요.</p>
+        <p class="card-description mini">"열기" 버튼을 누르면 ChatGPT·Claude 새 대화가 열리고 아래 프롬프트가 입력창에 자동으로 채워집니다(Web·App 공통, 클립보드에도 예비 복사). Codex, Claude Code, AI Pro, Antigravity는 "Prompt복사"로 복사해 붙여 넣으세요.</p>
       </div>
       <div class="actions actions-right">
-        <button class="primary" id="openGptWeb" title="프롬프트를 클립보드에 복사하고 chatgpt.com 새 대화를 엽니다">
+        <button class="primary" id="openGptWeb" title="chatgpt.com 새 대화를 열고 입력창에 프롬프트를 채웁니다 (클립보드에도 복사)">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/></svg>
           ChatGPT 열기 (Web)
         </button>
@@ -463,7 +449,7 @@
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 7h6"/><path d="M12 17h.01"/></svg>
           ChatGPT 열기 (App)
         </button>
-        <button class="primary" id="openClaudeWeb" title="프롬프트를 클립보드에 복사하고 claude.ai 새 대화를 엽니다">
+        <button class="primary" id="openClaudeWeb" title="claude.ai 새 대화를 열고 입력창에 프롬프트를 채웁니다 (클립보드에도 복사)">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M19 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h5"/></svg>
           Claude 열기 (Web)
         </button>
@@ -497,24 +483,8 @@
 </div>
 
 <script>
-const phraseDialog = document.getElementById('phraseDialog');
-document.getElementById('frequentPhrases').addEventListener('click', () => {
-  document.getElementById('phraseStatus').textContent = '';
-  phraseDialog.showModal();
-});
-document.getElementById('closePhrases').addEventListener('click', () => phraseDialog.close());
-document.getElementById('copyPhrase').addEventListener('click', async () => {
-  const field = document.getElementById('phraseText');
-  let copied = false;
-  try { await navigator.clipboard.writeText(field.value); copied = true; } catch {}
-  if (!copied) {
-    field.focus(); field.select();
-    try { copied = document.execCommand('copy'); } catch {}
-  }
-  document.getElementById('phraseStatus').textContent = copied
-    ? '문구를 복사했습니다. 필요한 곳에 붙여 넣으세요.'
-    : '자동 복사가 차단되었습니다. 선택된 문구를 Ctrl+C로 복사하세요.';
-});
+// 결과물 메일 발송 요청 — 종전 "자주쓰는 문구" 팝업의 복사용 문구를 프롬프트에 항상 싣는다 (261031)
+const MAIL_INSTRUCTION = "Word 문서 생성과 검증을 완료한 후, 연결된 메일 기능으로 garzette.kim@samsung.com에 결과물을 첨부파일로 보내주세요. 첨부가 지원되지 않으면 접근 가능한 저장소에 파일을 저장하고 링크를 보내주세요. 발송 기능이 없거나 실패하면 그 사실을 알려주세요. 메일 발송시 메일 제목은 첨부 파일제목과 동일하게 만들어주세요 (확장명 제외)";
 const DOC_TYPES = {
   "01": {
     name: "01_언론 기사, 기술\u00b7제품개요",
@@ -975,7 +945,7 @@ function generatePrompt() {
   const toc = document.getElementById("toc").value;
   const titleHint = document.getElementById("titleHint").value.trim();
   const audienceKey = document.getElementById("audience").value;
-  const audienceRule = AUDIENCE_RULES[audienceKey] || AUDIENCE_RULES.manager;
+  const audienceRule = AUDIENCE_RULES[audienceKey] || AUDIENCE_RULES.working;
   const extra = document.getElementById("extra").value.trim();
   const savePath = document.getElementById("savePath").value.trim();
   const includeDiagram = document.getElementById("includeDiagram").checked;
@@ -1267,6 +1237,10 @@ ${titleInstruction}
 - 저장 우선순위 ① 사용자가 지정한 경로${savePath ? ` (${savePath})` : ""} → ② D:\\Secure Folder (있으면) → ③ 기본 경로. 생성이 끝나면 저장된 Word 파일 경로를 안내해주세요 (JSON 경로는 불필요).
 
 
+결과물 메일 발송 지시:
+- ${MAIL_INSTRUCTION}
+
+
 최종 산출물:
 ${finalOutput}
 - 저장된 Word 파일 경로 안내 (로컬 환경)
@@ -1325,16 +1299,16 @@ document.getElementById("copyBtnClaude").addEventListener("click", () => copyPro
 document.getElementById("downloadBtn").addEventListener("click", downloadPrompt);
 
 
-// ===== "열기" 버튼 — 프롬프트를 클립보드에 복사하고 서비스(Web/App)의 새 대화를 연다 (260929) =====
-// Web 2종은 새 대화 페이지만 연다. 종전(260915~260928)에는 chatgpt.com 의 prompt 파라미터·claude.ai 의 q 파라미터로 프롬프트를 실어 보냈으나,
-// 사내 웹 프록시(Somansa WebProxy)가 약 8KB 를 넘는 요청 URL 을 "414 URI Too Long" 으로 거부한다(260929 실측 — 한글 1자가 9자로
-// 인코딩되어 옵션을 비운 기본 프롬프트만도 URL 약 13K). 그래서 Web 은 클립보드로만 전달하고 사용자가 붙여 넣는다.
-// App 2종(데스크톱 앱 딥링크)은 HTTP 프록시를 거치지 않으므로 종전처럼 프롬프트를 파라미터로 실어 입력창을 자동으로 채운다
+// ===== "열기" 버튼 — 서비스(Web/App)의 새 대화를 열고 입력창에 프롬프트를 채운다 (261031) =====
+// Web 2종도 App 처럼 chatgpt.com 의 prompt 파라미터·claude.ai 의 q 파라미터로 프롬프트를 실어 입력창을 자동으로 채운다.
+// 단, 사내 웹 프록시(Somansa WebProxy)는 약 8KB 를 넘는 요청 URL 을 "414 URI Too Long" 으로 거부한다(260929 실측 — 한글 1자가
+// 9자로 인코딩되어 기본 프롬프트만도 URL 약 13K). 그 경우에 대비해 클립보드에도 복사해 두고 붙여 넣기로 이어가도록 안내한다.
+// App 2종(데스크톱 앱 딥링크)은 HTTP 프록시를 거치지 않는다
 // (ChatGPT: learn.chatgpt.com Commands › Deep links, Claude: support.claude.com "Open Claude Desktop with a link", q 약 14,000자 상한).
 const OPEN_TARGETS = {
-  gptWeb:    { label:"ChatGPT (Web)", firstLine:FIRST_LINE_GPT,    app:false, url:() => "https://chatgpt.com/" },
+  gptWeb:    { label:"ChatGPT (Web)", firstLine:FIRST_LINE_GPT,    app:false, url:t => "https://chatgpt.com/?prompt=" + encodeURIComponent(t) },
   gptApp:    { label:"ChatGPT (App)", firstLine:FIRST_LINE_GPT,    app:true,  url:t => "codex://new?prompt=" + encodeURIComponent(t) },
-  claudeWeb: { label:"Claude (Web)",  firstLine:FIRST_LINE_CLAUDE, app:false, url:() => "https://claude.ai/new" },
+  claudeWeb: { label:"Claude (Web)",  firstLine:FIRST_LINE_CLAUDE, app:false, url:t => "https://claude.ai/new?q=" + encodeURIComponent(t) },
   claudeApp: { label:"Claude (App)",  firstLine:FIRST_LINE_CLAUDE, app:true,  url:t => "claude://claude.ai/new?q=" + encodeURIComponent(t) },
 };
 
@@ -1360,24 +1334,25 @@ async function openWith(key) {
 
 
   // 클릭 시점에 탭을 열어 클립보드 권한 대기로 인한 팝업 차단을 방지한다.
-  const webWindow = target.app ? null : window.open(target.url(text), '_blank');
+  const url = target.url(text);
+  const webWindow = target.app ? null : window.open(url, '_blank');
   if (webWindow) webWindow.opener = null;
   const copied = await copyTextToClipboard(text);
   const pasteHint = copied
     ? "프롬프트가 클립보드에 복사되었습니다. 입력창에 붙여 넣기(Ctrl+V)한 뒤 첨부가 있으면 올리고 전송하세요."
     : "클립보드 복사가 차단되었습니다. 'Prompt복사' 버튼 또는 아래 프롬프트를 직접 복사해 입력창에 붙여 넣으세요.";
-  // 앱은 딥링크로 입력창이 자동으로 채워진다 — 클립보드는 비어 있을 때의 예비 수단
-  const appHint = copied
+  // Web·App 모두 입력창이 자동으로 채워진다 — 클립보드는 비어 있거나 414 오류가 날 때의 예비 수단
+  const fillHint = copied
     ? "입력창에 채워진 프롬프트를 확인하고 첨부가 있으면 올린 뒤 전송하세요 (비어 있으면 클립보드의 프롬프트를 붙여 넣기)."
     : "입력창에 채워진 프롬프트를 확인하고 첨부가 있으면 올린 뒤 전송하세요.";
   const guide = uploadGuideText();
   const tail = guide ? " " + guide : "";
-  const url = target.url(text);
 
 
   if (!target.app) {
+    const proxyHint = copied ? " 새 탭이 '414 URI Too Long' 오류이면 새 대화를 열고 클립보드의 프롬프트를 붙여 넣으세요." : "";
     statusEl.textContent = webWindow
-      ? `${target.label}을(를) 새 탭에서 열었습니다. ${pasteHint}${tail}`
+      ? `${target.label}을(를) 새 탭에서 열었습니다. ${fillHint}${proxyHint}${tail}`
       : `팝업이 차단되었습니다. 브라우저에서 팝업을 허용하고 다시 눌러주세요. ${pasteHint}${tail}`;
     return;
   }
@@ -1394,7 +1369,7 @@ async function openWith(key) {
     window.removeEventListener("blur", onLeave);
     document.removeEventListener("visibilitychange", onLeave);
     statusEl.textContent = (left || document.hidden)
-      ? `${target.label} 앱을 열었습니다. ${appHint}${tail}`
+      ? `${target.label} 앱을 열었습니다. ${fillHint}${tail}`
       : `${target.label} 앱이 설치되어 있지 않거나 실행 확인이 필요합니다. 브라우저의 '열기' 확인창을 허용하거나 'Web' 버튼을 이용하세요. ${pasteHint}${tail}`;
   }, 1800);
 }
