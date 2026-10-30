@@ -23,7 +23,7 @@ test('새 Google 동의 URL에서 폐지된 Photos 권한을 요청하지 않는
   const url = new URL(await connectStart(env, { id: 1 }, 'google'));
   const scopes = url.searchParams.get('scope');
   assert.doesNotMatch(scopes, /photoslibrary|photospicker/);
-  for (const scope of ['gmail.readonly', 'calendar.readonly', 'calendar.events', 'tasks']) {
+  for (const scope of ['gmail.readonly', 'calendar.readonly', 'calendar.events', 'tasks', 'youtube.readonly']) {
     assert.ok(scopes.split(' ').includes(`https://www.googleapis.com/auth/${scope}`));
   }
 });

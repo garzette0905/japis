@@ -46,6 +46,9 @@
 
 .pl-newartist { margin-top: var(--s-md, 16px); width: 100%; justify-content: center; }
 .pl-newartist .ico { width: 13px; height: 13px; }
+.pl-newartist + .pl-newartist { margin-top: 8px; }
+.pl-yt-note { margin-top: 8px; font-size: 13px; color: var(--ink-muted); }
+.pl-yt-note .btn-utility { margin-top: 6px; }
 
 /* ---------- 담는 줄 ---------- */
 

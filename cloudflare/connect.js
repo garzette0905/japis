@@ -53,11 +53,13 @@ export const PROVIDERS = {
     // calendar.events · tasks 는 **쓰기까지** 하는 권한이다. 대시보드의 한 줄 입력칸
     // (/api/ask)이 "내일 오후 3시 치과"를 받아 캘린더에 실제로 넣어야 하기 때문이다.
     // 메일은 읽기 전용이다. 폐지된 photoslibrary.readonly는 요청하지 않는다.
+    // youtube.readonly 는 Play Lists 의 '유튜브에서 가져오기'가 좋아요 목록을 읽는 데 쓴다.
     scope: [
       'https://www.googleapis.com/auth/gmail.readonly',
       'https://www.googleapis.com/auth/calendar.readonly',
       'https://www.googleapis.com/auth/calendar.events',
       'https://www.googleapis.com/auth/tasks',
+      'https://www.googleapis.com/auth/youtube.readonly',
     ].join(' '),
     hint: 'garzette@gmail.com',
     idOf: (env) => env.GOOGLE_CLIENT_ID,

@@ -48,6 +48,7 @@ import {
   deleteTrack,
   playTrack,
 } from './music.js';
+import { importYoutubeLikes } from './youtube.js';
 import {
   listBookmarks,
   reorderBookmarks,
@@ -1859,6 +1860,9 @@ export default {
       }
       if (mArtist && method === 'DELETE') {
         return requireMusic(request, env, (user) => deleteArtist(env, user.id, Number(mArtist[1])));
+      }
+      if (path === '/api/music/youtube-import' && method === 'POST') {
+        return requireMusic(request, env, (user) => importYoutubeLikes(env, user.id));
       }
       if (path === '/api/music/tracks' && method === 'POST') {
         return requireMusic(request, env, (user) => createTrack(request, env, user.id));

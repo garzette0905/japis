@@ -100,6 +100,9 @@ function paintSide() {
           .join('')}
       </ul>
       <button class="btn-utility pl-newartist" type="button" id="pl-add-artist">${ico('plus')} 가수 추가</button>
+      <button class="btn-utility pl-newartist" type="button" id="pl-yt-import"
+              title="유튜브에서 좋아요를 누른 음악을 가져와 담습니다">${ico('download')} 유튜브에서 가져오기</button>
+      <div class="pl-yt-note" id="pl-yt-note" hidden></div>
     </nav>`;
 
   side.querySelectorAll('[data-artist]').forEach((b) =>
@@ -121,6 +124,7 @@ function paintSide() {
       toast(e.message);
     }
   });
+  el('pl-yt-import')?.addEventListener('click', importYoutube);
   side.querySelectorAll('[data-rename]').forEach((b) =>
     b.addEventListener('click', async () => {
       const a = pl.artists.find((x) => x.id === Number(b.dataset.rename));
@@ -147,6 +151,47 @@ function paintSide() {
       }
     })
   );
+}
+
+/**
+ * 유튜브 좋아요 중 음악을 가져온다. 여러 번 눌러도 이미 담긴 곡은 건너뛴다(서버의 saveTracks).
+ * 연결이 없거나 권한이 모자라면 '구글 (다시) 연결하기'를 바로 옆에 띄운다.
+ */
+async function importYoutube() {
+  const btn = el('pl-yt-import');
+  const note = el('pl-yt-note');
+  if (!btn || btn.disabled) return;
+  btn.disabled = true;
+  const label = btn.innerHTML;
+  btn.innerHTML = `${ico('download')} 가져오는 중…`;
+  note.hidden = true;
+  try {
+    const r = await api('/api/music/youtube-import', { method: 'POST' });
+    const more = r.truncated ? ' (최근 좋아요 1,000개까지 보았습니다)' : '';
+    toast(
+      r.added
+        ? `새로 ${r.added}곡을 담았습니다. 이미 있던 곡 ${r.skipped}개는 건너뛰었습니다.${more}`
+        : r.music
+          ? `새로 담을 곡이 없습니다. 음악 ${r.music}곡이 모두 이미 있습니다.${more}`
+          : `좋아요 ${r.scanned}개 중 음악으로 분류된 동영상이 없습니다.`
+    );
+    await load();
+  } catch (e) {
+    if (e.code === 'disconnected' || e.code === 'reconnect') {
+      note.innerHTML = `${esc(e.message)}<br><a class="btn-utility" href="/connect/google/start">구글 ${
+        e.code === 'reconnect' ? '다시 ' : ''
+      }연결하기</a>`;
+      note.hidden = false;
+    } else {
+      toast(e.message);
+    }
+  } finally {
+    const again = el('pl-yt-import');
+    if (again) {
+      again.disabled = false;
+      again.innerHTML = label;
+    }
+  }
 }
 
 // ──────────────────────────────────────────────────────────────
