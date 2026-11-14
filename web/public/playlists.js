@@ -70,6 +70,14 @@ export function sourceOf(t) {
   return 'manual';
 }
 
+/** A captured FLO song can be searched even before its exact track URL is known. */
+export function listeningLink(t) {
+  if (t?.url) return { url: t.url, search: false };
+  if (sourceOf(t) !== 'flo' || !String(t?.title || '').trim()) return null;
+  const query = [t.artistName, t.title].filter(Boolean).join(' ');
+  return { url: 'https://www.music-flo.com/search/all?keyword=' + encodeURIComponent(query), search: true };
+}
+
 const SOURCES = {
   youtube: {
     label: 'YouTube',
@@ -455,8 +463,9 @@ function paintList() {
   }
 
   list.innerHTML = `<ol class="pl-tracks">${shown
-    .map((t, i) =>
-      pl.editing === t.id
+    .map((t, i) => {
+      const link = listeningLink(t);
+      return pl.editing === t.id
         ? `<li class="pl-track is-editing"><form class="pl-edit" data-edit="${t.id}">
             <select class="pl-select" name="artistId" aria-label="가수">${artistOptions(t.artistId)}</select>
             <input class="pl-title" name="title" type="text" maxlength="150" value="${esc(t.title)}" required aria-label="곡 이름">
@@ -477,8 +486,8 @@ function paintList() {
                 · 수정 <time datetime="${esc(t.updatedAt || '')}">${esc(musicTimestamp(t.updatedAt))}</time></span>
             </span>
             <span class="pl-play-count" title="이 목록에서 듣기를 누른 횟수">${Number(t.playCount) || 0}회</span>
-            ${t.url
-              ? `<a class="pl-play" data-play="${t.id}" href="${esc(t.url)}" target="_blank" rel="noopener noreferrer" title="들으러 가기">${ico('pop')} 듣기</a>`
+            ${link
+              ? `<a class="pl-play"${link.search ? '' : ` data-play="${t.id}"`} href="${esc(link.url)}" target="_blank" rel="noopener noreferrer" title="${link.search ? 'FLO에서 가수와 곡명으로 검색' : '들으러 가기'}">${ico('pop')} ${link.search ? '찾기' : '듣기'}</a>`
               : '<span class="pl-play is-none" aria-hidden="true"></span>'}
             <span class="pl-track-acts">
               <button class="pl-mini${t.starred ? ' is-on' : ''}" type="button" data-star="${t.id}"
@@ -486,8 +495,8 @@ function paintList() {
               <button class="pl-mini" type="button" data-edit-open="${t.id}" title="고치기" aria-label="고치기">${ico('pen')}</button>
               <button class="pl-mini" type="button" data-del="${t.id}" title="지우기" aria-label="지우기">${ico('trash')}</button>
             </span>
-          </li>`
-    )
+          </li>`;
+    })
     .join('')}</ol>`;
 
   list.querySelectorAll('[data-play]').forEach((a) =>

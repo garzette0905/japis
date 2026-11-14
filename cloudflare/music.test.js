@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import { listMusic, playTrack, updateTrack } from './music.js';
-import { musicTimestamp } from '../web/public/playlists.js';
+import { musicTimestamp, listeningLink } from '../web/public/playlists.js';
 
 function fixture() {
   const db = new DatabaseSync(':memory:');
@@ -77,4 +77,14 @@ test('timestamps display Korean local dates and minutes, including midnight, wit
   assert.equal(musicTimestamp('2026-11-15T14:59:00.000Z'), '2026-11-15 23:59');
   assert.equal(musicTimestamp(null), '기록 없음');
   assert.equal(musicTimestamp('invalid'), '기록 없음');
+});
+
+test('FLO listening opens an exact track URL, or an encoded artist/title search when the captured track has no URL', () => {
+  const exact = 'https://www.music-flo.com/detail/track/512384615/details';
+  assert.deepEqual(listeningLink({ url: exact }), { url: exact, search: false });
+  const link = listeningLink({ artistName: 'Ryan Gosling & Emma Stone', title: 'City Of Stars', memo: 'FLO 재생목록 캡처에서 등록' });
+  assert.equal(link.search, true);
+  assert.equal(new URL(link.url).searchParams.get('keyword'), 'Ryan Gosling & Emma Stone City Of Stars');
+  assert.equal(listeningLink({ title: 'Manual song', memo: '' }), null);
+  assert.equal(listeningLink({ title: '', memo: 'FLO' }), null);
 });
