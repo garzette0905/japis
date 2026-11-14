@@ -165,11 +165,13 @@ CREATE TABLE IF NOT EXISTS wiki_notes (
   deleted_at TEXT,
   -- 공유 — 켜면 32자 hex 이름표가 붙고, /s/<이름표> 하나로 이 메모만 열린다(005).
   share_token TEXT,
-  shared_at   TEXT
+  shared_at   TEXT,
+  received_share_id TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_wiki_notes_user   ON wiki_notes (user_id, deleted_at, updated_at);
 CREATE INDEX IF NOT EXISTS idx_wiki_notes_folder ON wiki_notes (user_id, folder_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_wiki_received_share ON wiki_notes(user_id, received_share_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_wiki_notes_share ON wiki_notes (share_token);
 
 CREATE TABLE IF NOT EXISTS wiki_files (

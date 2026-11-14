@@ -7,6 +7,7 @@
 
 import { $, el, esc, api, toast } from './util.js';
 import { renderWiki, wikiLeaving } from './wiki.js';
+import { saveIncomingShare } from './receive-share.js';
 import { renderBookmarks } from './bookmarks.js';
 import { renderPlaylists } from './playlists.js';
 import { renderCar } from './car.js';
@@ -100,6 +101,17 @@ function enterPortal(st) {
   startNow();
   handleServerHint();
   route();
+  processIncomingShare();
+}
+
+function processIncomingShare() {
+  saveIncomingShare({
+    onLogin: showGate,
+    onLocked: () => {
+      const service = state.services.find(s => s.key === 'jadenwiki');
+      if (service) showLock(service);
+    },
+  });
 }
 
 /** 잠금 모달이 생체인증 버튼을 띄울지 정하는 데 쓴다(등록한 기기가 없으면 안 띄운다). */
@@ -1018,6 +1030,7 @@ function lockOpened(r) {
   if (lockNext === 'tab') toast(`${s.label} — 새 탭은 다시 한 번 눌러주세요.`);
   else openService(s);
   lockNext = 'frame';
+  processIncomingShare();
 }
 
 el('lock-bio').addEventListener('click', async () => {

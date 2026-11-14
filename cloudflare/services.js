@@ -246,11 +246,11 @@ export const SERVICES = [
     external: true,
   },
   {
-    key: 'damoang',
-    label: '다모앙 AI당',
+    key: 'damoang', // Keep existing permissions, usage history and /go links.
+    label: 'AI 활용 갤러리',
     group: 'hobby',
-    desc: '다모앙 AI당 커뮤니티',
-    url: 'https://damoang.net/ai',
+    desc: 'AI 도구 활용법 · 실전 팁 · 사용 경험 공유',
+    url: 'https://gall.dcinside.com/mgallery/board/lists/?id=ai_utilize',
     accent: 'gold',
     frame: false,
     reauth: false,

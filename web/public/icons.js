@@ -189,12 +189,12 @@ const BRAND_ICONS = {
     '<circle cx="7.1" cy="7.3" r="1.9" fill="#fff"/><rect x="5.35" y="10.2" width="3.5" height="8.9" fill="#fff"/>' +
     '<path d="M10.6 10.2h3.35v1.2a3.7 3.7 0 0 1 6.55 2.4v5.3h-3.5v-4.7a1.7 1.7 0 0 0-3.4 0v4.7h-3Z" fill="#fff"/>',
 
-  // 다모앙 — 제 favicon 그대로(검은 덩어리 위 노란 획 셋)
+  // AI 활용 갤러리 — 보라색 전구. 특이점이 온다의 DC 마크와 구분한다.
   damoang:
-    '<rect width="24" height="24" rx="5.4" fill="#1a1a1a"/>' +
-    '<rect x="4.6" y="7.6" width="3.1" height="9" rx="1.55" fill="#ffe135" transform="rotate(-12 6.15 12.1)"/>' +
-    '<rect x="10.45" y="6.8" width="3.1" height="9.8" rx="1.55" fill="#ffe135"/>' +
-    '<rect x="16.3" y="7.6" width="3.1" height="9" rx="1.55" fill="#ffe135" transform="rotate(12 17.85 12.1)"/>',
+    '<rect width="24" height="24" rx="5.4" fill="#7543b5"/>' +
+    '<path d="M12 4a6 6 0 0 0-4 10.5V17h8v-2.5A6 6 0 0 0 12 4Z" fill="#fff"/>' +
+    '<path d="m9.5 10 2.5 2 2.5-2M12 12v5" fill="none" stroke="#7543b5" stroke-width="1.5"/>' +
+    '<path d="M9 19h6v1H9z" fill="#fff"/>',
 };
 
 /** 화면(서비스) 그림. key 는 services.js 의 key 와 같다. */

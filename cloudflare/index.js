@@ -83,6 +83,7 @@ import {
   reorderFolders,
   touchFolder,
 } from './wiki.js';
+import { receiveShare } from './receive-share.js';
 
 const enc = new TextEncoder();
 const nowIso = () => new Date().toISOString();
@@ -1737,6 +1738,9 @@ export default {
       // ---- Jaden wiki (포털 안 메모) ----
       // 문은 'jadenwiki' 권한 하나다(requireWiki). 메모는 사람마다 따로이므로
       // 아래 함수들은 전부 user.id 를 받아 질의의 WHERE 에 붙인다.
+      if (path === '/api/wiki/receive-share' && method === 'POST') {
+        return requireWiki(request, env, user => receiveShare(request, env, user.id));
+      }
       if (path === '/api/wiki' && method === 'GET') {
         return requireWiki(request, env, async (user) => json(await wikiOverview(env, user.id)));
       }
