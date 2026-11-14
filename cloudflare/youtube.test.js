@@ -64,12 +64,15 @@ test('가져오기는 페이지를 끝까지 읽고, 이미 담긴 곡은 건너
     ).run(await seal(env, 'tok'), Date.now() + 3600e3);
     db.exec("INSERT INTO music_artists (user_id, name, created_at) VALUES (1, 'iu', 'x')");
     db.exec("INSERT INTO music_tracks (user_id, artist_id, title, url, sort_order, created_at, updated_at) VALUES (1, 1, 'Old', 'https://youtu.be/old', 1, 'x', 'x')");
+    db.exec('UPDATE music_tracks SET play_count = 7 WHERE id = 1');
 
     const pages = {
       '': { items: [video('old', 'Old', 'IU - Topic'), video('n1', 'Blueming', 'IU - Topic')], nextPageToken: 'p2' },
       p2: { items: [video('n2', 'Hype Boy', 'NewJeans - Topic'), video('n3', 'Cat video', 'Pets', '15'), video('n1', 'Blueming', 'IU - Topic')] },
     };
     const seen = [];
+    // 전체 조회수는 개인 재생횟수와 다르므로 API에 포함돼도 가져오면 안 된다.
+    pages[''].items[1].statistics = { viewCount: '9000000' };
     globalThis.fetch = async (url, init) => {
       const u = new URL(url);
       seen.push(init.headers.Authorization);
@@ -83,6 +86,8 @@ test('가져오기는 페이지를 끝까지 읽고, 이미 담긴 곡은 건너
       { scanned: 5, music: 4, added: 2, skipped: 2, artistsAdded: 1 }
     );
     assert.deepEqual(seen, ['Bearer tok', 'Bearer tok']);
+    assert.equal(r.excluded, 1);
+    assert.equal(r.personalPlayCountsAvailable, false);
     const rows = db.prepare(
       'SELECT a.name, t.title, t.sort_order FROM music_tracks t JOIN music_artists a ON a.id = t.artist_id ORDER BY t.id'
     ).all().map((x) => ({ ...x }));
@@ -95,6 +100,10 @@ test('가져오기는 페이지를 끝까지 읽고, 이미 담긴 곡은 건너
     r = await (await importYoutubeLikes(env, 1)).json();
     assert.equal(r.added, 0);
     assert.equal(db.prepare('SELECT COUNT(*) AS n FROM music_tracks').get().n, 3);
+    assert.deepEqual(
+      db.prepare('SELECT play_count FROM music_tracks ORDER BY id').all().map((x) => x.play_count),
+      [7, 0, 0]
+    );
   } finally {
     globalThis.fetch = original;
     db.close();

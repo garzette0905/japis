@@ -146,6 +146,9 @@ async function importYoutube() {
   try {
     const r = await api('/api/music/youtube-import', { method: 'POST' });
     const more = r.truncated ? ' (최근 좋아요 1,000개까지 보았습니다)' : '';
+    note.textContent = `좋아요 ${r.scanned}개 확인 · 음악 ${r.music}개 · 새로 저장 ${r.added}개 · 중복 ${r.skipped}개 · 음악으로 분류되지 않은 영상 ${r.excluded ?? r.scanned - r.music}개 제외.${more} 유튜브 개인 재생횟수는 제공되지 않아 가져오지 않습니다.`;
+    note.setAttribute('role', 'status');
+    note.hidden = false;
     toast(
       r.added
         ? `새로 ${r.added}곡을 담았습니다. 이미 있던 곡 ${r.skipped}개는 건너뛰었습니다.${more}`

@@ -243,5 +243,14 @@ export async function importYoutubeLikes(env, userId) {
 
   const found = liked.items.map(trackFromVideo).filter(Boolean);
   const saved = await saveTracks(env, userId, found);
-  return json({ ok: true, scanned: liked.items.length, music: found.length, truncated: liked.truncated, ...saved });
+  // statistics.viewCount 는 전체 이용자의 조회수다. 개인 재생횟수로 저장하지 않는다.
+  return json({
+    ok: true,
+    scanned: liked.items.length,
+    music: found.length,
+    excluded: liked.items.length - found.length,
+    personalPlayCountsAvailable: false,
+    truncated: liked.truncated,
+    ...saved,
+  });
 }
