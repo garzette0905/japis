@@ -19,6 +19,10 @@ const pl = {
   artist: '',        // '' 전체 · '<id>'
   q: '',
   source: '',        // '' 전체 · 'youtube' · 'flo' · 'manual'
+  sort: 'views',
+  dateField: 'updated',
+  from: '',
+  to: '',
   editing: null,
   adding: false,     // 담는 줄을 펼쳤는가
   allArtists: false, // 가수 칩 띠를 다 폈는가
@@ -26,6 +30,17 @@ const pl = {
 };
 
 let searchTimer = null;
+let loadVersion = 0;
+
+export function musicTimestamp(value) {
+  const date = value ? new Date(value) : null;
+  if (!date || !Number.isFinite(date.getTime())) return '기록 없음';
+  const parts = new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).format(date);
+  return parts;
+}
 
 /** 별도 국적 정보가 없으므로 한글 이름을 한국 가수로 보고 먼저 세운다. 그 안에서는 곡이 많은 가수부터. */
 const koreanFirst = (artists) => [...artists].sort((a, b) => {
@@ -108,15 +123,22 @@ export async function renderPlaylists(page) {
 }
 
 async function load() {
+  const version = ++loadVersion;
   const q = new URLSearchParams();
   if (pl.q) q.set('q', pl.q);
   else if (pl.artist) q.set('artist', pl.artist);
+  q.set('sort', pl.sort);
+  q.set('dateField', pl.dateField);
+  if (pl.from) q.set('from', pl.from);
+  if (pl.to) q.set('to', pl.to);
   try {
     const r = await api(`/api/music?${q}`);
+    if (version !== loadVersion || !el('pl-list')) return;
     pl.artists = koreanFirst(r.artists || []);
     pl.tracks = r.tracks || [];
     pl.total = r.total || 0;
   } catch (e) {
+    if (version !== loadVersion || !el('pl-list')) return;
     toast(e.message);
     pl.tracks = [];
   }
@@ -350,7 +372,44 @@ function paintBar() {
       <span class="pl-search-ico" aria-hidden="true">${ico('search')}</span>
       <input id="pl-q" type="search" placeholder="곡 · 가수 · 메모에서 찾기" aria-label="곡 검색" value="${esc(pl.q)}">
     </label>
+    <label class="pl-filter">정렬
+      <select id="pl-sort" class="pl-select" aria-label="정렬" title="고정한 곡을 먼저 표시합니다">
+        <option value="views">조회수순 (듣기 횟수)</option>
+        <option value="viewed">최근 조회순</option>
+        <option value="newest">등록순 (최신 먼저)</option>
+        <option value="oldest">등록순 (오래된 먼저)</option>
+        <option value="updated">최근 수정순</option>
+      </select>
+    </label>
+    <div class="pl-date-filters" role="group" aria-label="날짜로 검색">
+      <label class="pl-filter">날짜 기준
+        <select id="pl-date-field" class="pl-select" aria-label="날짜 기준"><option value="updated">수정일</option><option value="created">등록일</option></select>
+      </label>
+      <label class="pl-filter">시작일<input id="pl-from" type="date" value="${esc(pl.from)}"></label>
+      <label class="pl-filter">종료일<input id="pl-to" type="date" value="${esc(pl.to)}"></label>
+      <button class="pl-link" type="button" id="pl-date-reset">날짜 초기화</button>
+      <span class="pl-filter-note">한국 시간 · 고정곡 우선</span>
+    </div>
     <div class="pl-sources" id="pl-sources" role="group" aria-label="출처로 거르기"></div>`;
+  el('pl-sort').value = pl.sort;
+  el('pl-date-field').value = pl.dateField;
+  for (const [id, key] of [['pl-sort', 'sort'], ['pl-date-field', 'dateField'], ['pl-from', 'from'], ['pl-to', 'to']]) {
+    el(id).addEventListener('change', event => {
+      pl[key] = event.target.value;
+      clearTimeout(searchTimer);
+      if (pl.from && pl.to && pl.from > pl.to) {
+        ++loadVersion;
+        return toast('시작일은 종료일보다 늦을 수 없습니다.');
+      }
+      load();
+    });
+  }
+  el('pl-date-reset').addEventListener('click', () => {
+    pl.from = pl.to = '';
+    el('pl-from').value = el('pl-to').value = '';
+    clearTimeout(searchTimer);
+    load();
+  });
   el('pl-q').addEventListener('input', (e) => {
     pl.q = e.target.value.trim();
     clearTimeout(searchTimer);
@@ -387,8 +446,9 @@ function paintList() {
   if (!list) return;
   const shown = pl.source ? pl.tracks.filter((t) => sourceOf(t) === pl.source) : pl.tracks;
   if (!shown.length) {
-    const why = pl.q ? '찾는 곡이 없습니다.' : pl.source ? `${SOURCES[pl.source].label}에서 온 곡이 없습니다.` : '아직 담아 둔 곡이 없습니다.';
-    const hint = pl.q || pl.source ? '다른 낱말이나 출처로 찾아보세요.' : '위의 곡 담기나 유튜브에서 가져오기로 시작하세요.';
+    const filtered = pl.q || pl.from || pl.to;
+    const why = filtered ? '검색 조건에 맞는 곡이 없습니다.' : pl.source ? `${SOURCES[pl.source].label}에서 온 곡이 없습니다.` : '아직 담아 둔 곡이 없습니다.';
+    const hint = filtered || pl.source ? '검색어·날짜·출처를 바꿔보세요.' : '위의 곡 담기나 유튜브에서 가져오기로 시작하세요.';
     list.innerHTML = `<div class="empty"><div class="empty-icon">${ico('playlists')}</div>
       <strong>${why}</strong><p>${hint}</p></div>`;
     return;
@@ -413,6 +473,8 @@ function paintList() {
             <span class="pl-track-body">
               <span class="pl-track-title">${esc(t.title)}</span>
               <span class="pl-track-sub">${esc(t.artistName || '')}${t.memo ? ` · ${esc(t.memo)}` : ''}</span>
+              <span class="pl-track-dates">등록 <time datetime="${esc(t.createdAt || '')}">${esc(musicTimestamp(t.createdAt))}</time>
+                · 수정 <time datetime="${esc(t.updatedAt || '')}">${esc(musicTimestamp(t.updatedAt))}</time></span>
             </span>
             <span class="pl-play-count" title="이 목록에서 듣기를 누른 횟수">${Number(t.playCount) || 0}회</span>
             ${t.url
@@ -433,16 +495,9 @@ function paintList() {
       const t = pl.tracks.find((x) => x.id === Number(a.dataset.play));
       if (!t) return;
       try {
-        const r = await api(`/api/music/tracks/${t.id}/play`, { method: 'POST' });
-        t.playCount = r.track.playCount;
-        // 새 순위를 바로 보여 준다. 열린 음악 탭은 그대로 유지된다.
-        pl.tracks.sort((x, y) =>
-          Number(y.starred) - Number(x.starred) ||
-          (Number(y.playCount) || 0) - (Number(x.playCount) || 0) ||
-          String(x.artistName || '').localeCompare(String(y.artistName || ''), 'ko') ||
-          x.id - y.id
-        );
-        paintList();
+        await api(`/api/music/tracks/${t.id}/play`, { method: 'POST' });
+        // Keep the selected ordering and filters after recording a view.
+        await load();
       } catch (e) {
         toast(`재생 횟수를 기록하지 못했습니다: ${e.message}`);
       }

@@ -71,6 +71,12 @@
 .pl-search-ico .ico { width: 16px; height: 16px; }
 .pl-search input { flex: 1 1 auto; min-width: 0; font: inherit; border: none; outline: none; background: none; }
 .pl-sources { display: flex; gap: 6px; flex-wrap: wrap; }
+.pl-date-filters { display:flex; flex:1 0 100%; flex-wrap:wrap; align-items:center; gap:10px; }
+.pl-filter { display:flex; align-items:center; gap:6px; font-size:13px; min-width:0; }
+.pl-filter input[type="date"] { font:inherit; min-width:0; max-width:100%; padding:8px 10px; border:1px solid var(--hairline); border-radius:var(--r-input); color:var(--ink); background:var(--surface,#fff); }
+.pl-filter-note { font-size:12px; color:var(--ink-muted); }
+.pl-track-dates { font-size:11px; color:var(--ink-muted); line-height:1.5; overflow-wrap:anywhere; }
+.pl-track-dates time { white-space:nowrap; }
 
 /* ---------- 칩 (가수 · 출처가 함께 쓴다) ---------- */
 
