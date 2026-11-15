@@ -198,7 +198,7 @@
     }
     select.listbox option { padding:7px 10px; border-radius:4px; }
     .doc-option > span:not(.tag) { flex:1; }
-    /* 문서 종류 01~06(주 유형) 과 07~10(추가 선택·보완중) 사이의 살짝 보이는 점선 구분 */
+    /* 문서 종류 01~06(주 유형) 과 07~11(추가 선택·보완중) 사이의 살짝 보이는 점선 구분 */
     .doc-divider { height:0; border-top:1px dashed #c9c9c9; margin:4px 6px; }
     .doc-option .tag {
       margin-left:auto; align-self:center; white-space:nowrap;
@@ -307,7 +307,7 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h6"/></svg>
     </div>
     <div>
-      <h1>Samsung Word Writer Prompt Builder<span class="last-modified" id="lastModified">(최종수정일 26-10-31 10:00)</span></h1>
+      <h1>Samsung Word Writer Prompt Builder<span class="last-modified" id="lastModified">(최종수정일 26-11-15 22:29)</span></h1>
       <p class="subtitle">@samsung-word-writer-pro 스킬용 문서작성 프롬프트 작성 지원</p>
     </div>
     <div class="phrase-tools">
@@ -349,7 +349,7 @@
 
 
         <div id="docChecks" class="doc-checks"></div>
-        <div class="hint" style="margin-top:6px;">07 기업개요·08 CEO Profile은 주 유형(01~06)과 함께 고르면 <b>별첨</b>으로, 주 유형 체크를 해제하고 <b>단독</b>으로 고르면 기업개요·CEO Profile 단독 문서로 작성됩니다.</div>
+        <div class="hint" style="margin-top:6px;">07 기업개요·08 CEO Profile·09 인포그래픽은 주 유형(01~06)과 함께 고르면 <b>별첨</b>으로, 주 유형 체크를 해제하고 <b>단독</b>으로 고르면 각 유형의 단독 문서로 작성됩니다. 09는 송덕삼이 전체 내용을 설명하는 1페이지 만화 요약본을 별첨1로 만듭니다.</div>
 
 
         <div class="prompt-label-row">
@@ -469,7 +469,7 @@
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
           .txt 다운로드
         </button>
-        <a class="button ghost" id="skillZipLink" href="downloads/samsung-word-writer-pro-261004_0926.zip" download>Skill 다운로드(zip)</a>
+        <a class="button ghost" id="skillZipLink" href="downloads/samsung-word-writer-pro-261115_2229.zip" download>Skill 다운로드(zip)</a>
         <a class="button ghost" id="repositoryLink" href="https://github.com/garzette0905/samsung-word-writer-pro" target="_blank" rel="noopener" title="GitHub 저장소를 엽니다">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>
           GitHub 저장소 열기
@@ -527,10 +527,15 @@ const DOC_TYPES = {
     outline: "CEO Profile 고정 구조 (이름 \u2192 국적/출생 \u2192 학력 \u2192 주요 이력 \u2192 참고사항, 인물 이미지 필수)"
   },
   "09": {
-    name: "09_전사 레벨 전략 보고",
+    name: "09_(별첨) 1페이지 인포그래픽",
+    mode: "infographic",
+    outline: "전체 본문 요약 → 송덕삼 해설 만화 4~6컷 → 데이터 표·해석 → 핵심 결론 (별첨1, 1페이지)"
+  },
+  "10": {
+    name: "10_전사 레벨 전략 보고",
     outline: "대외 환경 변화 \u2192 현 수준 진단 \u2192 전략 축 \u2192 조직/사업/투자 실행 방안 \u2192 의사결정 포인트"
   },
-  "10": { name: "10_지참자료, 색인", mode: "reference", outline: "" }
+  "11": { name: "11_지참자료, 색인", mode: "reference", outline: "" }
 };
 
 
@@ -705,16 +710,16 @@ referenceAttach.addEventListener("change", () => { attachAutoChecked.reference =
 docxAttach.addEventListener("change", () => { attachAutoChecked.docx = false; });
 
 
-// 단일 선택(primary) 그룹 = 01~06, 09 / 다른 유형과 중복 선택 가능한 추가 그룹 = 07, 08, 10
+// 단일 선택(primary) 그룹 = 01~06, 10 / 추가 그룹 = 07, 08, 09, 11
 // DOC_TYPES를 Object.entries로 돌리면 "10"이 정수형 키로 취급돼 맨 앞으로 오므로 표시 순서를 명시한다
-const DOC_ORDER = ["01","02","03","04","05","06","07","08","09","10"];
-const PRIMARY_CODES = ["01","02","03","04","05","06","09"];
-const ADDITIONAL_CODES = ["07","08","10"];
-const STANDALONE_CODES = ["07","08"];          // 주 유형 없이 단독 문서(companyinfo / ceoinfo)로도 선택 가능 (260929)
-const DEVELOPING_CODES = ["09","10"];
-const DISABLED_CODES = ["09","10"];            // 화면에는 보이되 선택 불가
+const DOC_ORDER = ["01","02","03","04","05","06","07","08","09","10","11"];
+const PRIMARY_CODES = ["01","02","03","04","05","06","10"];
+const ADDITIONAL_CODES = ["07","08","09","11"];
+const STANDALONE_CODES = ["07","08","09"];          // 주 유형 없이 단독 문서(companyinfo / ceoinfo)로도 선택 가능 (260929)
+const DEVELOPING_CODES = ["10","11"];
+const DISABLED_CODES = ["10","11"];            // 화면에는 보이되 선택 불가
 // 독자(보고 목적) 보정을 적용하는 유형 — 03/06/07/08/10은 유형 고유 규칙이 우선
-const AUDIENCE_APPLY_CODES = ["01","02","04","05","09"];
+const AUDIENCE_APPLY_CODES = ["01","02","04","05","10"];
 
 
 // 보고 목적(독자)별 깊이/구조 보정 — references/report-depth.md §독자별 깊이 보정과 동일 기준
@@ -774,7 +779,7 @@ function initDocChecks() {
     }
     docChecks.appendChild(label);
     if (code === "06") {
-      // 01~06 (단일 선택 주 유형) 과 07~10 (추가 선택·보완중) 사이를 점선으로 살짝 구분
+      // 01~06 (단일 선택 주 유형) 과 07~11 (추가 선택·보완중) 사이를 점선으로 살짝 구분
       const divider = document.createElement("div");
       divider.className = "doc-divider";
       divider.setAttribute("aria-hidden", "true");
@@ -812,7 +817,7 @@ docChecks.addEventListener("change", (e) => {
 
   if (PRIMARY_CODES.includes(code)) {
     if (!e.target.checked) {
-      // 주 유형 해제 — 07/08 이 체크되어 있으면 기업개요·CEO Profile 단독 모드(주 유형 없음), 아니면 해제 불가
+      // 주 유형 해제 — 07/08/09가 체크되어 있으면 기업개요·CEO Profile 단독 모드(주 유형 없음), 아니면 해제 불가
       if (!checkedAdditionalCodes().some(c => STANDALONE_CODES.includes(c))) {
         e.target.checked = true;
         refreshDocOptionStyles();
@@ -842,7 +847,7 @@ docChecks.addEventListener("change", (e) => {
   } else {
     additionalDocTypes = checkedAdditionalCodes();
     if (selectedDocType === null && !additionalDocTypes.some(c => STANDALONE_CODES.includes(c))) {
-      // 단독 모드에서 마지막 07/08 까지 해제되면 기본 주 유형(01)으로 되돌린다 — 문서 종류는 항상 1개 이상
+      // 단독 모드에서 마지막 07/08/09 까지 해제되면 기본 주 유형(01)으로 되돌린다 — 문서 종류는 항상 1개 이상
       docChecks.querySelector('input[value="01"]').checked = true;
       selectedDocType = "01";
       applyDocTypeChange();
@@ -948,16 +953,17 @@ function generatePrompt() {
   const audienceRule = AUDIENCE_RULES[audienceKey] || AUDIENCE_RULES.working;
   const extra = document.getElementById("extra").value.trim();
   const savePath = document.getElementById("savePath").value.trim();
-  const includeDiagram = document.getElementById("includeDiagram").checked;
+  const diagramRequested = document.getElementById("includeDiagram").checked;
 
 
   additionalDocTypes = checkedAdditionalCodes();
 
 
-  // 07/08 단독 모드 — 주 유형이 없으면 07(있으면) 또는 08 이 primary 가 되고, 나머지 하나는 additional 로 실린다
+  // 07/08/09 단독 모드 — 주 유형이 없으면 07(있으면) 또는 08 이 primary 가 되고, 나머지 하나는 additional 로 실린다
   const standalone = selectedDocType === null;
-  const primaryCode = standalone ? (additionalDocTypes.includes("07") ? "07" : "08") : selectedDocType;
+  const primaryCode = standalone ? STANDALONE_CODES.find(code => additionalDocTypes.includes(code)) : selectedDocType;
   const item = DOC_TYPES[primaryCode];
+  const includeDiagram = diagramRequested && primaryCode !== "09";
   const extraCodes = standalone ? additionalDocTypes.filter(c => c !== primaryCode) : additionalDocTypes;
 
 
@@ -966,7 +972,8 @@ function generatePrompt() {
     "08": standalone
       ? "CEO Profile(ceoinfo 모드 고정 구조, 인물 이미지 필수)을 기업개요와 별도 섹션 또는 별첨으로 작성"
       : "CEO Profile(ceoinfo 모드 고정 구조, 인물 이미지 필수)을 별첨 또는 본문 보조자료로 활용",
-    "10": "지참자료·색인을 참고자료 또는 별첨 source로 활용"
+    "09": "전체 본문을 송덕삼 해설 만화로 요약한 1페이지 인포그래픽을 별첨1로 작성하고 다른 별첨은 별첨2부터 배치",
+    "11": "지참자료·색인을 참고자료 또는 별첨 source로 활용"
   };
 
   const additionalItems = extraCodes.map(code => ({
@@ -999,7 +1006,7 @@ function generatePrompt() {
     builder_generated: true,
     work_mode: workMode,
     output_format: "docx",
-    toc: toc === "yes",
+    toc: primaryCode !== "09" && toc === "yes",
     apply_report_evaluator: workMode === "rewrite",
     highlight_policy: yellowHighlight ? "modified_content_yellow_highlight" : "none",
     attachments: attachments.map(a => a.label),
@@ -1009,6 +1016,16 @@ function generatePrompt() {
     title_hint: titleHint || "",
     save_path: savePath || ""
   };
+  const includeInfographic = primaryCode === "09" || extraCodes.includes("09");
+  if (includeInfographic) {
+    json.infographic_summary = {
+      enabled: true, mode: "infographic", appendix_number: 1, pages: 1,
+      character: "삼성SDS 송덕삼", character_reference_url: "https://www.linkedin.com/posts/jeeyoon-kim-40351022_sqireerwwsokrxgsoaspg-share-7371733475030147073-XiFS/?lipi=urn%3Ali%3Apage%3Ad_flagship3_detail_base%3BKWah883FS%2BuYgBe22X4ekQ%3D%3D",
+      reference_policy: "url_only_no_download_or_bundle", format: "comic", panels: "4~6",
+      source_scope: "entire_body", data_policy: "source_data_table_with_interpretation",
+      reference: "references/infographic.md", generator: "scripts/generate.py"
+    };
+  }
   if (includeDiagram) {
     json.include_diagrams = true;
     json.diagram_policy = "본문에 간단한 편집 가능 도식 1~2개 필수 포함";
@@ -1099,7 +1116,7 @@ function generatePrompt() {
     typeSpecific.push("- 06 업데이트 : 사용자가 올린 '표준문서'(목차 참고용)의 제목과 상위레벨(1., 2. 또는 □) 목차는 그대로 유지하고(연·월·사업부 등 시점 변경만 반영, 참고문서에 없는 목차는 삭제 가능) `-` / `·` 하위 내용만 참고문서 기준으로 다시 써주세요. 시사점·Action Items 등 표준문서에 없는 목차는 추가하지 않습니다. 상세 : `references/template-apply.md`.");
     typeSpecific.push("- 표준문서가 첨부되지 않았으면 문서를 만들지 말고 \"참고할 문서를 알려주세요\" 라고 안내한 뒤 멈춰주세요. 약어·시점·용어 부연은 이동글틀로 넣어주세요(페이지당 3~5개).");
   } else {
-    typeSpecific.push("- 09 : 입력자료 성격에 맞게 구조를 제안하고 무리한 섹션은 만들지 마세요.");
+    typeSpecific.push("- 10 : 입력자료 성격에 맞게 구조를 제안하고 무리한 섹션은 만들지 마세요.");
   }
 
 
@@ -1113,11 +1130,18 @@ function generatePrompt() {
     if (additionalDocTypes.includes("07") && additionalDocTypes.includes("08")) {
       typeSpecific.push("- 07·08 함께 : 두 개요를 한 섹션에 섞지 말고 각각 별도 별첨(또는 별도 섹션)으로 구분해주세요.");
     }
-    if (additionalDocTypes.includes("10")) {
-      typeSpecific.push("- 10_지참자료, 색인(추가) : 지참자료·색인 성격의 첨부는 본문 작성의 참고자료 또는 별첨 source 로 활용해주세요.");
+    if (additionalDocTypes.includes("11")) {
+      typeSpecific.push("- 11_지참자료, 색인(추가) : 지참자료·색인 성격의 첨부는 본문 작성의 참고자료 또는 별첨 source 로 활용해주세요.");
     }
   }
 
+
+  if (includeInfographic) {
+    typeSpecific.push("- 송덕삼 외형 참조 : https://www.linkedin.com/posts/jeeyoon-kim-40351022_sqireerwwsokrxgsoaspg-share-7371733475030147073-XiFS/?lipi=urn%3Ali%3Apage%3Ad_flagship3_detail_base%3BKWah883FS%2BuYgBe22X4ekQ%3D%3D — 연결된 주소의 이미지를 참조하고 참조 파일을 다운로드·저장·패키지에 포함하지 마세요. 접근 불가 시 외형을 추측하지 말고 접근 제약을 알려주세요.");
+    typeSpecific.push("- 09_(별첨) 1페이지 인포그래픽 : `references/infographic.md`를 먼저 읽고 전체 본문의 모든 핵심 주제·수치·결론을 송덕삼이 쉽게 설명하는 재치 있는 고품질 4~6컷 만화로 요약해주세요. 이미지 생성 도구로 일관된 캐릭터와 선명한 한글을 구현하고 원문 데이터가 있으면 단위·기간을 보존한 간단한 표와 한 줄 해석을 넣어주세요. 수치·인과관계를 창작하지 마세요.");
+    typeSpecific.push("- 인포그래픽은 반드시 별첨1 한 페이지입니다. 다른 별첨은 별첨2부터 배치합니다. 09만 단독 선택하면 본문·목차·날짜·맺음말 없이 별첨1 한 페이지만 만들고 content JSON에 mode: 'infographic', image: {path: '...'}를 지정합니다. 추가 선택이면 appendices 첫 항목에 같은 mode·image를 넣습니다. 07·08과 함께 골라도 기존 고정 구조는 유지하고 인포그래픽이 별첨1을 차지합니다.");
+    typeSpecific.push("- 만화 안에서는 친근한 설명체·짧은 말풍선을 사용하며 삼성형 명사형 어미·14pt 본문·이동글틀 최소 3개·일반 도식 규칙은 적용하지 않습니다. 생성 후 실제 렌더에서 한 페이지, 한글·표 숫자 가독성, 잘림·겹침과 본문 대비 누락·왜곡을 확인하고 수정해주세요. 06 오탈자·문서비교를 함께 선택한 경우 원본 수정 제한은 유지하며 요약본은 별도 별첨으로만 추가합니다. CEO 현안보고도 09를 명시적으로 선택했으면 전용 생성기에 infographicAppendix를 전달해 별첨1을 추가합니다.");
+  }
 
   // ---- 작업 방식별 지시 블록 ----
   const highlightInstruction = yellowHighlight ? `
@@ -1165,14 +1189,14 @@ function generatePrompt() {
   } else if (standalone) {
     audienceInstruction = `
 보고 목적(독자) 기준 지시:
-- 보고 목적 : ${audienceRule.label} — 07·08 은 고정 구조라 깊이·섹션 수 보정을 적용하지 않고, 이동글틀은 페이지당 3개 이상 유지해주세요.
+- 보고 목적 : ${audienceRule.label} — 07·08은 고정 구조, 09는 1페이지 만화이므로 깊이·섹션 수 보정을 적용하지 않습니다. 07·08의 이동글틀 기준은 유지하고 09 만화에는 적용하지 않습니다.
 `;
   } else {
     audienceInstruction = `
 보고 목적(독자) 기준 지시 (\`references/report-depth.md\` §독자별 깊이 보정):
 - 보고 목적 : ${audienceRule.label}
 ${audienceRule.lines.join("\n")}
-- 위 보정은 01·02·04·05·09 유형에만 적용하고 03·06·07·08·10 은 유형 고유 규칙이 우선입니다. 보고 목적과 무관하게 이동글틀은 페이지당 3개 이상 유지하고(억지 주석 금지) \`1./2.\` 번호 챕터를 새로 만들지 마세요.
+- 위 보정은 01·02·04·05·10 유형에만 적용하고 03·06·07·08·09·11은 유형 고유 규칙이 우선입니다. 보고 목적과 무관하게 이동글틀은 페이지당 3개 이상 유지하고(억지 주석 금지) \`1./2.\` 번호 챕터를 새로 만들지 마세요.
 `;
   }
 
@@ -1195,7 +1219,7 @@ ${extra}
 
 
   const logicInstruction = standalone
-    ? "2. 07·08 은 고정 구조 문서이므로 report-logic 목차 라우팅·하위 유형 판단은 적용하지 않습니다."
+    ? "2. 07·08·09는 유형 고유 구조 문서이므로 report-logic 목차 라우팅·하위 유형 판단은 적용하지 않습니다."
     : "2. 작성 전 `references/report-logic.md` 로 문서유형과 목차 흐름을 먼저 정하고, primary 01~05 는 report-logic v0.3 의 목차·예외 규칙을 우선 적용해주세요. 하위 유형(장애·이슈형 / 의사결정·대응형 / 진행현황형 / 거래처·Account Status형 등)은 프롬프트로 지정하지 않으므로 report-logic·`references/report-evaluator.md` 기준으로 첨부·입력을 보고 직접 판단해주세요.";
 
 
@@ -1292,7 +1316,11 @@ function downloadPrompt() {
 }
 
 
-document.addEventListener("input", generatePrompt);
+document.addEventListener("input", (event) => {
+  // Checkbox input fires before change establishes standalone fallback/primary.
+  if (event.target.matches('input[name="docType"]')) return;
+  generatePrompt();
+});
 document.addEventListener("change", generatePrompt);
 document.getElementById("copyBtnGPT").addEventListener("click", () => copyPromptVariant(FIRST_LINE_GPT, "Codex용"));
 document.getElementById("copyBtnClaude").addEventListener("click", () => copyPromptVariant(FIRST_LINE_CLAUDE, "Claude Code·AI Pro·Antigravity용"));

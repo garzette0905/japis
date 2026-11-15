@@ -15,6 +15,12 @@ wepic·가계부와 **같은 얼개**입니다: Cloudflare Worker 하나가 백�
 ChatGPT·Claude 열기(Web/App)는 모두 새 대화 입력창에 프롬프트를 채웁니다. 관리자는 기본으로 접근하고,
 일반 사용자는 **관리 → 화면 권한 → SWW-pro**를 허용해야 합니다.
 
+SWW Pro 원본 `409c1cf`(2026-11-15)의 09_(별첨) 1페이지 인포그래픽을 반영했습니다.
+10_전사 레벨 전략·11_지참자료로 번호를 이동했으며, 다운로드 ZIP에도 인포그래픽 지침과 생성기를 포함합니다.
+JAPIS의 기본 보고 목적(실무 검토), 메일 발송 지시, Web/App 열기 동작은 유지합니다.
+원본 저장소와 별도로 배포하므로 업데이트 시 `web/public/sww-pro/`의 빌더·설명서·ZIP을 함께 갱신해야 합니다.
+브라우저 검증: Playwright를 설치하거나 `NODE_PATH`에 지정한 뒤 `node tools/check-sww-builder.cjs`(Edge 사용).
+
 **Jaden AI NEWS** (개인서비스): [Jaden AI News](https://jadenainews.garzette.chatgpt.site/)로 연결합니다. [소스 저장소](https://github.com/garzette0905/jadenainews). 기존 `#/news` 바로가기도 로그인·접근 권한 확인 후 새 사이트로 이동합니다. 대시보드의 기존 뉴스 미리보기 운영은 [운영 안내](docs/AI-NEWS.md)를 참고하세요.
 **Jaden AI SNS**(X·Threads, `#/sns`)는 홈페이지 메뉴에 그대로 있습니다([안내](docs/AI-SNS.md)).
 

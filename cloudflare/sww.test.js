@@ -21,7 +21,7 @@ const env = {
  }}
 };
 const ctx={waitUntil(){}};
-for(const p of ['/sww-pro/prompt-builder.html','/sww-pro/user-manual.html','/sww-pro/downloads/samsung-word-writer-pro-261004_0926.zip']) {
+for(const p of ['/sww-pro/prompt-builder.html','/sww-pro/user-manual.html','/sww-pro/downloads/samsung-word-writer-pro-261004_0926.zip','/sww-pro/downloads/samsung-word-writer-pro-261115_2229.zip']) {
  assert.equal((await worker.fetch(new Request('http://localhost'+p),env,ctx)).status,401);
  const res=await worker.fetch(new Request('http://localhost'+p,{headers:{Cookie:cookie}}),env,ctx);
  assert.equal(res.status,200);assert.equal(res.headers.get('cache-control'),'private, no-store');
