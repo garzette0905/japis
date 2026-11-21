@@ -2,6 +2,8 @@ import { api, esc, toast } from './util.js';
 const n = value => value == null ? '미확인' : Number(value).toLocaleString('ko-KR');
 const today = () => new Date().toLocaleDateString('sv-SE',{timeZone:'Asia/Seoul'});
 const kinds = {mileage:'주행거리',oil:'엔진오일',tire:'타이어 교체',repair:'수리·정비',inspection:'자동차 검사',diagnosis:'점검·권고',package:'쿠폰 구매','tire-purchase':'타이어 구매',quote:'가격 안내',evidence:'사진 기록',insurance:'보험',admission:'입출고'};
+const tabs = {info:'자동차 정보',history:'자동차 수리정보',driving:'주행거리 · 엔진오일',packages:'서비스 패키지'};
+const historyKinds = Object.entries(kinds).filter(([kind])=>kind!=='package');
 const sourceUrl = file => `/api/car/files/${encodeURIComponent(file)}`;
 
 export function addMonths(date, count) {
@@ -42,10 +44,16 @@ function infoHtml(data) {
   <section class="car-card"><h2>자동차 사진</h2><div class="car-gallery">${[p.photo,p.gallery].map(f=>`<a href="${sourceUrl(f)}" target="_blank" rel="noopener"><img src="${sourceUrl(f)}" alt="내 Audi 자동차 사진" loading="lazy"></a>`).join('')}</div></section>`;
 }
 function maintenanceHtml(data) {
-  return `<div class="car-card"><h2>전체 정비·차량 기록</h2><p class="muted">작업·구매·검사·견적을 구분했습니다. 미확인 금액과 km는 추정하지 않습니다.</p><div class="car-filters"><label>내역 검색<input id="car-search" type="search" placeholder="부품·정비소·날짜·메모 검색"></label><label>종류<select id="car-kind"><option value="">전체 종류</option>${Object.entries(kinds).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></label></div><p id="car-count" aria-live="polite"></p><div id="car-records"></div></div>${formHtml()}`;
+  return `<div class="car-card"><h2>정비·차량 기록</h2><div class="car-filters"><label>내역 검색<input id="car-search" type="search" placeholder="부품·정비소·날짜·메모 검색"></label><label>종류<select id="car-kind"><option value="">전체 종류</option>${historyKinds.map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></label></div><p id="car-count" aria-live="polite"></p><div id="car-records"></div></div>${formHtml()}`;
 }
-function recordHtml(data,r) {
-  return `<details class="car-record"><summary><span class="car-record-date">${esc(r.date)}<small>${r.km==null?'km 미확인':n(r.km)+' km'}</small></span><span class="car-record-title"><span class="car-badge">${esc(kinds[r.kind] || r.kind)}</span><strong>${esc(r.title || kinds[r.kind])}</strong><small>${esc(r.status || '')}</small></span><span>${r.cost==null?'금액 미확인':n(r.cost)+'원'}</span></summary><div class="car-record-body"><ul>${(r.items || []).map(s=>`<li>${esc(s)}</li>`).join('')}</ul>${r.notes ? `<p class="car-note">${esc(r.notes)}</p>`:''}<div class="car-sources">${links(data,r.sources)}</div>${r.manual?`<button type="button" class="btn-secondary" data-delete="${Number(r.id)}">입력 기록 삭제</button>`:''}</div></details>`;
+function recordHtml(data,r,open=false) {
+  const dateLabel = r.kind==='package' ? '구매일' : r.km==null ? 'km 미확인' : n(r.km)+' km';
+  return `<details class="car-record"${open?' open':''}><summary><span class="car-record-date">${esc(r.date)}<small>${dateLabel}</small></span><span class="car-record-title"><span class="car-badge">${esc(kinds[r.kind] || r.kind)}</span><strong>${esc(r.title || kinds[r.kind])}</strong><small>${esc(r.status || '')}</small></span><span>${r.cost==null?'금액 미확인':n(r.cost)+'원'}</span></summary><div class="car-record-body"><ul>${(r.items || []).map(s=>`<li>${esc(s)}</li>`).join('')}</ul>${r.notes ? `<p class="car-note">${esc(r.notes)}</p>`:''}<div class="car-sources">${links(data,r.sources)}</div>${r.manual?`<button type="button" class="btn-secondary" data-delete="${Number(r.id)}">입력 기록 삭제</button>`:''}</div></details>`;
+}
+function packagesHtml(data,records) {
+  const purchases = records.filter(r=>r.kind==='package').sort((a,b)=>b.date.localeCompare(a.date));
+  const content = purchases.map((r,index)=>recordHtml(data,r,index===0)).join('');
+  return `<section class="car-card"><h2>서비스 패키지 구매 내역</h2>${content || '<p>등록된 서비스 패키지가 없습니다.</p>'}</section>`;
 }
 function planHtml(data,records) {
   const i=data.intervals;
@@ -62,19 +70,26 @@ function planHtml(data,records) {
   <section class="car-card"><h2>정비 자료에서 확인할 다음 항목</h2><ul>${(data.followUps || []).map(item=>`<li>${esc(item)}</li>`).join('')}</ul></section><section class="car-card"><h2>주행·교환 기록</h2>${records.filter(r=>['mileage','oil','tire','tire-purchase'].includes(r.kind)).sort((a,b)=>b.date.localeCompare(a.date)).map(r=>recordHtml(data,r)).join('')}</section>`;
 }
 export async function renderCar(page,tab='info') {
-  if(!['info','history','driving'].includes(tab)) tab='info';
+  if(!Object.hasOwn(tabs,tab)) tab='info';
   const route = location.hash;
   page.innerHTML='<p class="muted" role="status">자동차 기록을 불러오는 중…</p>';
   let data;
   try {data=await api('/api/car');} catch(e) {if(location.hash===route)page.innerHTML=`<div class="car-card"><h1>내 자동차 정보</h1><p role="alert">${esc(e.message)}</p><button id="car-retry" class="btn-secondary">다시 불러오기</button></div>`; page.querySelector('#car-retry')?.addEventListener('click',()=>renderCar(page,tab));return;}
   if(location.hash!==route) return;
   const records=allRecords(data);
+  const history=records.filter(r=>r.kind!=='package');
+  const content = {
+    info: ()=>infoHtml(data),
+    history: ()=>maintenanceHtml(data),
+    driving: ()=>planHtml(data,records),
+    packages: ()=>packagesHtml(data,records),
+  };
   document.title='내 자동차 정보 · JAPIS';
-  page.innerHTML=`<div class="car-page"><header class="car-hero"><img src="${sourceUrl(data.profile.photo)}" alt="내 Audi A6 자동차"><div><div class="car-eyebrow">나의 자동차</div><h1>내 자동차 정보</h1><p>${esc(data.profile.model)} · ${esc(data.profile.plate)}</p><span>차량 정보부터 다음 정비까지, 한곳에서.</span></div></header><nav class="car-tabs" aria-label="자동차 메뉴">${[['info','자동차 정보'],['history','자동차 수리정보'],['driving','주행거리 · 엔진오일']].map(([key,label])=>`<a href="#/car${key==='info'?'':'/'+key}" ${tab===key?'aria-current="page"':''}>${label}</a>`).join('')}</nav>${tab==='history'?maintenanceHtml(data):tab==='driving'?planHtml(data,records):infoHtml(data)}<section class="car-card"><h2>자료 확인</h2>${data.reviewNotes.map(s=>`<p class="muted">${esc(s)}</p>`).join('')}<details><summary>전체 원본 ${data.sources.length}개 · 중복 촬영본 포함</summary><div class="car-sources">${links(data,data.sources.map(s=>s.file))}</div></details><button type="button" id="car-export" class="btn-secondary">내 기록 내려받기 (JSON)</button></section></div>`;
+  page.innerHTML=`<div class="car-page"><header class="car-hero"><img src="${sourceUrl(data.profile.photo)}" alt="내 Audi A6 자동차"><div><div class="car-eyebrow">나의 자동차</div><h1>내 자동차 정보</h1><p>${esc(data.profile.model)} · ${esc(data.profile.plate)}</p><span>차량 정보부터 다음 정비까지, 한곳에서.</span></div></header><nav class="car-tabs" aria-label="자동차 메뉴">${Object.entries(tabs).map(([key,label])=>`<a href="#/car${key==='info'?'':'/'+key}" ${tab===key?'aria-current="page"':''}>${label}</a>`).join('')}</nav>${content[tab]()}<section class="car-card"><h2>자료 확인</h2>${data.reviewNotes.map(s=>`<p class="muted">${esc(s)}</p>`).join('')}<details><summary>전체 원본 ${data.sources.length}개 · 중복 촬영본 포함</summary><div class="car-sources">${links(data,data.sources.map(s=>s.file))}</div></details><button type="button" id="car-export" class="btn-secondary">내 기록 내려받기 (JSON)</button></section></div>`;
   const renderList=()=>{
     const q=(page.querySelector('#car-search')?.value || '').trim().toLowerCase(), kind=page.querySelector('#car-kind')?.value;
-    const filtered=records.filter(r=>(!kind || r.kind===kind) && (!q || [r.title,r.date,r.notes,...(r.items || [])].join(' ').toLowerCase().includes(q))).sort((a,b)=>b.date.localeCompare(a.date));
-    page.querySelector('#car-count').textContent=`${filtered.length} / ${records.length}건`;
+    const filtered=history.filter(r=>(!kind || r.kind===kind) && (!q || [r.title,r.date,r.notes,...(r.items || [])].join(' ').toLowerCase().includes(q))).sort((a,b)=>b.date.localeCompare(a.date));
+    page.querySelector('#car-count').textContent=`${filtered.length} / ${history.length}건`;
     page.querySelector('#car-records').innerHTML=filtered.map(r=>recordHtml(data,r)).join('') || '<p>조건에 맞는 기록이 없습니다.</p>';
   };
   if(tab==='history') {renderList();page.querySelector('#car-search').addEventListener('input',renderList);page.querySelector('#car-kind').addEventListener('change',renderList);}
