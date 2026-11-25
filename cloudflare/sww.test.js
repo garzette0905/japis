@@ -21,10 +21,21 @@ const env = {
  }}
 };
 const ctx={waitUntil(){}};
-for(const p of ['/sww-pro/prompt-builder.html','/sww-pro/user-manual.html','/sww-pro/downloads/samsung-word-writer-pro-261004_0926.zip','/sww-pro/downloads/samsung-word-writer-pro-261117_2246.zip']) {
+const builder = await fs.readFile('web/public/sww-pro/prompt-builder.html', 'utf8');
+const zipLink = builder.match(/id="skillZipLink" href="(downloads\/[^"]+\.zip)"/);
+assert.ok(zipLink, 'Prompt Builder ZIP download link');
+for (const p of ['/sww-pro/prompt-builder.html', '/sww-pro/user-manual.html', '/sww-pro/' + zipLink[1]]) {
  assert.equal((await worker.fetch(new Request('http://localhost'+p),env,ctx)).status,401);
  const res=await worker.fetch(new Request('http://localhost'+p,{headers:{Cookie:cookie}}),env,ctx);
  assert.equal(res.status,200);assert.equal(res.headers.get('cache-control'),'private, no-store');
+ if (p.endsWith('.zip')) {
+   assert.equal(res.headers.get('content-type'), 'application/zip');
+   const zip = Buffer.from(await res.arrayBuffer());
+   assert.equal(zip.subarray(0, 4).toString('hex'), '504b0304');
+   for (const sheet of ['business', 'casual', 'work-reactions']) {
+     assert.ok(zip.includes(`assets/infographic/gadget-${sheet}.png`));
+   }
+ }
 }
 const opened = await worker.fetch(new Request('http://localhost/go/sww-pro?in=frame', {
   headers: { Cookie: cookie },

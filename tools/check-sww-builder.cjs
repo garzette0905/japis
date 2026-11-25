@@ -27,17 +27,26 @@ const assert = require('node:assert/strict');
     assert.equal(r.json.document_type.primary.code, '01');
     assert.equal(r.json.document_type.additional[0].code, '09');
     assert.equal(r.json.infographic_summary.appendix_number, 1);
-    const referenceUrl = 'https://japis.wepiclab.workers.dev/s/f13474c4fcccc18945f5b84247c5c22e';
-    assert.equal(r.json.infographic_summary.character_reference_url, referenceUrl);
+    const referencePaths = [
+      'assets/infographic/gadget-business.png',
+      'assets/infographic/gadget-casual.png',
+      'assets/infographic/gadget-work-reactions.png',
+    ];
+    assert.deepEqual(r.json.infographic_summary.character_reference_paths, referencePaths);
+    assert.match(r.json.infographic_summary.character_appearance_policy, /얼굴.*안경.*시계.*SDS 사원증.*만능팔.*복장.*도구.*흰 장갑/);
+    assert.match(r.json.infographic_summary.title_policy, /타이틀 바로 아래 한 줄 부제목/);
+    assert.match(r.prompt, /하위 상세.*2~3개/);
     assert.equal(r.json.infographic_summary.character, 'SDS IT 기획자 형사 가제트');
     assert.match(r.json.infographic_summary.character_personality, /허당.*따뜻/);
-    assert.equal(r.json.infographic_summary.explanation_audience, '회사 선배·동료');
+    assert.match(r.json.infographic_summary.explanation_audience, /직장 상사.*친구.*동료.*후배.*아이들/);
     assert.match(r.json.infographic_summary.gadget_policy, /장면마다.*기기 하나/);
     assert.match(r.json.infographic_summary.visual_style, /단순한 만화/);
-    assert.equal(r.json.infographic_summary.reference_policy, 'url_only_no_download_or_bundle');
+    assert.equal(r.json.infographic_summary.reference_policy, 'bundled_png');
     assert.match(r.prompt, /references\/infographic.md/);
     assert.match(r.prompt, /형사 가제트/);
-    assert.ok(r.prompt.includes(referenceUrl));
+    for (const file of referencePaths) assert.ok(r.prompt.includes(file));
+    assert.ok(r.prompt.includes(r.json.infographic_summary.character_appearance_policy));
+    assert.ok(r.prompt.includes(r.json.infographic_summary.explanation_audience));
     assert.match(r.prompt, /기기는 만화적 비유/);
     await check('01').uncheck();
     r = await output();
@@ -84,8 +93,8 @@ const assert = require('node:assert/strict');
     await page.setContent(readFileSync(path.join(__dirname, '../web/public/sww-pro/user-manual.html'), 'utf8'));
     assert.match(await page.locator('body').innerText(), /11가지 문서 유형/);
     assert.match(await page.locator('body').innerText(), /09_\(별첨\) 1페이지 인포그래픽/);
-    assert.equal(await page.locator(`a[href="${referenceUrl}"]`).count(), 1);
-    assert.match(await page.locator('body').innerText(), /형사 가제트.*회사 선배·동료/);
+    assert.match(await page.locator('body').innerText(), /캐릭터 외형.*SDS 사원증/);
+    assert.match(await page.locator('body').innerText(), /직장 상사.*친구.*동료.*후배.*아이들/);
     assert.deepEqual(errors, []);
     console.log('[infographic-builder] PASS: 11 options; standalone, mixed, all primary types, CEO weekly, mobile; no JS errors');
   } finally { await browser.close(); }

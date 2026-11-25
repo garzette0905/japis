@@ -307,7 +307,7 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h6"/></svg>
     </div>
     <div>
-      <h1>Samsung Word Writer Prompt Builder<span class="last-modified" id="lastModified">(최종수정일 26-11-17 22:46)</span></h1>
+      <h1>Samsung Word Writer Prompt Builder<span class="last-modified" id="lastModified">(최종수정일 26-11-25 23:19)</span></h1>
       <p class="subtitle">@samsung-word-writer-pro 스킬용 문서작성 프롬프트 작성 지원</p>
     </div>
     <div class="phrase-tools">
@@ -377,7 +377,7 @@
                 <option value="manager">팀장 보고 (관리자)</option>
                 <option value="working" selected>실무 검토 (상세 내용 포함)</option>
               </select>
-              <div class="hint">디폴트는 실무 검토입니다.</div>
+              <div class="hint">기본값은 실무 검토입니다. 적용 유형의 본문에서 핵심 항목 아래에 상세 설명을 페이지당 2~3개 배치합니다.</div>
             </div>
             <div>
               <label class="section-label" for="workMode">작업 방식 (Optional)</label>
@@ -469,7 +469,7 @@
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
           .txt 다운로드
         </button>
-        <a class="button ghost" id="skillZipLink" href="downloads/samsung-word-writer-pro-261117_2246.zip" download>Skill 다운로드(zip)</a>
+        <a class="button ghost" id="skillZipLink" href="downloads/samsung-word-writer-pro-261125_2319.zip" download>Skill 다운로드(zip)</a>
         <a class="button ghost" id="repositoryLink" href="https://github.com/garzette0905/samsung-word-writer-pro" target="_blank" rel="noopener" title="GitHub 저장소를 엽니다">
           <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>
           GitHub 저장소 열기
@@ -720,6 +720,14 @@ const DEVELOPING_CODES = ["10","11"];
 const DISABLED_CODES = ["10","11"];            // 화면에는 보이되 선택 불가
 // 독자(보고 목적) 보정을 적용하는 유형 — 03/06/07/08/10은 유형 고유 규칙이 우선
 const AUDIENCE_APPLY_CODES = ["01","02","04","05","10"];
+const GADGET_REFERENCE_PATHS = [
+  "assets/infographic/gadget-business.png",
+  "assets/infographic/gadget-casual.png",
+  "assets/infographic/gadget-work-reactions.png"
+];
+const INFOGRAPHIC_TITLE_POLICY = "문서 제목의 핵심을 요약한 타이틀을 쓰고 타이틀에는 ‘형사 가제트’와 ‘가제트’를 넣지 않음. 필요할 때만 타이틀 바로 아래 한 줄 부제목에 ‘가제트’ 언급";
+const GADGET_APPEARANCE_POLICY = "얼굴 윤곽과 이목구비 비율, 검은 사각테 안경, 검은 원형 손목시계의 모양을 유지하고 항상 SDS 사원증을 착용. 만능팔은 검은 백팩, 은색 막대, 빨간 원형 관절의 구조·형태·비율·색상을 유지. 장면에 맞춰 복장, 표정, 자세, 도구, 흰 장갑을 낀 손의 모양과 동작을 변경 가능";
+const GADGET_AUDIENCE = "장면에 따라 직장 상사, 친구, 동료, 후배, 아이들 등 일반 청중이 등장할 수 있으며 청중에 맞춰 말투와 비유를 선택";
 
 
 // 보고 목적(독자)별 깊이/구조 보정 — references/report-depth.md §독자별 깊이 보정과 동일 기준
@@ -745,6 +753,7 @@ const AUDIENCE_RULES = {
     lines: [
       "- 깊이 : 유형 최소 깊이를 유지하고 해석\u00b7평가 서술은 최소화해주세요.",
       "- 구조 : \u25a1 섹션 7개 이상도 허용합니다. 다만 `1./2.` 번호 챕터로 새로 묶지 말고 기존 목차 체계를 그대로 유지해주세요. 사실\u00b7맥락을 앞쪽에 배치해주세요.",
+      "- 하위 상세 : 본문 한 페이지에 `-` 핵심 항목 바로 아래 관련 근거·사례·조건·절차를 설명하는 `·` 레벨 항목을 2~3개 배치해주세요(content JSON: kind: 'dot'). 초과 분량은 상위 항목의 중복 문구를 압축하고, 렌더 시 부모 `-`와 첫 `·`가 같은 페이지에 있는지 확인해주세요. 근거가 부족하면 실제로 설명할 수 있는 항목만 넣어주세요.",
       "- 별첨 : 상세표\u00b7원문 발췌 별첨을 적극 사용하고, 이동글틀의 용어정의 밀도를 높여주세요."
     ]
   }
@@ -1020,12 +1029,14 @@ function generatePrompt() {
   if (includeInfographic) {
     json.infographic_summary = {
       enabled: true, mode: "infographic", appendix_number: 1, pages: 1,
-      character: "SDS IT 기획자 형사 가제트", character_reference_url: "https://japis.wepiclab.workers.dev/s/f13474c4fcccc18945f5b84247c5c22e",
+      character: "SDS IT 기획자 형사 가제트", character_reference_paths: GADGET_REFERENCE_PATHS,
+      title_policy: INFOGRAPHIC_TITLE_POLICY,
+      character_appearance_policy: GADGET_APPEARANCE_POLICY,
       character_personality: "기기를 좋아하고 새로운 것에 호기심이 많으며 허당끼가 있지만 동료·친구를 아끼는 따뜻한 성격",
-      explanation_audience: "회사 선배·동료",
+      explanation_audience: GADGET_AUDIENCE,
       gadget_policy: "장면마다 핵심 메시지에 맞는 기기 하나를 불러와 쉬운 비유로 설명",
       visual_style: "단순한 만화 캐릭터, 깨끗한 선화, 간결한 배경, 과도한 부품·장식 금지",
-      reference_policy: "url_only_no_download_or_bundle", format: "comic", panels: "4~6",
+      reference_policy: "bundled_png", format: "comic", panels: "4~6",
       source_scope: "entire_body", data_policy: "source_data_table_with_interpretation",
       reference: "references/infographic.md", generator: "scripts/generate.py"
     };
@@ -1141,8 +1152,10 @@ function generatePrompt() {
 
 
   if (includeInfographic) {
-    typeSpecific.push("- SDS IT 기획자 형사 가제트의 캐릭터·복장·표정·장면 참조 : https://japis.wepiclab.workers.dev/s/f13474c4fcccc18945f5b84247c5c22e — 해당 URL에 접속해 캐릭터와 각종 복장·표정·장면을 참고하고 참조 파일을 다운로드·저장·패키지에 포함하지 마세요. 접근 불가 시 외형을 추측하지 말고 접근 제약을 알려주세요.");
-    typeSpecific.push("- 09_(별첨) 1페이지 인포그래픽 : `references/infographic.md`를 먼저 읽고 전체 본문의 모든 핵심 주제·수치·결론을 형사 가제트가 쉽게 설명하는 단순하고 읽기 쉬운 4~6컷 만화로 요약해주세요. 기기를 좋아하고 새로운 것에 호기심이 많으며 허당끼가 있지만 동료·친구를 아끼는 따뜻한 성격을 반영해주세요. 장면마다 핵심 메시지에 맞는 기기 하나를 불러와 회사 선배·동료에게 쉬운 비유로 설명하게 해주세요. 가벼운 조작 실수는 바로잡되 핵심 사실을 흐리지 말고, 배경·부품·장식은 간결하게 그려주세요. 기기는 만화적 비유이며 실제 제품 기능이나 원문 사실로 단정하지 마세요. 이미지 생성 도구로 일관된 캐릭터와 선명한 한글을 구현하고 원문 데이터가 있으면 단위·기간을 보존한 간단한 표와 한 줄 해석을 넣어주세요. 수치·인과관계를 창작하지 마세요.");
+    typeSpecific.push(`- 인포그래픽 타이틀·부제목 기준 — ${INFOGRAPHIC_TITLE_POLICY}.`);
+    typeSpecific.push(`- SDS IT 기획자 형사 가제트의 번들 PNG 3장을 확인하고 생성 도구에 이미지 참조로 전달해주세요. 첫 번째 PNG를 기본 외형 기준으로 사용하고, 로컬 파일을 열 수 없는 환경에서는 동일한 첨부 PNG를 사용해주세요. ${GADGET_APPEARANCE_POLICY}.\n${GADGET_REFERENCE_PATHS.map(file => `  - ${file}`).join("\n")}`);
+    typeSpecific.push(`- 청중 기준 — ${GADGET_AUDIENCE}.`);
+    typeSpecific.push("- 09_(별첨) 1페이지 인포그래픽 : `references/infographic.md`를 먼저 읽고 전체 본문의 모든 핵심 주제·수치·결론을 형사 가제트가 쉽게 설명하는 단순하고 읽기 쉬운 4~6컷 만화로 요약해주세요. 기기를 좋아하고 새로운 것에 호기심이 많으며 허당끼가 있지만 동료·친구를 아끼는 따뜻한 성격을 반영해주세요. 장면마다 핵심 메시지에 맞는 기기 하나를 불러와 쉬운 비유로 설명하게 해주세요. 가벼운 조작 실수는 바로잡되 핵심 사실을 흐리지 말고, 배경·부품·장식은 간결하게 그려주세요. 기기는 만화적 비유이며 실제 제품 기능이나 원문 사실로 단정하지 마세요. 이미지 생성 도구로 일관된 캐릭터와 선명한 한글을 구현하고 원문 데이터가 있으면 단위·기간을 보존한 간단한 표와 한 줄 해석을 넣어주세요. 수치·인과관계를 창작하지 마세요.");
     typeSpecific.push("- 인포그래픽은 반드시 별첨1 한 페이지입니다. 다른 별첨은 별첨2부터 배치합니다. 09만 단독 선택하면 본문·목차·날짜·맺음말 없이 별첨1 한 페이지만 만들고 content JSON에 mode: 'infographic', image: {path: '...'}를 지정합니다. 추가 선택이면 appendices 첫 항목에 같은 mode·image를 넣습니다. 07·08과 함께 골라도 기존 고정 구조는 유지하고 인포그래픽이 별첨1을 차지합니다.");
     typeSpecific.push("- 만화 안에서는 친근한 설명체·짧은 말풍선을 사용하며 삼성형 명사형 어미·14pt 본문·이동글틀 최소 3개·일반 도식 규칙은 적용하지 않습니다. 생성 후 실제 렌더에서 한 페이지, 한글·표 숫자 가독성, 잘림·겹침과 본문 대비 누락·왜곡을 확인하고 수정해주세요. 06 오탈자·문서비교를 함께 선택한 경우 원본 수정 제한은 유지하며 요약본은 별도 별첨으로만 추가합니다. CEO 현안보고도 09를 명시적으로 선택했으면 전용 생성기에 infographicAppendix를 전달해 별첨1을 추가합니다.");
   }
@@ -1199,8 +1212,7 @@ function generatePrompt() {
     audienceInstruction = `
 보고 목적(독자) 기준 지시 (\`references/report-depth.md\` §독자별 깊이 보정):
 - 보고 목적 : ${audienceRule.label}
-${audienceRule.lines.join("\n")}
-- 위 보정은 01·02·04·05·10 유형에만 적용하고 03·06·07·08·09·11은 유형 고유 규칙이 우선입니다. 보고 목적과 무관하게 이동글틀은 페이지당 3개 이상 유지하고(억지 주석 금지) \`1./2.\` 번호 챕터를 새로 만들지 마세요.
+${json.apply_audience_depth ? audienceRule.lines.join("\n") + "\n" : ""}- 위 보정은 01·02·04·05·10 유형에만 적용하고 03·06·07·08·09·11은 유형 고유 규칙이 우선입니다. 보고 목적과 무관하게 이동글틀은 페이지당 3개 이상 유지하고(억지 주석 금지) \`1./2.\` 번호 챕터를 새로 만들지 마세요.
 `;
   }
 
